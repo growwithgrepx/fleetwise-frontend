@@ -1,25 +1,10 @@
 #############################################
 # Frontend Server-Level Packages
-# Location: fleetwise-frontend/server_packages.txt
-# These are system packages installed via apt/yum/dnf
 #############################################
-
-
-# Node.js Runtime
-Node.js 20.x
-
-# Build Tools
+nodejs
 build-essential
-
-# Web Server and Process Manager
-Nginx
-PM2
-
-# Version Control
-Git
-
-# System Utilities
+nginx
+git
 curl
 wget
 rsync
-
