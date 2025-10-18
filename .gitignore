@@ -3,9 +3,28 @@
 # Learn more about .gitignore:
 #     https://www.atlassian.com/git/tutorials/saving-changes/gitignore
 
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
 # Node artifact files
 node_modules/
 dist/
+# next.js
+/.next/
+/out/
+
+# production
+/build
 
 # Compiled Java class files
 *.class
@@ -13,8 +32,19 @@ dist/
 # Compiled Python bytecode
 *.py[cod]
 
-# Log files
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 *.log
+
+# env files (can opt-in for committing if needed)
+.env*
 
 # Package files
 *.jar
@@ -22,6 +52,13 @@ dist/
 # Maven
 target/
 dist/
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
 
 # JetBrains IDE
 .idea/
@@ -47,4 +84,7 @@ Thumbs.db
 *.flv
 *.mov
 *.wmv
+
+# SWC cache
+/.swc
 
