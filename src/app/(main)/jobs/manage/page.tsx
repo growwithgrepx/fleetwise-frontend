@@ -190,7 +190,7 @@ const ManageJobsPage = () => {
         
         // Reset financial fields
         penalty: 0,
-        // Note: cash_collected field doesn't exist in Job interface, but if it did, it would be reset here
+        // Note: cash_to_collect field doesn't exist in Job interface, but if it did, it would be reset here
         
         // Reset vehicle and driver assignments
         vehicle_id: 0,
