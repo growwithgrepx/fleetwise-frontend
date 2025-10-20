@@ -180,31 +180,35 @@ const ManageJobsPage = () => {
         // Clear date/time fields (require new user input)
         pickup_date: '',
         pickup_time: '',
-        
+
         // Reset job status to default
         status: 'new' as const,
-        
+
         // Reset invoice related fields
         invoice_id: null,
         invoice_number: undefined,
-        
+
         // Reset financial fields
         penalty: 0,
-        // Note: cash_to_collect field doesn't exist in Job interface, but if it did, it would be reset here
-        
-        // Reset vehicle and driver assignments
+        // Note: cash_collected field doesn't exist in Job interface, but if it did, it would be reset here
+
+        // Reset vehicle assignment (keep vehicle_type/vehicle_type_id so form retains the selected type)
         vehicle_id: 0,
         driver_id: 0,
-        vehicle_type: '',
+        // keep vehicle_type and vehicle_type_id from the fetched job so the new form is pre-filled
         driver_contact: '',
-        
+
         // Reset sub-customer fields to prevent "Facilities" from appearing
         sub_customer_id: undefined,
         sub_customer_name: '',
       };
       
-      // Store the job data in context to be used in the new job page
-      setCopiedJobData(jobCopy);
+      // Ensure vehicle_type is a string when storing to context
+      const vehicleTypeValue = typeof (jobCopy as any).vehicle_type === 'string'
+        ? (jobCopy as any).vehicle_type
+        : ((jobCopy as any).vehicle_type && (((jobCopy as any).vehicle_type.name) || ((jobCopy as any).vehicle_type.label))) || '';
+
+      setCopiedJobData({ ...jobCopy, vehicle_type: vehicleTypeValue });
       
       toast.success('Job copied! Redirecting to new job form...');
       router.push('/jobs/new');

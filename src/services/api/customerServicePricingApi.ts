@@ -16,12 +16,41 @@ export interface CustomerServicePricing {
 export async function getCustomerServicePricing(
   customerId: number, 
   serviceName: string,
-  vehicleType?: string
+  vehicleType?: string | any
 ): Promise<CustomerServicePricing | null> {
   try {
+    // Normalize vehicleType to a string if an object was passed
+    let safeVehicleType: string | undefined;
+    if (!vehicleType) {
+      safeVehicleType = undefined;
+    } else if (typeof vehicleType === 'string') {
+      safeVehicleType = vehicleType;
+    } else if (typeof vehicleType === 'object') {
+      // Try common keys used across the app
+      safeVehicleType = vehicleType.name || vehicleType.label || vehicleType.title || vehicleType.value;
+  // If still falsy, avoid sending generic Object string like '[object Object]'
+  if (!safeVehicleType) {
+        // Try to stringify if it's a plain object with a useful toString, otherwise leave undefined
+        try {
+          const s = JSON.stringify(vehicleType);
+          // If JSON.stringify yields something useful (not '{}'), use it
+          if (s && s !== '{}' && s !== 'null') safeVehicleType = s;
+        } catch (e) {
+          // ignore stringify errors and keep safeVehicleType undefined
+        }
+      }
+    } else {
+      safeVehicleType = String(vehicleType);
+    }
+
     let url = `/api/customer_service_pricing/lookup?cust_id=${customerId}&service_name=${encodeURIComponent(serviceName)}`;
-    if (vehicleType) {
-      url += `&vehicle_type=${encodeURIComponent(vehicleType)}`;
+    if (safeVehicleType) {
+      // Protect against accidentally sending the default Object string
+      if (safeVehicleType === '[object Object]') {
+        // don't include vehicle_type param if it's the generic object string
+      } else {
+        url += `&vehicle_type=${encodeURIComponent(safeVehicleType)}`;
+      }
     }
     const res = await fetch(url);
     
