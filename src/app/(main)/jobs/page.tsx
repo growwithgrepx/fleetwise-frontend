@@ -269,8 +269,7 @@ const JobsPage = () => {
         vehicle_type_id: (latestJob as any).vehicle_type_id,
         driver_contact: '',
 
-        // Reset sub-customer fields
-        sub_customer_name: '',
+        // Keep sub_customer_name and booking_ref from the original job
       };
       
       console.log('[handleCopy] Final jobCopy vehicle_type:', {

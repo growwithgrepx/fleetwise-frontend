@@ -198,8 +198,7 @@ const ManageJobsPage = () => {
         // keep vehicle_type and vehicle_type_id from the fetched job so the new form is pre-filled
         driver_contact: '',
 
-        // Reset sub-customer fields to prevent "Facilities" from appearing
-        sub_customer_name: '',
+        // Keep sub_customer_name and booking_ref from the original job
       };
       
       // Ensure vehicle_type is a string when storing to context
