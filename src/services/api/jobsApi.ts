@@ -185,6 +185,9 @@ export async function createJob(data: JobFormData): Promise<Job> {
     // Customer remark (map remarks field from frontend to customer_remark in backend)
     customer_remark: String(data.remarks || ''), // Add customer_remark
 
+    // Booking reference
+    booking_ref: String(data.booking_ref || ''),
+
     // Midnight surcharge
     midnight_surcharge: Number(data.midnight_surcharge) || 0
   };
@@ -248,7 +251,8 @@ export async function updateJob(id: number, data: Partial<JobFormData>): Promise
     ...filteredData,
     job_cost: data.job_cost !== undefined ? Number(data.job_cost) : undefined,
     cash_to_collect: data.cash_to_collect !== undefined ? Number(data.cash_to_collect) : undefined,
-    customer_remark: data.remarks || ''  // Add customer_remark mapping
+    customer_remark: data.remarks || '',  // Add customer_remark mapping
+    booking_ref: data.booking_ref || ''   // Add booking_ref mapping
   };
 
   try {
