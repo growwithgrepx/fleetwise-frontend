@@ -127,7 +127,7 @@ export async function createJob(data: JobFormData): Promise<Job> {
   const dbData = {
     // Customer info
     customer_id: Number(data.customer_id),
-    sub_customer_id: data.sub_customer_id ? Number(data.sub_customer_id) : null,
+    sub_customer_name: data.sub_customer_name || '',
     service_type: data.service_type,
     service_id: data.service_id ? Number(data.service_id) : null,
 
@@ -210,7 +210,6 @@ export async function updateJob(id: number, data: Partial<JobFormData>): Promise
     'vehicle_type',
     'vehicle_number',
     'driver_contact',
-    'sub_customer_name',
     'payment_mode',
     'message',
     // 'remarks',  // Don't filter out remarks - it's used to map to customer_remark

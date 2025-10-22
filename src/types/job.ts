@@ -17,7 +17,6 @@ export interface Job {
   customer_id: number;
   customer_name: string;
   customer_mobile: string;
-  sub_customer_id?: number;
   driver_id: number;
   vehicle_id: number;
   vehicle_type: string;
@@ -127,7 +126,6 @@ export type JobFormData = {
   extra_services: Array<{ description: string; price: number }>;
   
   // Additional form-specific fields
-  sub_customer_id?: number;
   sub_customer_name?: string;
   message?: string;
   remarks?: string;
@@ -184,7 +182,6 @@ export const jobSchema = z.object({
   customer_reference: z.string().optional(),
   
   // Sub Customer Information
-  sub_customer_id: z.number().optional(),
   sub_customer_name: z.string().optional(),
   
   // Passenger Information
@@ -357,7 +354,6 @@ export const defaultJobValues: JobFormData = {
   extra_services: [],
   
   // Additional Fields
-  sub_customer_id: undefined,
   sub_customer_name: '',
   message: '',
   remarks: '',

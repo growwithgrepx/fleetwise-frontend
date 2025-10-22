@@ -147,6 +147,37 @@ export async function generateInvoice(data: {
   return response.data;
 }
 
+export async function generateContractorBill(data: {
+  contractor_id: number;
+  job_id: number[];
+}): Promise<any> {
+  const response = await api.post("/api/bills/contractor", data);
+  return response.data; // Return full response to access message and bills info
+}
+
+export async function generateDriverBill(data: {
+  driver_id: number;
+  job_id: number[];
+}): Promise<any> {
+  const response = await api.post("/api/bills/driver", data);
+  return response.data; // Return full response to access message and bills info
+}
+
+export async function getBills(): Promise<{ items: any[]; total: number }> {
+  const response = await api.get<{ items: any[]; total: number }>("/api/bills");
+  return response.data;
+}
+
+export async function getContractorBills(): Promise<{ items: any[]; total: number }> {
+  const response = await api.get<{ items: any[]; total: number }>("/api/bills?type=contractor");
+  return response.data;
+}
+
+export async function getDriverBills(): Promise<{ items: any[]; total: number }> {
+  const response = await api.get<{ items: any[]; total: number }>("/api/bills?type=driver");
+  return response.data;
+}
+
 export async function updateInvoiceStatus(data : { id: number | null; status: string }): Promise<Invoice> {
   const response = await api.put<Invoice>(`/api/invoices/statusUpdate/${data.id}`, data);
   return response.data;
@@ -154,6 +185,11 @@ export async function updateInvoiceStatus(data : { id: number | null; status: st
 
 export async function removeJob(id: number | null): Promise<void> {
   await api.delete(`/api/jobs/remove/${id}`);
+}
+
+export async function removeJobFromBill(billId: number, jobId: number): Promise<any> {
+  const response = await api.delete(`/api/bills/${billId}/jobs/${jobId}`);
+  return response.data;
 }
 
 /**
@@ -204,4 +240,19 @@ export async function getPaidInvoice(id: number |null): Promise<any> {
 
   
   return response.data;
+
 }
+
+export async function getDriverBillableJobs(query = {}): Promise<JobsResponse> {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      params.append(key, String(value));
+    }
+  });
+  const response = await api.get<JobsResponse>(
+    `/api/jobs/driver-billable?${params.toString()}`
+  );
+  return response.data;
+}
+

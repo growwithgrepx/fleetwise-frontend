@@ -228,52 +228,60 @@ const JobsPage = () => {
 
   const handleCopy = async (job: Job) => {
     try {
-      // Fetch the latest job data from the API to ensure we have up-to-date information
       const latestJob = await jobsApi.getJobById(job.id);
       
-      // Check if we received valid job data
       if (!latestJob) {
         toast.error('Job not found - it may have been deleted');
         return;
       }
       
-      // Use object destructuring to properly exclude the id field from the copied object
       const { id, ...jobCopyWithoutId } = latestJob;
+      
+      // Use vehicle_type_name directly from the API response
+      const vehicleTypeName = (latestJob as any).vehicle_type_name || '';
+      
+      console.log('[handleCopy] Using vehicle_type_name:', {
+        vehicleTypeName,
+        vehicle_type_id: (latestJob as any).vehicle_type_id
+      });
+      
       const jobCopy = {
         ...jobCopyWithoutId,
         // Clear date/time fields (require new user input)
         pickup_date: '',
         pickup_time: '',
-        
+
         // Reset job status to default
         status: 'new' as const,
-        
+
         // Reset invoice related fields
         invoice_id: null,
         invoice_number: undefined,
-        
+
         // Reset financial fields
         penalty: 0,
-        // Note: cash_collected field doesn't exist in Job interface, but if it did, it would be reset here
-        
-        // Reset vehicle and driver assignments
+
+        // Reset vehicle assignment
         vehicle_id: 0,
         driver_id: 0,
-        vehicle_type: '',
+        // Use the vehicle_type_name string from API
+        vehicle_type: vehicleTypeName,
+        vehicle_type_id: (latestJob as any).vehicle_type_id,
         driver_contact: '',
-        
-        // Reset sub-customer fields to prevent "Facilities" from appearing
-        sub_customer_id: undefined,
-        sub_customer_name: '',
+
+        // Keep sub_customer_name and booking_ref from the original job
       };
       
-      // Store the job data in context to be used in the new job page
+      console.log('[handleCopy] Final jobCopy vehicle_type:', {
+        value: jobCopy.vehicle_type,
+        type: typeof jobCopy.vehicle_type
+      });
+      
       setCopiedJobData(jobCopy);
       
       toast.success('Job copied! Redirecting to new job form...');
       router.push('/jobs/new');
     } catch (apiError: any) {
-      // Handle specific error cases with clearer user messaging
       if (apiError.response) {
         const status = apiError.response.status;
         if (status === 404) {
@@ -284,13 +292,10 @@ const JobsPage = () => {
           toast.error(apiError.message || 'Failed to fetch job data for copying');
         }
       } else if (apiError.request) {
-        // Network error - no response received
         toast.error('Network error - please check your connection and try again');
       } else {
-        // Other error
         toast.error('Failed to fetch job data for copying');
       }
-      return;
     }
   };
 

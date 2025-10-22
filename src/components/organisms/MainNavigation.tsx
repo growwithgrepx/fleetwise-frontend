@@ -65,9 +65,10 @@ const navSections: NavSection[] = [
         icon: <CurrencyDollarIcon className="w-5 h-5" />,
         description: "Manage jobs billing",
         children: [
-          { label: "Billing History", href: "/billing-history", icon: <DocumentDuplicateIcon className="w-4 h-4" />, description: "Billing history" },
-          //{ label: "Driving Billings (Internal)", href: "/billing/driving", icon: <TruckIcon className="w-4 h-4" /> },
-          //{ label: "Contractor Billings", href: "/billing/contractors", icon: <UsersIcon className="w-4 h-4" /> },
+          { label: "Customer Billing", href: "/billing/customer-billing", icon: <DocumentDuplicateIcon className="w-4 h-4" />, description: "Customer billing management" },
+          { label: "Internal Driver Billing", href: "/billing/driver-billing", icon: <WalletIcon className="w-4 h-4" />, description: "Manage driver payments" },
+          { label: "Contractor Billing", href: "/billing/contractor-billing", icon: <WalletIcon className="w-4 h-4" />, description: "Manage contractor payments" },
+          
         ]
       },
     ]

@@ -370,7 +370,6 @@ export interface JobFormData {
   extra_services: any[];
   
   // Additional Fields
-  sub_customer_id?: number | undefined;
   sub_customer_name: string;
   message?: string;
   remarks?: string;
