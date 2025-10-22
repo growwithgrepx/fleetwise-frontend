@@ -1055,8 +1055,9 @@ const ContractorBillingPage = () => {
                           e.stopPropagation();
                           handleDeleteBill(row);
                         }}
-                        className="px-2 py-1 rounded-md border border-border-color hover:bg-red-500/50 text-xs"
-                        title="Delete Bill"
+                        className={`px-2 py-1 rounded-md border text-xs ${row.status === 'Paid' ? 'border-gray-500/50 bg-gray-500/20 text-gray-400 cursor-not-allowed' : 'border-border-color hover:bg-red-500/50 text-red-500'}`}
+                        title={row.status === 'Paid' ? 'Cannot delete paid bill' : 'Delete Bill'}
+                        disabled={row.status === 'Paid'}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1069,7 +1070,7 @@ const ContractorBillingPage = () => {
                     <span>{row.type}</span>
                   ) : col.accessor === "status" ? (row: any) => (
                     <span className={`px-2 py-1 rounded text-xs ${row.status === 'Paid' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                      {row.status || 'Unpaid'}
+                      {row.status === 'Generated' ? 'Unpaid' : row.status || 'Unpaid'}
                     </span>
                   ) : undefined,
                 }))}
@@ -1104,8 +1105,9 @@ const ContractorBillingPage = () => {
                                 <td className="px-3 py-2">
                                   <button
                                     onClick={() => handleRemoveJobFromBill(bill.id, job.id)}
-                                    className="px-2 py-1 rounded-md border border-border-color hover:bg-red-500/50 text-xs text-red-500"
-                                    title="Remove from Bill"
+                                    className={`px-2 py-1 rounded-md border text-xs ${bill.status === 'Paid' ? 'border-gray-500/50 bg-gray-500/20 text-gray-400 cursor-not-allowed' : 'border-border-color hover:bg-red-500/50 text-red-500'}`}
+                                    title={bill.status === 'Paid' ? 'Cannot remove job from paid bill' : 'Remove from Bill'}
+                                    disabled={bill.status === 'Paid'}
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
