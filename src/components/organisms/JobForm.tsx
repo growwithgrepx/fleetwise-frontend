@@ -275,7 +275,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       setFormData(prev => ({
         ...prev,
         customer_id: job.customer_id || prev.customer_id,
-        sub_customer_name: (job as any).sub_customer_name || prev.sub_customer_name,
+        sub_customer_name: job.sub_customer_name || prev.sub_customer_name,
         service_type: job.service_type || prev.service_type,
         vehicle_type: vehicleTypeName,
       }));
@@ -514,7 +514,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
         extra_services: job.extra_services || [],
 
         // Additional Fields
-        sub_customer_name: (job as any).sub_customer_name || '',
+        sub_customer_name: job.sub_customer_name || '',
         message: '',
         remarks: job.customer_remark || '', // Map customer_remark to remarks
         has_additional_stop: false,
@@ -525,7 +525,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
         midnight_surcharge: job.midnight_surcharge !== undefined ? job.midnight_surcharge : 0,
         contractor_id: job.contractor_id, // This field now exists
         cash_to_collect: job.cash_to_collect !== undefined ? job.cash_to_collect : 0, // Add cash_to_collect field
-        booking_ref: (job as any).booking_ref || '',
+        booking_ref: job.booking_ref || '',
       };
 
       // Only update if the job data has actually changed

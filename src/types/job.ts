@@ -85,6 +85,9 @@ export interface Job {
   
   // Booking reference field
   booking_ref?: string;
+  
+  // Sub customer name field
+  sub_customer_name?: string;
 }
 
 export interface Location {
