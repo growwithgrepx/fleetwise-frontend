@@ -525,6 +525,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
         midnight_surcharge: job.midnight_surcharge !== undefined ? job.midnight_surcharge : 0,
         contractor_id: job.contractor_id, // This field now exists
         cash_to_collect: job.cash_to_collect !== undefined ? job.cash_to_collect : 0, // Add cash_to_collect field
+        booking_ref: job.booking_ref || '',
       };
 
       // Only update if the job data has actually changed
@@ -1338,7 +1339,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                   />
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-300">
-                      Sub Customer
+                      Department / Person In Charge
                     </label>
                     <input
                       type="text"
@@ -1351,7 +1352,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                       }}
                       readOnly={fieldsLocked}
                       className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}`}
-                      placeholder="Enter sub-customer name"
+                      placeholder="Enter department / person in charge"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1758,6 +1759,30 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
             {/* Billing Information Sidebar - Right Side */}
             <div className="xl:col-span-1 space-y-6">
+              {/* Booking Reference */}
+              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h2 className="text-lg font-semibold mb-6 flex items-center space-x-2 text-gray-100">
+                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span>Booking Reference</span>
+                </h2>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Booking Reference
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.booking_ref || ""}
+                    onChange={(e) => {
+                      handleInputChange("booking_ref", e.target.value);
+                    }}
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    placeholder="Enter booking reference"
+                  />
+                </div>
+              </div>
+              
               {/* Customer Billing Card */}
               <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
                 <h2 className="text-lg font-semibold mb-6 flex items-center space-x-2 text-gray-100">
