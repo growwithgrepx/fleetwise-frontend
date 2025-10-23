@@ -1337,6 +1337,22 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                     className={fieldsLocked ? "opacity-75" : ""}
                     disabled={fieldsLocked}
                   />
+		  {/* Customer Reference ID */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-300">
+                      Customer Reference No.
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.booking_ref || ""}
+                      onChange={(e) => {
+                        handleInputChange("booking_ref", e.target.value);
+                      }}
+                      className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                      placeholder="Enter customer reference ID"
+                    />
+                  </div>
+		  
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-300">
                       Department / Person In Charge / Sub-Customer
@@ -1355,6 +1371,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                       placeholder="Enter department / person in charge"
                     />
                   </div>
+		  <div className="space-y-2">
+		  </div>
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-300">
                       Passenger Name <span className="text-red-400">*</span>
@@ -1396,7 +1414,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                     />
                   </div>
                   
-                  {/* Service Field - Below Passenger Mobile */}
+                  {/* Service Field */}
                   <SelectField 
                     label="Service" 
                     value={formData.service_type || ''} 
@@ -1759,30 +1777,6 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
             {/* Billing Information Sidebar - Right Side */}
             <div className="xl:col-span-1 space-y-6">
-              {/* Booking Reference */}
-              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-                <h2 className="text-lg font-semibold mb-6 flex items-center space-x-2 text-gray-100">
-                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  <span>Booking Reference</span>
-                </h2>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-300">
-                    Customer Reference ID
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.booking_ref || ""}
-                    onChange={(e) => {
-                      handleInputChange("booking_ref", e.target.value);
-                    }}
-                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                    placeholder="Enter booking reference"
-                  />
-                </div>
-              </div>
-              
               {/* Customer Billing Card */}
               <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
                 <h2 className="text-lg font-semibold mb-6 flex items-center space-x-2 text-gray-100">
