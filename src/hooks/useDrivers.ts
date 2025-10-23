@@ -1,6 +1,7 @@
 import { createCrudHooks } from "./useCrud";
 import { getDrivers, getDriver, createDriver, updateDriver, deleteDriver } from "@/services/api/driversApi";
 import type { Driver } from "@/lib/types";
+import { downloadDriverBillPDF } from "@/services/api/driversApi";
 
 export const {
   useGetAllEntities: useGetAllDrivers,
@@ -16,3 +17,9 @@ export const {
   update: updateDriver,
   delete: deleteDriver,
 });
+
+export const useDownloadDriverBill = () => {
+  return {
+    downloadPDF: (billId: number) => downloadDriverBillPDF(billId)
+  };
+};

@@ -12,8 +12,13 @@ import { EntityTableColumn } from "@/components/organisms/JobBillingTable";
 import { useGetAllContractors } from "@/hooks/useContractors";
 import toast from "react-hot-toast";
 import { ArrowUp, ArrowDown, Eye, Trash2, DollarSign } from "lucide-react";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import JobDetailCard from "@/components/organisms/JobDetailCard";
 import * as billsApi from "@/services/api/billingApi";
+import { useDownloadContractorBill } from "@/hooks/useContractors";
+
+
+
 
 // Column configuration for Contractor Billable Jobs table
 const contractorBillableColumns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
@@ -126,7 +131,7 @@ const ContractorBillingPage = () => {
   const [pageSize, setPageSize] = useState(10);
   const [billsRefreshKey, setBillsRefreshKey] = useState(0);
   const [activeView, setActiveView] = useState<"jobs" | "bills">("jobs"); // New state to track active view
-  
+  const { downloadPDF } = useDownloadContractorBill();
   // State for confirmation modal
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [confirmModalData, setConfirmModalData] = useState<{
@@ -1062,6 +1067,20 @@ const ContractorBillingPage = () => {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                      <button
+  onClick={(e) => {
+    e.stopPropagation();
+    toast.loading("Generating PDF...", { id: "pdf-download" });
+    downloadPDF(row.id)
+      .then(() => toast.success("PDF downloaded successfully", { id: "pdf-download" }))
+      .catch(() => toast.error("Failed to download PDF", { id: "pdf-download" }));
+  }}
+  className="px-2 py-1 rounded-md border border-border-color hover:bg-primary/20 text-xs"
+  title="Download PDF"
+>
+
+      <ArrowDownTrayIcon className="w-4 h-4" />
+    </button>
                     </div>
                   ) : col.accessor === "job_count" ? (row: any) => (
                     <span>{row.job_count}</span>
