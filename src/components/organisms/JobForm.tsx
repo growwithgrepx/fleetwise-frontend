@@ -1339,7 +1339,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                   />
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-300">
-                      Department / Person In Charge
+                      Department / Person In Charge / Sub-Customer
                     </label>
                     <input
                       type="text"
@@ -1769,7 +1769,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                 </h2>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-300">
-                    Booking Reference
+                    Customer Reference ID
                   </label>
                   <input
                     type="text"
