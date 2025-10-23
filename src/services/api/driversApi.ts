@@ -51,3 +51,20 @@ export async function updateDriver(id: number, data: Partial<Driver>): Promise<D
 export async function deleteDriver(id: number): Promise<void> {
   await api.delete(`/api/drivers/${id}`);
 }
+
+export async function downloadDriverBillPDF(billId: number): Promise<Blob> {
+  const response = await api.get(`/api/drivers/download/${billId}`, {
+    responseType: "blob", // important for binary data
+  });
+
+  // Create a downloadable file URL
+  const blob = new Blob([response.data], { type: "application/pdf" });
+  const url = window.URL.createObjectURL(blob);
+  
+  window.open(url, "_blank");
+  setTimeout(() => {
+    window.URL.revokeObjectURL(url);
+  }, 5000);
+
+  return blob;
+}

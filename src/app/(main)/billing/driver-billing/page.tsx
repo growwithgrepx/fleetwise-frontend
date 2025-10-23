@@ -14,6 +14,9 @@ import toast from "react-hot-toast";
 import { ArrowUp, ArrowDown, Eye, Trash2, DollarSign } from "lucide-react";
 import JobDetailCard from "@/components/organisms/JobDetailCard";
 import * as billsApi from "@/services/api/billingApi";
+import { useDownloadDriverBill } from "@/hooks/useDrivers";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+
 
 // Column configuration for Driver Billable Jobs table
 const driverBillableColumns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
@@ -125,6 +128,7 @@ const DriverBillingPage = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [activeView, setActiveView] = useState<"jobs" | "bills">("jobs"); // New state to track active view
+  const { downloadPDF } = useDownloadDriverBill();
   
   // State for confirmation modal
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -1103,6 +1107,20 @@ const DriverBillingPage = () => {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                        <button
+  onClick={(e) => {
+    e.stopPropagation();
+    toast.loading("Generating PDF...", { id: "pdf-download" });
+    downloadPDF(row.id)
+      .then(() => toast.success("PDF downloaded successfully", { id: "pdf-download" }))
+      .catch(() => toast.error("Failed to download PDF", { id: "pdf-download" }));
+  }}
+  className="px-2 py-1 rounded-md border border-border-color hover:bg-primary/20 text-xs"
+  title="Download PDF"
+>
+
+      <ArrowDownTrayIcon className="w-4 h-4" />
+    </button>
                     </div>
                   ) : col.accessor === "job_count" ? (row: any) => (
                     <span>{row.job_count}</span>

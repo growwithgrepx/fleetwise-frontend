@@ -12,6 +12,7 @@ import {
   bulkUpdateContractorPricing
 } from "@/services/api/contractorsApi";
 import type { Contractor } from "@/lib/types";
+import { downloadContractorBillPDF } from "@/services/api/contractorsApi";
 
 export const {
   useGetAllEntities: useGetAllContractors,
@@ -51,5 +52,12 @@ export const useUpdateContractorPricing = () => {
 export const useBulkUpdateContractorPricing = () => {
   return { mutationFn: ({ contractorId, pricingData }: { contractorId: number, pricingData: { service_id: number; cost: number }[] }) => 
     bulkUpdateContractorPricing(contractorId, pricingData) 
+  };
+};
+
+
+export const useDownloadContractorBill = () => {
+  return {
+    downloadPDF: (billId: number) => downloadContractorBillPDF(billId)
   };
 };

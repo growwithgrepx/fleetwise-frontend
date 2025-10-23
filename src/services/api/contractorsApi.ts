@@ -101,3 +101,20 @@ export async function bulkUpdateContractorPricing(contractorId: number, pricingD
   });
   return response.data;
 }
+
+export async function downloadContractorBillPDF(billId: number): Promise<Blob> {
+  const response = await api.get(`/api/contractors/download/${billId}`, {
+    responseType: "blob", // important for binary data
+  });
+
+  // Create a downloadable file URL
+  const blob = new Blob([response.data], { type: "application/pdf" });
+  const url = window.URL.createObjectURL(blob);
+  
+  window.open(url, "_blank");
+  setTimeout(() => {
+    window.URL.revokeObjectURL(url);
+  }, 5000);
+
+  return blob;
+}
