@@ -316,7 +316,7 @@ const JobsPage = () => {
   // Apply filters to jobs
   const filteredJobs = (jobs ?? []).filter(job =>
     Object.entries(debouncedFilters).every(([col, val]) =>
-      !val || (job[col]?.toString().toLowerCase().includes(val.toLowerCase()))
+      !val || (job[col] !== undefined && job[col] !== null && job[col].toString().toLowerCase().includes(val.toLowerCase()))
     )
   );
 
