@@ -31,7 +31,7 @@ export function createStandardEntityActions<T extends { id: ID }>({
     },
     {
       label: 'Edit',
-      icon: <Pencil className="h-4 w-4" />,
+      icon: <Pencil className="lucide lucide-pencil h-4 w-4 text-gray-600 dark:text-gray-300" />,
       onClick: (item) => router.push(`/${resource}/${item.id}/edit`),
       ariaLabel: `Edit ${resourceName}`,
     },

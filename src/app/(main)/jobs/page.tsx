@@ -54,7 +54,7 @@ const getJobActions = (
   },
   {
     label: 'Edit',
-    icon: <Pencil className="w-5 h-5 text-yellow-500" />,
+    icon: <Pencil className="h-4 w-4 text-gray-600 dark:text-gray-300" />,
     onClick: (job) => handleEdit(job),
     ariaLabel: 'Edit job',
     title: 'Edit',
