@@ -451,10 +451,10 @@ export default function ChatWindow({ className }: ChatWindowProps) {
                         variant="outline"
                         size="sm"
                         onClick={handleDownload}
-                        className="h-8 text-gray-700 border-gray-300 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                        className="h-8 text-gray-700 border-gray-300 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 flex items-center gap-1"
                       >
-                        <Download className="w-4 h-4 mr-1" />
-                        CSV
+                        <Download className="w-4 h-4" />
+                        <span>CSV</span>
                       </Button>
                     </div>
                   </div>
