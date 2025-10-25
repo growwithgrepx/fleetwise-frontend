@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import clsx from 'clsx';
-import { VariableSizeList as VList } from 'react-window';
 
 import {
   CheckCircleIcon,
@@ -45,6 +44,7 @@ interface ExcelRow {
   vehicle_type?: string;
   contractor?: string;
   contractor_id?: number;
+  job_id?: string;
 }
 
 // Reference data interfaces (adjust based on your API response)
@@ -121,6 +121,10 @@ export default function ExcelUploadTable({
     direction: 'asc' | 'desc';
   } | null>(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
   // Reference data state
   const [referenceData, setReferenceData] = useState<ReferenceData>({
     customers: [],
@@ -132,69 +136,15 @@ export default function ExcelUploadTable({
   });
   const [isLoadingReferenceData, setIsLoadingReferenceData] = useState(false);
 
-  const listRef = useRef<any>(null);
-  const rowHeightMapRef = useRef<Record<number, number>>({});  // Store row heights
-
   // Store editing data in a ref to avoid re-renders
   const editingDataRef = useRef<Record<number, ExcelRow>>({});
-
-  // CRITICAL FIX: Add state to trigger list recomputation when edit mode changes
-  const [rowUpdateTrigger, setRowUpdateTrigger] = useState(0);
-
-  // Force reset editing state on component mount
-  useEffect(() => {
-    setEditingRow(null);
-    editingDataRef.current = {};
-    setExpandedRows(new Set());
-  }, []);
 
   // Reset editing state when data changes
   useEffect(() => {
     setEditingRow(null);
     editingDataRef.current = {};
     setExpandedRows(new Set());
-  }, [data]);
-
-  // When editing state changes, update the row heights and force a recalculation
-  useEffect(() => {
-    if (editingRow !== null) {
-      // Add a significant height for editing mode (adjust based on your form)
-      rowHeightMapRef.current[editingRow] = 900; // Increased height for full form visibility
-
-      // Force recalculation
-      if (listRef.current) {
-        listRef.current.resetAfterIndex(0);
-      }
-
-      // Trigger update
-      setRowUpdateTrigger(prev => prev + 1);
-    }
-  }, [editingRow]);
-
-  // When edit mode is canceled, reset the row height
-  useEffect(() => {
-    if (editingRow === null) {
-      // Reset any previously set heights when editing is canceled
-      Object.keys(rowHeightMapRef.current).forEach(key => {
-        delete rowHeightMapRef.current[Number(key)];
-      });
-
-      // Force recalculation
-      if (listRef.current) {
-        listRef.current.resetAfterIndex(0);
-      }
-
-      // Trigger update
-      setRowUpdateTrigger(prev => prev + 1);
-    }
-  }, [editingRow]);
-
-  // Reset heights when data changes
-  useEffect(() => {
-    rowHeightMapRef.current = {};
-    if (listRef.current) {
-      listRef.current.resetAfterIndex(0);
-    }
+    setCurrentPage(1); // Reset to first page when data changes
   }, [data]);
 
   // Fetch reference data on mount
@@ -308,17 +258,7 @@ export default function ExcelUploadTable({
 
     // Set editing row
     setEditingRow(row.row_number);
-
-    // Scroll to the row after a short delay to ensure height is updated
-    setTimeout(() => {
-      if (listRef.current) {
-        const rowIndex = data.findIndex(r => r.row_number === row.row_number);
-        if (rowIndex !== -1) {
-          listRef.current.scrollToItem(rowIndex, "start");
-        }
-      }
-    }, 100);
-  }, [data]);
+  }, []);
 
   const cancelEditing = useCallback(() => {
     if (editingRow) {
@@ -334,8 +274,49 @@ export default function ExcelUploadTable({
     const currentEditData = editingDataRef.current[editingRow];
 
     try {
-      // Since we're using dropdowns, the IDs are already set
-      // Just mark as valid and save
+      // Validate required fields
+      const errors: string[] = [];
+
+      if (!currentEditData.customer_id || !currentEditData.customer) {
+        errors.push('Customer is required');
+      }
+      if (!currentEditData.service) {
+        errors.push('Service is required');
+      }
+      if (!currentEditData.vehicle_id || !currentEditData.vehicle) {
+        errors.push('Vehicle is required');
+      }
+      if (!currentEditData.driver_id || !currentEditData.driver) {
+        errors.push('Driver is required');
+      }
+      if (!currentEditData.pickup_date) {
+        errors.push('Pickup date is required');
+      }
+      if (!currentEditData.pickup_time) {
+        errors.push('Pickup time is required');
+      }
+      if (!currentEditData.pickup_location) {
+        errors.push('Pickup location is required');
+      }
+      if (!currentEditData.dropoff_location) {
+        errors.push('Dropoff location is required');
+      }
+
+      // If there are validation errors, show them and don't save
+      if (errors.length > 0) {
+        const updatedRow = {
+          ...currentEditData,
+          is_valid: false,
+          error_message: errors.join(', ')
+        };
+        onUpdateRow(editingRow, updatedRow);
+        delete editingDataRef.current[editingRow];
+        setEditingRow(null);
+        toast.error(`Validation failed: ${errors.join(', ')}`);
+        return;
+      }
+
+      // All validations passed - mark as valid
       const updatedRow = {
         ...currentEditData,
         is_valid: true,
@@ -401,28 +382,23 @@ export default function ExcelUploadTable({
     }
   }, [selectedRows, selectedValidCount, onSelectionChange]);
 
-  const getRowHeight = useCallback((index: number) => {
-    const row = sortedData[index];
-    if (!row) return 40;
+  // Pagination logic
+  const totalPages = Math.ceil(sortedData.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedData = sortedData.slice(startIndex, endIndex);
 
-    // If this row is being edited, return the stored larger height
-    if (editingRow === row.row_number && rowHeightMapRef.current[row.row_number]) {
-      return rowHeightMapRef.current[row.row_number];
-    }
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Collapse all rows when changing pages
+    setExpandedRows(new Set());
+    setEditingRow(null);
+  };
 
-    // For expanded but not editing rows
-    if (expandedRows.has(row.row_number)) {
-      return 150;
-    }
-
-    return 40;
-  }, [sortedData, expandedRows, editingRow, rowUpdateTrigger]);
-
-  useEffect(() => {
-    if (listRef.current) {
-      listRef.current.resetAfterIndex(0);
-    }
-  }, [expandedRows, editingRow]);
+  const handleRowsPerPageChange = (rows: number) => {
+    setRowsPerPage(rows);
+    setCurrentPage(1); // Reset to first page
+  };
 
   if (isLoading) {
     return (
@@ -537,43 +513,114 @@ export default function ExcelUploadTable({
         )}
       </div>
 
-      {/* Virtualized Table */}
-      <div className="overflow-auto excel-upload-table-container" style={{ height: '600px' }}>
-        <style jsx>{`
-          .excel-upload-table-container :global(> div) {
-            overflow: visible !important;
-          }
-        `}</style>
-        <VList
-          ref={listRef}
-          height={600}
-          itemCount={sortedData.length}
-          itemSize={getRowHeight}
-          width="100%"
-          overscanCount={5}
-        >
-          {({ index, style }) => (
-            <RowItem
-              key={sortedData[index].row_number}
-              row={sortedData[index]}
-              style={style}
-              isExpanded={expandedRows.has(sortedData[index].row_number)}
-              isEditing={editingRow === sortedData[index].row_number}
-              isSelected={selectedRows.has(sortedData[index].row_number)}
-              onToggleExpansion={toggleRowExpansion}
-              onToggleSelection={toggleRowSelection}
-              onStartEditing={startEditing}
-              onCancelEditing={cancelEditing}
-              onSaveEditing={saveEditing}
-              onRejectRow={rejectRow}
-              editingDataRef={editingDataRef}
-              isValidating={isValidating}
-              referenceData={referenceData}
-              isLoadingReferenceData={isLoadingReferenceData}
-            />
-          )}
-        </VList>
+      {/* Paginated Table */}
+      <div className="overflow-auto" style={{ maxHeight: '600px' }}>
+        {paginatedData.map((row) => (
+          <RowItem
+            key={row.row_number}
+            row={row}
+            isExpanded={expandedRows.has(row.row_number)}
+            isEditing={editingRow === row.row_number}
+            isSelected={selectedRows.has(row.row_number)}
+            onToggleExpansion={toggleRowExpansion}
+            onToggleSelection={toggleRowSelection}
+            onStartEditing={startEditing}
+            onCancelEditing={cancelEditing}
+            onSaveEditing={saveEditing}
+            onRejectRow={rejectRow}
+            editingDataRef={editingDataRef}
+            isValidating={isValidating}
+            referenceData={referenceData}
+            isLoadingReferenceData={isLoadingReferenceData}
+          />
+        ))}
       </div>
+
+      {/* Pagination Controls */}
+      {sortedData.length > 10 && (
+        <div className="px-6 py-4 bg-background-hover border-t border-border-color flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-text-secondary">
+              Showing {startIndex + 1} to {Math.min(endIndex, sortedData.length)} of {sortedData.length} rows
+            </span>
+            <div className="flex items-center space-x-2">
+              <label className="text-sm text-text-secondary">Rows per page:</label>
+              <select
+                value={rowsPerPage}
+                onChange={(e) => handleRowsPerPageChange(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-border-color rounded-md bg-background-light text-text-main"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 text-sm border border-border-color rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-background-light transition-colors"
+            >
+              First
+            </button>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 text-sm border border-border-color rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-background-light transition-colors"
+            >
+              Previous
+            </button>
+
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={clsx(
+                      "px-3 py-1 text-sm border rounded-md transition-colors",
+                      currentPage === pageNum
+                        ? "bg-primary text-white border-primary"
+                        : "border-border-color hover:bg-background-light"
+                    )}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 text-sm border border-border-color rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-background-light transition-colors"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 text-sm border border-border-color rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-background-light transition-colors"
+            >
+              Last
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Footer Actions */}
       {/* <div className="px-6 py-1 bg-background-hover border-t border-border-color flex items-center justify-between">
@@ -615,7 +662,6 @@ export default function ExcelUploadTable({
 
 interface RowItemProps {
   row: ExcelRow;
-  style: React.CSSProperties;
   isExpanded: boolean;
   isEditing: boolean;
   isSelected: boolean;
@@ -633,7 +679,6 @@ interface RowItemProps {
 
 function RowItem({
   row,
-  style,
   isExpanded,
   isEditing,
   isSelected,
@@ -650,7 +695,7 @@ function RowItem({
 }: RowItemProps) {
 
   const baseRowClass = clsx(
-    "border-b border-border-color transition-all duration-200 box-border leading-none",
+    "border-b border-border-color transition-all duration-200",
     {
       "bg-green-500/5": row.is_valid && !row.is_rejected,
       "bg-red-500/5": !row.is_valid && !row.is_rejected,
@@ -660,22 +705,9 @@ function RowItem({
   );
 
   return (
-    <div
-      style={{
-        ...style,
-        // CRITICAL FIX: Allow container to grow for edit mode
-        height: isEditing ? 'auto' : style.height,
-        minHeight: style.height,
-        overflow: isEditing ? 'visible' : 'hidden',
-        zIndex: isEditing ? 10 : 1,
-        position: 'relative',
-        marginBottom: 0,
-        paddingBottom: 0,
-      }}
-      className={baseRowClass}
-    >
+    <div className={baseRowClass}>
       {/* Main Row */}
-      <div className="flex items-center px-6 py-1 hover:bg-background-hover cursor-pointer"
+      <div className="flex items-center px-6 py-2 hover:bg-background-hover cursor-pointer"
         onClick={() => !isEditing && onToggleExpansion(row.row_number)}>
 
         <div className="mr-4" onClick={(e) => e.stopPropagation()}>
@@ -709,6 +741,12 @@ function RowItem({
         <div className="w-16 text-sm font-medium text-text-secondary">
           #{row.row_number}
         </div>
+
+        {row.job_id && (
+          <div className="w-32 px-2">
+            <p className="text-sm font-semibold text-primary">{row.job_id}</p>
+          </div>
+        )}
 
         <div className="flex-1 min-w-0 px-2">
           <p className="text-sm font-medium text-text-main truncate">{row.customer}</p>
@@ -753,8 +791,14 @@ function RowItem({
 
       {/* Expanded Details */}
       {isExpanded && !isEditing && (
-        <div className="px-6 py-1 bg-background-hover/50 border-t border-border-color">
-          <div className="grid grid-cols-2 gap-1 text-xs leading-tight">
+        <div className="px-6 py-3 bg-background-hover/50 border-t border-border-color">
+          <div className="grid grid-cols-2 gap-2 text-xs leading-normal">
+            {row.job_id && (
+              <div className="col-span-2 mb-2">
+                <span className="font-medium text-text-secondary">Job ID:</span>
+                <span className="ml-2 text-primary font-semibold">{row.job_id}</span>
+              </div>
+            )}
             <div>
               <span className="font-medium text-text-secondary">Customer:</span>
               <span className="ml-2 text-text-main">{row.customer}</span>
@@ -796,7 +840,11 @@ function RowItem({
               </div>
             )}
             <div>
-              <span className="font-medium text-text-secondary">Time:</span>
+              <span className="font-medium text-text-secondary">Pickup Date:</span>
+              <span className="ml-2 text-text-main">{row.pickup_date}</span>
+            </div>
+            <div>
+              <span className="font-medium text-text-secondary">Pickup Time:</span>
               <span className="ml-2 text-text-main">{row.pickup_time}</span>
             </div>
             <div>
@@ -810,7 +858,7 @@ function RowItem({
               </div>
             )}
             <div className="col-span-2">
-              <span className="font-medium text-text-secondary">Pickup:</span>
+              <span className="font-medium text-text-secondary">Pickup Location:</span>
               <span className="ml-2 text-text-main">{row.pickup_location}</span>
             </div>
             <div className="col-span-2">
@@ -949,8 +997,6 @@ function EditForm({
 
   const inputClassName = "w-full px-3 py-2 bg-transparent text-text-main border border-border-color rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary placeholder-text-secondary/50";
   const selectClassName = "w-full px-3 py-2 bg-background-light text-text-main border border-border-color rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary";
-
-  const statusOptions = ['new', 'pending', 'confirmed', 'in_progress', 'completed', 'canceled'];
 
   return (
     <div className="px-6 py-4 bg-transparent border-t border-border-color">
@@ -1269,24 +1315,6 @@ function EditForm({
               className={inputClassName}
               placeholder="Enter mobile number"
             />
-          </div>
-
-          {/* Status Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Status
-            </label>
-            <select
-              defaultValue={row.status}
-              onChange={(e) => handleChange('status', e.target.value)}
-              className={selectClassName}
-            >
-              {statusOptions.map(status => (
-                <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Remarks */}
