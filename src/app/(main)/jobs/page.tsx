@@ -154,9 +154,19 @@ const JobsPage = () => {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // Local filter state for debouncing column filters before sending to API
+  const [localFilters, setLocalFilters] = useState<Record<string, string>>({});
+  const debouncedLocalFilters = useDebounce(localFilters, 500); // 500ms debounce for column filters
+
   const debouncedFilters = useDebounce(filters, 300);
   const [editJob, setEditJob] = useState<Job | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Update API filters when column filters change (debounced)
+  React.useEffect(() => {
+    updateFilters({ ...filters, ...debouncedLocalFilters });
+  }, [debouncedLocalFilters]);
 
   // Calculate status counts from all jobs, not filtered jobs
   const statusCounts = useMemo(() => {
@@ -164,7 +174,7 @@ const JobsPage = () => {
     allJobs.forEach(job => {
       counts[job.status] = (counts[job.status] || 0) + 1;
     });
-    
+
     // Calculate total count for "All" tab
     const totalCount = allJobs.length || 0;
     return { ...counts, all: totalCount };
@@ -174,15 +184,27 @@ const JobsPage = () => {
     const statusValue = value === 'all' ? undefined : value;
     // Reset customer filter to "All Customers" when changing status filter
     updateFilters({ ...filters, status: statusValue, customer_name: '' });
+    // Also clear local filters
+    setLocalFilters({});
   };
 
-  const handleFilterChange = (col: string, value: string) => {
+  // Immediate filter change (for button clicks like customer filter) - no debouncing
+  const handleImmediateFilterChange = (col: string, value: string) => {
     updateFilters({ ...filters, [col]: value });
+    setLocalFilters((prev) => ({ ...prev, [col]: value }));
+    setPage(1);
+  };
+
+  // Debounced filter change (for text input in column filters)
+  const handleFilterChange = (col: string, value: string) => {
+    // Update local state immediately (for UI responsiveness)
+    setLocalFilters((prev) => ({ ...prev, [col]: value }));
     setPage(1);
   };
 
   const handleClearFilter = (col: string) => {
-    updateFilters({ ...filters, [col]: '' });
+    // Clear local filter immediately
+    setLocalFilters((prev) => ({ ...prev, [col]: '' }));
     setPage(1);
   };
 
@@ -392,10 +414,10 @@ const JobsPage = () => {
           <h3 className="font-bold text-text-main mb-3 px-4 py-2">Filter by customer</h3>
           <div className="flex flex-wrap gap-2 px-4 max-h-[140px] overflow-hidden" style={{ maxWidth: '100%' }}>
             <button
-              onClick={() => handleFilterChange('customer_name', '')}
+              onClick={() => handleImmediateFilterChange('customer_name', '')}
               className={`px-2 py-2 rounded-lg text-sm transition-all min-w-[calc(12.5%-0.875rem)] flex-1 text-center flex flex-col items-center justify-center
                 ${!filters.customer_name
-                  ? 'bg-primary text-white shadow-lg' 
+                  ? 'bg-primary text-white shadow-lg'
                   : 'bg-transparent text-text-main border border-border-color hover:border-primary'}`}
               style={{ minWidth: 'calc(12.5% - 0.875rem)', flex: '1 1 calc(12.5% - 0.875rem)', maxWidth: 'calc(12.5% - 0.875rem)' }}
             >
@@ -407,7 +429,7 @@ const JobsPage = () => {
             {filteredCustomers.slice(0, 17).map((customer: any) => (
               <button
                 key={customer.id}
-                onClick={() => handleFilterChange('customer_name', customer.name)}
+                onClick={() => handleImmediateFilterChange('customer_name', customer.name)}
                 className={`px-2 py-2 rounded-lg text-sm transition-all min-w-[calc(12.5%-0.875rem)] flex-1 text-center flex flex-col items-center justify-center
                   ${filters.customer_name === customer.name
                     ? 'bg-primary text-white shadow-lg' 
@@ -488,9 +510,7 @@ const JobsPage = () => {
             rowClassName={(job) => expandedJobId === job.id ? 'bg-primary/10' : ''}
             onRowClick={handleView}
             expandedRowId={expandedJobId}
-            filters={Object.fromEntries(
-              Object.entries(filters).filter(([_, value]) => value !== undefined && value !== null && value !== '')
-            ) as Record<string, string>}
+            filters={localFilters}
             onFilterChange={handleFilterChange}
             page={page}
             pageSize={pageSize}
