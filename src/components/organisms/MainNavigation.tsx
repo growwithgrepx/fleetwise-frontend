@@ -28,6 +28,7 @@ import { useMediaQuery } from 'react-responsive';
 import { useTheme } from '@/context/ThemeContext';
 import { useUser } from '@/context/UserContext';
 import { useMemo } from "react";
+import { roleAccessRules } from "@/config/roleAccess";
 
 interface NavItem {
   label: string;
@@ -109,6 +110,57 @@ export default function MainNavigation({
   const isDesktop = useMediaQuery({ query: '(min-width: 768px)' });
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useUser();
+
+  const role = useMemo(() => {
+  try {
+    const userData = user?.response?.user || user?.user || user || {};
+    const roles = userData.roles || [];
+    if (!Array.isArray(roles)) return "customer"; // fallback default
+    const primaryRole =
+      typeof roles[0] === "string"
+        ? roles[0]
+        : roles[0]?.name || roles[0]?.role || "customer";
+    return primaryRole.toLowerCase();
+  } catch {
+    return "customer";
+  }
+}, [user]);
+
+
+const isBlocked = (href: string): boolean => {
+  return blocked.some(pattern =>
+    pattern.endsWith("/*")
+      ? href.startsWith(pattern.replace("/*", ""))
+      : href === pattern
+  );
+};
+
+const blocked = roleAccessRules[role] || [];
+
+// Filter function for sections + items
+const filterSections = (sections: NavSection[]) => {
+  return sections
+    .map(section => ({
+      ...section,
+      items: section.items
+        .map(item => ({
+          ...item,
+          children: item.children?.filter(child => !isBlocked(child.href))
+        }))
+        .filter(item =>
+          !isBlocked(item.href) &&
+          (item.children?.length > 0 || !item.children)
+        )
+    }))
+    .filter(section => section.items.length > 0);
+};
+
+
+// Filtered nav data
+const filteredNavSections = useMemo(
+  () => filterSections(navSections),
+  [role, pathname]
+);
 
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
  // base expansion logic from pathname
@@ -234,7 +286,7 @@ const toggleMenu = (key: string) => {
       {/* Navigation */}
       <nav className="flex-1 flex flex-col py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-border-color scrollbar-track-transparent">
         <div className="flex-1 space-y-8">
-          {navSections.map((section, sectionIndex) => (
+          {filteredNavSections.map((section, sectionIndex) => (
             <div key={section.title} className="space-y-3">
               {/* Section Title - Only show when expanded */}
               {!isCollapsed && (

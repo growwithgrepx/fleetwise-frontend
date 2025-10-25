@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
+
 interface UserContextType {
   user: any;
   isLoggedIn: boolean;
@@ -10,12 +11,16 @@ interface UserContextType {
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
+const clearCookie = (name: string) => {
+  document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+};
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
 
   // Check session on mount
   useEffect(() => {
@@ -37,6 +42,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
           if (userData && (userData.id || userData.email)) {
             setUser(userData);
             setIsLoggedIn(true);
+            const role = (userData.roles?.[0]?.name || "guest").toLowerCase();
+            document.cookie = `fw_role=${role}; Path=/; SameSite=Lax;`;
+            document.cookie = `fw_email=${userData.email}; Path=/; SameSite=Lax;`;
+            document.cookie = `fw_uid=${userData.id}; Path=/; SameSite=Lax;`;
+
           } else {
             console.warn('Invalid user data received:', userData);
             setUser(null);
@@ -90,6 +100,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
           if (userData && (userData.id || userData.email)) {
             setUser(userData);
             setIsLoggedIn(true);
+            const role = (userData.roles?.[0]?.name || "guest").toLowerCase();
+
+document.cookie = `fw_role=${role}; Path=/; SameSite=Lax;`;
+document.cookie = `fw_email=${userData.email}; Path=/; SameSite=Lax;`;
+document.cookie = `fw_uid=${userData.id}; Path=/; SameSite=Lax;`;
+
+
             return true;
           } else {
             console.warn('Invalid user data received during login:', userData);
@@ -97,6 +114,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
             setIsLoggedIn(false);
             return false;
           }
+//           const extracted = extractUser(data);
+// if (extracted && (extracted.id || extracted.email)) {
+//   setUser(extracted);
+//   setIsLoggedIn(true);
+//   return true;
+// }
+
         }
       }
       
@@ -123,6 +147,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } finally {
       setUser(null);
       setIsLoggedIn(false);
+      clearCookie("fw_role");
+      clearCookie("fw_email");
+      clearCookie("fw_uid");
       router.replace('/login');
     }
   };
