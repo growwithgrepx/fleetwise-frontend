@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import clsx from 'clsx';
-import { VariableSizeList as VList } from 'react-window';
 
 import {
   CheckCircleIcon,
@@ -45,6 +44,7 @@ interface ExcelRow {
   vehicle_type?: string;
   contractor?: string;
   contractor_id?: number;
+  job_id?: string;
 }
 
 // Reference data interfaces (adjust based on your API response)
@@ -121,6 +121,13 @@ export default function ExcelUploadTable({
     direction: 'asc' | 'desc';
   } | null>(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
+  // Filter state
+  const [showInvalidOnly, setShowInvalidOnly] = useState(false);
+
   // Reference data state
   const [referenceData, setReferenceData] = useState<ReferenceData>({
     customers: [],
@@ -132,69 +139,15 @@ export default function ExcelUploadTable({
   });
   const [isLoadingReferenceData, setIsLoadingReferenceData] = useState(false);
 
-  const listRef = useRef<any>(null);
-  const rowHeightMapRef = useRef<Record<number, number>>({});  // Store row heights
-
   // Store editing data in a ref to avoid re-renders
   const editingDataRef = useRef<Record<number, ExcelRow>>({});
-
-  // CRITICAL FIX: Add state to trigger list recomputation when edit mode changes
-  const [rowUpdateTrigger, setRowUpdateTrigger] = useState(0);
-
-  // Force reset editing state on component mount
-  useEffect(() => {
-    setEditingRow(null);
-    editingDataRef.current = {};
-    setExpandedRows(new Set());
-  }, []);
 
   // Reset editing state when data changes
   useEffect(() => {
     setEditingRow(null);
     editingDataRef.current = {};
     setExpandedRows(new Set());
-  }, [data]);
-
-  // When editing state changes, update the row heights and force a recalculation
-  useEffect(() => {
-    if (editingRow !== null) {
-      // Add a significant height for editing mode (adjust based on your form)
-      rowHeightMapRef.current[editingRow] = 900; // Increased height for full form visibility
-
-      // Force recalculation
-      if (listRef.current) {
-        listRef.current.resetAfterIndex(0);
-      }
-
-      // Trigger update
-      setRowUpdateTrigger(prev => prev + 1);
-    }
-  }, [editingRow]);
-
-  // When edit mode is canceled, reset the row height
-  useEffect(() => {
-    if (editingRow === null) {
-      // Reset any previously set heights when editing is canceled
-      Object.keys(rowHeightMapRef.current).forEach(key => {
-        delete rowHeightMapRef.current[Number(key)];
-      });
-
-      // Force recalculation
-      if (listRef.current) {
-        listRef.current.resetAfterIndex(0);
-      }
-
-      // Trigger update
-      setRowUpdateTrigger(prev => prev + 1);
-    }
-  }, [editingRow]);
-
-  // Reset heights when data changes
-  useEffect(() => {
-    rowHeightMapRef.current = {};
-    if (listRef.current) {
-      listRef.current.resetAfterIndex(0);
-    }
+    setCurrentPage(1); // Reset to first page when data changes
   }, [data]);
 
   // Fetch reference data on mount
@@ -302,23 +255,6 @@ export default function ExcelUploadTable({
     }
   }, [selectedRows, data]);
 
-  const startEditing = useCallback((row: ExcelRow) => {
-    // Store the original data for this row
-    editingDataRef.current[row.row_number] = { ...row };
-
-    // Set editing row
-    setEditingRow(row.row_number);
-
-    // Scroll to the row after a short delay to ensure height is updated
-    setTimeout(() => {
-      if (listRef.current) {
-        const rowIndex = data.findIndex(r => r.row_number === row.row_number);
-        if (rowIndex !== -1) {
-          listRef.current.scrollToItem(rowIndex, "start");
-        }
-      }
-    }, 100);
-  }, [data]);
 
   const cancelEditing = useCallback(() => {
     if (editingRow) {
@@ -334,8 +270,49 @@ export default function ExcelUploadTable({
     const currentEditData = editingDataRef.current[editingRow];
 
     try {
-      // Since we're using dropdowns, the IDs are already set
-      // Just mark as valid and save
+      // Validate required fields
+      const errors: string[] = [];
+
+      if (!currentEditData.customer_id || !currentEditData.customer) {
+        errors.push('Customer is required');
+      }
+      if (!currentEditData.service) {
+        errors.push('Service is required');
+      }
+      if (!currentEditData.vehicle_id || !currentEditData.vehicle) {
+        errors.push('Vehicle is required');
+      }
+      if (!currentEditData.driver_id || !currentEditData.driver) {
+        errors.push('Driver is required');
+      }
+      if (!currentEditData.pickup_date) {
+        errors.push('Pickup date is required');
+      }
+      if (!currentEditData.pickup_time) {
+        errors.push('Pickup time is required');
+      }
+      if (!currentEditData.pickup_location) {
+        errors.push('Pickup location is required');
+      }
+      if (!currentEditData.dropoff_location) {
+        errors.push('Dropoff location is required');
+      }
+
+      // If there are validation errors, show them and don't save
+      if (errors.length > 0) {
+        const updatedRow = {
+          ...currentEditData,
+          is_valid: false,
+          error_message: errors.join(', ')
+        };
+        onUpdateRow(editingRow, updatedRow);
+        delete editingDataRef.current[editingRow];
+        setEditingRow(null);
+        toast.error(`Validation failed: ${errors.join(', ')}`);
+        return;
+      }
+
+      // All validations passed - mark as valid
       const updatedRow = {
         ...currentEditData,
         is_valid: true,
@@ -380,10 +357,38 @@ export default function ExcelUploadTable({
   const hasSelection = selectedRows.size > 0;
   const uploadableCount = hasSelection ? selectedValidCount : validCount;
 
-  const sortedData = useMemo(() => {
-    if (!sortConfig) return data;
+  // Sync selections when data changes - remove invalid rows from selection
+  useEffect(() => {
+    if (selectedRows.size > 0) {
+      // Get set of valid row numbers
+      const validRowNumbers = new Set(
+        data.filter(r => r.is_valid && !r.is_rejected).map(r => r.row_number)
+      );
 
-    return [...data].sort((a, b) => {
+      // Check if any selected rows are now invalid
+      const updatedSelection = new Set(
+        Array.from(selectedRows).filter(num => validRowNumbers.has(num))
+      );
+
+      // Only update if the selection has changed
+      if (updatedSelection.size !== selectedRows.size) {
+        setSelectedRows(updatedSelection);
+      }
+    }
+  }, [data, selectedRows]);
+
+  // Filter data based on showInvalidOnly flag
+  const filteredData = useMemo(() => {
+    if (showInvalidOnly) {
+      return data.filter(row => !row.is_valid && !row.is_rejected);
+    }
+    return data;
+  }, [data, showInvalidOnly]);
+
+  const sortedData = useMemo(() => {
+    if (!sortConfig) return filteredData;
+
+    return [...filteredData].sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
 
@@ -392,7 +397,7 @@ export default function ExcelUploadTable({
       const comparison = aValue < bValue ? -1 : 1;
       return sortConfig.direction === 'asc' ? comparison : -comparison;
     });
-  }, [data, sortConfig]);
+  }, [filteredData, sortConfig]);
 
   useEffect(() => {
     if (onSelectionChange) {
@@ -401,28 +406,59 @@ export default function ExcelUploadTable({
     }
   }, [selectedRows, selectedValidCount, onSelectionChange]);
 
-  const getRowHeight = useCallback((index: number) => {
-    const row = sortedData[index];
-    if (!row) return 40;
+  // Pagination logic
+  const totalPages = Math.ceil(sortedData.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedData = sortedData.slice(startIndex, endIndex);
 
-    // If this row is being edited, return the stored larger height
-    if (editingRow === row.row_number && rowHeightMapRef.current[row.row_number]) {
-      return rowHeightMapRef.current[row.row_number];
+  // Start editing with auto-navigation to correct page
+  const startEditing = useCallback((row: ExcelRow) => {
+    // Find the row's position in sorted data to determine correct page
+    const rowIndex = sortedData.findIndex(r => r.row_number === row.row_number);
+    if (rowIndex === -1) return; // Row not found, bail out
+
+    const targetPage = Math.floor(rowIndex / rowsPerPage) + 1;
+
+    // If row is on a different page, navigate to it first
+    if (targetPage !== currentPage) {
+      setCurrentPage(targetPage);
     }
 
-    // For expanded but not editing rows
-    if (expandedRows.has(row.row_number)) {
-      return 150;
-    }
+    // Store the original data for this row
+    editingDataRef.current[row.row_number] = { ...row };
 
-    return 40;
-  }, [sortedData, expandedRows, editingRow, rowUpdateTrigger]);
+    // Set editing row
+    setEditingRow(row.row_number);
+  }, [sortedData, rowsPerPage, currentPage]);
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Collapse all rows when changing pages
+    setExpandedRows(new Set());
+    setEditingRow(null);
+  };
+
+  const handleRowsPerPageChange = (rows: number) => {
+    setRowsPerPage(rows);
+    setCurrentPage(1); // Reset to first page
+  };
+
+  const toggleInvalidFilter = useCallback(() => {
+    setShowInvalidOnly(prev => !prev);
+    setCurrentPage(1); // Reset to first page when toggling filter
+  }, []);
+
+  // Clear edit state if current row not in paginated view (prevents cross-page state leakage)
   useEffect(() => {
-    if (listRef.current) {
-      listRef.current.resetAfterIndex(0);
+    if (editingRow !== null) {
+      const isRowVisible = paginatedData.some(r => r.row_number === editingRow);
+      if (!isRowVisible) {
+        setEditingRow(null);
+        delete editingDataRef.current[editingRow];
+      }
     }
-  }, [expandedRows, editingRow]);
+  }, [paginatedData, editingRow]);
 
   if (isLoading) {
     return (
@@ -499,6 +535,18 @@ export default function ExcelUploadTable({
       <div className="px-6 py-3 bg-background-hover border-b border-border-color flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <button
+            onClick={toggleInvalidFilter}
+            className={clsx(
+              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center space-x-1",
+              showInvalidOnly
+                ? "text-white bg-red-600 hover:bg-red-700 border border-red-600"
+                : "text-red-600 hover:text-red-700 border border-red-600/30 hover:bg-red-50"
+            )}
+          >
+            <ExclamationTriangleIcon className="w-4 h-4" />
+            <span>{showInvalidOnly ? `Showing ${errorCount} Invalid` : 'Show Invalid Only'}</span>
+          </button>
+          <button
             onClick={selectAllValid}
             className="px-3 py-1.5 text-xs font-medium text-primary hover:text-primary-dark border border-primary/30 rounded-md hover:bg-primary/10 transition-colors"
           >
@@ -529,37 +577,49 @@ export default function ExcelUploadTable({
           )}
         </div>
 
-        {selectedRows.size > 0 && (
+        {selectedRows.size > 0 ? (
           <div className="text-sm text-text-secondary">
             <span className="font-medium text-primary">{selectedValidCount}</span> of{' '}
             <span className="font-medium">{selectedRows.size}</span> selected rows are valid
           </div>
-        )}
+        ) : showInvalidOnly && errorCount > 0 ? (
+          <div className="text-sm text-red-600 font-medium">
+            Showing {sortedData.length} invalid row(s)
+          </div>
+        ) : null}
       </div>
 
-      {/* Virtualized Table */}
-      <div className="overflow-auto excel-upload-table-container" style={{ height: '600px' }}>
-        <style jsx>{`
-          .excel-upload-table-container :global(> div) {
-            overflow: visible !important;
-          }
-        `}</style>
-        <VList
-          ref={listRef}
-          height={600}
-          itemCount={sortedData.length}
-          itemSize={getRowHeight}
-          width="100%"
-          overscanCount={5}
-        >
-          {({ index, style }) => (
+      {/* Paginated Table */}
+      <div className="overflow-auto" style={{ maxHeight: '600px' }}>
+        {paginatedData.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 px-6">
+            <CheckCircleIcon className="w-16 h-16 text-green-500 mb-4" />
+            <h3 className="text-lg font-semibold text-text-main mb-2">
+              {showInvalidOnly ? 'No Invalid Rows!' : 'No Data'}
+            </h3>
+            <p className="text-sm text-text-secondary text-center">
+              {showInvalidOnly
+                ? 'All rows are valid and ready for upload. Click "Show Invalid Only" to view all rows.'
+                : 'No rows to display.'
+              }
+            </p>
+            {showInvalidOnly && (
+              <button
+                onClick={toggleInvalidFilter}
+                className="mt-4 px-4 py-2 text-sm font-medium text-primary hover:text-primary-dark border border-primary/30 rounded-md hover:bg-primary/10 transition-colors"
+              >
+                Show All Rows
+              </button>
+            )}
+          </div>
+        ) : (
+          paginatedData.map((row) => (
             <RowItem
-              key={sortedData[index].row_number}
-              row={sortedData[index]}
-              style={style}
-              isExpanded={expandedRows.has(sortedData[index].row_number)}
-              isEditing={editingRow === sortedData[index].row_number}
-              isSelected={selectedRows.has(sortedData[index].row_number)}
+              key={row.row_number}
+              row={row}
+              isExpanded={expandedRows.has(row.row_number)}
+              isEditing={editingRow === row.row_number}
+              isSelected={selectedRows.has(row.row_number)}
               onToggleExpansion={toggleRowExpansion}
               onToggleSelection={toggleRowSelection}
               onStartEditing={startEditing}
@@ -571,9 +631,95 @@ export default function ExcelUploadTable({
               referenceData={referenceData}
               isLoadingReferenceData={isLoadingReferenceData}
             />
-          )}
-        </VList>
+          ))
+        )}
       </div>
+
+      {/* Pagination Controls */}
+      {sortedData.length > 10 && (
+        <div className="px-6 py-4 bg-background-hover border-t border-border-color flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-text-secondary">
+              Showing {startIndex + 1} to {Math.min(endIndex, sortedData.length)} of {sortedData.length} rows
+            </span>
+            <div className="flex items-center space-x-2">
+              <label className="text-sm text-text-secondary">Rows per page:</label>
+              <select
+                value={rowsPerPage}
+                onChange={(e) => handleRowsPerPageChange(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-border-color rounded-md bg-background-light text-text-main"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 text-sm border border-border-color rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-background-light transition-colors"
+            >
+              First
+            </button>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 text-sm border border-border-color rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-background-light transition-colors"
+            >
+              Previous
+            </button>
+
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={clsx(
+                      "px-3 py-1 text-sm border rounded-md transition-colors",
+                      currentPage === pageNum
+                        ? "bg-primary text-white border-primary"
+                        : "border-border-color hover:bg-background-light"
+                    )}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 text-sm border border-border-color rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-background-light transition-colors"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 text-sm border border-border-color rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-background-light transition-colors"
+            >
+              Last
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Footer Actions */}
       {/* <div className="px-6 py-1 bg-background-hover border-t border-border-color flex items-center justify-between">
@@ -615,7 +761,6 @@ export default function ExcelUploadTable({
 
 interface RowItemProps {
   row: ExcelRow;
-  style: React.CSSProperties;
   isExpanded: boolean;
   isEditing: boolean;
   isSelected: boolean;
@@ -633,7 +778,6 @@ interface RowItemProps {
 
 function RowItem({
   row,
-  style,
   isExpanded,
   isEditing,
   isSelected,
@@ -650,7 +794,7 @@ function RowItem({
 }: RowItemProps) {
 
   const baseRowClass = clsx(
-    "border-b border-border-color transition-all duration-200 box-border leading-none",
+    "border-b border-border-color transition-all duration-200",
     {
       "bg-green-500/5": row.is_valid && !row.is_rejected,
       "bg-red-500/5": !row.is_valid && !row.is_rejected,
@@ -660,22 +804,9 @@ function RowItem({
   );
 
   return (
-    <div
-      style={{
-        ...style,
-        // CRITICAL FIX: Allow container to grow for edit mode
-        height: isEditing ? 'auto' : style.height,
-        minHeight: style.height,
-        overflow: isEditing ? 'visible' : 'hidden',
-        zIndex: isEditing ? 10 : 1,
-        position: 'relative',
-        marginBottom: 0,
-        paddingBottom: 0,
-      }}
-      className={baseRowClass}
-    >
+    <div className={baseRowClass}>
       {/* Main Row */}
-      <div className="flex items-center px-6 py-1 hover:bg-background-hover cursor-pointer"
+      <div className="flex items-center px-6 py-2 hover:bg-background-hover cursor-pointer"
         onClick={() => !isEditing && onToggleExpansion(row.row_number)}>
 
         <div className="mr-4" onClick={(e) => e.stopPropagation()}>
@@ -709,6 +840,12 @@ function RowItem({
         <div className="w-16 text-sm font-medium text-text-secondary">
           #{row.row_number}
         </div>
+
+        {row.job_id && (
+          <div className="w-32 px-2">
+            <p className="text-sm font-semibold text-primary">{row.job_id}</p>
+          </div>
+        )}
 
         <div className="flex-1 min-w-0 px-2">
           <p className="text-sm font-medium text-text-main truncate">{row.customer}</p>
@@ -753,8 +890,14 @@ function RowItem({
 
       {/* Expanded Details */}
       {isExpanded && !isEditing && (
-        <div className="px-6 py-1 bg-background-hover/50 border-t border-border-color">
-          <div className="grid grid-cols-2 gap-1 text-xs leading-tight">
+        <div className="px-6 py-3 bg-background-hover/50 border-t border-border-color">
+          <div className="grid grid-cols-2 gap-2 text-xs leading-normal">
+            {row.job_id && (
+              <div className="col-span-2 mb-2">
+                <span className="font-medium text-text-secondary">Job ID:</span>
+                <span className="ml-2 text-primary font-semibold">{row.job_id}</span>
+              </div>
+            )}
             <div>
               <span className="font-medium text-text-secondary">Customer:</span>
               <span className="ml-2 text-text-main">{row.customer}</span>
@@ -796,7 +939,11 @@ function RowItem({
               </div>
             )}
             <div>
-              <span className="font-medium text-text-secondary">Time:</span>
+              <span className="font-medium text-text-secondary">Pickup Date:</span>
+              <span className="ml-2 text-text-main">{row.pickup_date}</span>
+            </div>
+            <div>
+              <span className="font-medium text-text-secondary">Pickup Time:</span>
               <span className="ml-2 text-text-main">{row.pickup_time}</span>
             </div>
             <div>
@@ -810,7 +957,7 @@ function RowItem({
               </div>
             )}
             <div className="col-span-2">
-              <span className="font-medium text-text-secondary">Pickup:</span>
+              <span className="font-medium text-text-secondary">Pickup Location:</span>
               <span className="ml-2 text-text-main">{row.pickup_location}</span>
             </div>
             <div className="col-span-2">
@@ -876,14 +1023,85 @@ function EditForm({
 }: EditFormProps) {
 
   const row = editingDataRef.current[rowNumber];
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   if (!row) return null;
+
+  const validateField = useCallback((field: string, value: any) => {
+    const errors: Record<string, string> = { ...validationErrors };
+
+    switch(field) {
+      case 'customer_id':
+      case 'customer':
+        if (!value) {
+          errors.customer = 'Customer is required';
+        } else {
+          delete errors.customer;
+        }
+        break;
+      case 'service':
+        if (!value) {
+          errors.service = 'Service is required';
+        } else {
+          delete errors.service;
+        }
+        break;
+      case 'vehicle_id':
+      case 'vehicle':
+        if (!value) {
+          errors.vehicle = 'Vehicle is required';
+        } else {
+          delete errors.vehicle;
+        }
+        break;
+      case 'driver_id':
+      case 'driver':
+        if (!value) {
+          errors.driver = 'Driver is required';
+        } else {
+          delete errors.driver;
+        }
+        break;
+      case 'pickup_date':
+        if (!value) {
+          errors.pickup_date = 'Pickup date is required';
+        } else {
+          delete errors.pickup_date;
+        }
+        break;
+      case 'pickup_time':
+        if (!value) {
+          errors.pickup_time = 'Pickup time is required';
+        } else {
+          delete errors.pickup_time;
+        }
+        break;
+      case 'pickup_location':
+        if (!value) {
+          errors.pickup_location = 'Pickup location is required';
+        } else {
+          delete errors.pickup_location;
+        }
+        break;
+      case 'dropoff_location':
+        if (!value) {
+          errors.dropoff_location = 'Dropoff location is required';
+        } else {
+          delete errors.dropoff_location;
+        }
+        break;
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [validationErrors]);
 
   const handleChange = (field: keyof ExcelRow, value: any) => {
     editingDataRef.current[rowNumber] = {
       ...editingDataRef.current[rowNumber],
       [field]: value
     };
+    validateField(field, value);
   };
 
   const handleCustomerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -895,6 +1113,9 @@ function EditForm({
         customer: customer.name,
         customer_id: customer.id
       };
+      validateField('customer_id', customer.id);
+    } else {
+      validateField('customer_id', '');
     }
   };
 
@@ -907,6 +1128,9 @@ function EditForm({
         service: service.name,
         service_type: service.name
       };
+      validateField('service', service.name);
+    } else {
+      validateField('service', '');
     }
   };
 
@@ -920,6 +1144,9 @@ function EditForm({
         vehicle_id: vehicle.id,
 
       };
+      validateField('vehicle_id', vehicle.id);
+    } else {
+      validateField('vehicle_id', '');
     }
   };
 
@@ -932,6 +1159,9 @@ function EditForm({
         driver: driver.name,
         driver_id: driver.id
       };
+      validateField('driver_id', driver.id);
+    } else {
+      validateField('driver_id', '');
     }
   };
 
@@ -950,8 +1180,6 @@ function EditForm({
   const inputClassName = "w-full px-3 py-2 bg-transparent text-text-main border border-border-color rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary placeholder-text-secondary/50";
   const selectClassName = "w-full px-3 py-2 bg-background-light text-text-main border border-border-color rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary";
 
-  const statusOptions = ['new', 'pending', 'confirmed', 'in_progress', 'completed', 'canceled'];
-
   return (
     <div className="px-6 py-4 bg-transparent border-t border-border-color">
       <div className="space-y-4">
@@ -966,19 +1194,24 @@ function EditForm({
                 <span className="text-text-secondary">Loading...</span>
               </div>
             ) : (
-              <select
-                defaultValue={row.customer_id || ''}
-                onChange={handleCustomerChange}
-                className={selectClassName}
-                required
-              >
-                <option value="">Select Customer</option>
-                {referenceData.customers.map(customer => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  defaultValue={row.customer_id || ''}
+                  onChange={handleCustomerChange}
+                  className={clsx(selectClassName, validationErrors.customer && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
+                  required
+                >
+                  <option value="">Select Customer</option>
+                  {referenceData.customers.map(customer => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </option>
+                  ))}
+                </select>
+                {validationErrors.customer && (
+                  <p className="text-xs text-red-500 mt-1">{validationErrors.customer}</p>
+                )}
+              </>
             )}
           </div>
 
@@ -1020,19 +1253,24 @@ function EditForm({
                 <span className="text-text-secondary">Loading...</span>
               </div>
             ) : (
-              <select
-                defaultValue={row.service}
-                onChange={handleServiceChange}
-                className={selectClassName}
-                required
-              >
-                <option value="">Select Service</option>
-                {referenceData.services.map(service => (
-                  <option key={service.id} value={service.name}>
-                    {service.name}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  defaultValue={row.service}
+                  onChange={handleServiceChange}
+                  className={clsx(selectClassName, validationErrors.service && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
+                  required
+                >
+                  <option value="">Select Service</option>
+                  {referenceData.services.map(service => (
+                    <option key={service.id} value={service.name}>
+                      {service.name}
+                    </option>
+                  ))}
+                </select>
+                {validationErrors.service && (
+                  <p className="text-xs text-red-500 mt-1">{validationErrors.service}</p>
+                )}
+              </>
             )}
           </div>
 
@@ -1052,7 +1290,7 @@ function EditForm({
                   onChange={(e) => {
                     handleVehicleChange(e);
                   }}
-                  className={selectClassName}
+                  className={clsx(selectClassName, validationErrors.vehicle && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
                   required
                 >
                   <option value="">Select Vehicle</option>
@@ -1064,6 +1302,9 @@ function EditForm({
                     );
                   })}
                 </select>
+                {validationErrors.vehicle && (
+                  <p className="text-xs text-red-500 mt-1">{validationErrors.vehicle}</p>
+                )}
               </>
             )}
           </div>
@@ -1077,19 +1318,24 @@ function EditForm({
                 <span className="text-text-secondary">Loading...</span>
               </div>
             ) : (
-              <select
-                defaultValue={row.driver_id || ''}
-                onChange={handleDriverChange}
-                className={selectClassName}
-                required
-              >
-                <option value="">Select Driver</option>
-                {referenceData.drivers.map(driver => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.name}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  defaultValue={row.driver_id || ''}
+                  onChange={handleDriverChange}
+                  className={clsx(selectClassName, validationErrors.driver && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
+                  required
+                >
+                  <option value="">Select Driver</option>
+                  {referenceData.drivers.map(driver => (
+                    <option key={driver.id} value={driver.id}>
+                      {driver.name}
+                    </option>
+                  ))}
+                </select>
+                {validationErrors.driver && (
+                  <p className="text-xs text-red-500 mt-1">{validationErrors.driver}</p>
+                )}
+              </>
             )}
           </div>
 
@@ -1197,9 +1443,12 @@ function EditForm({
               type="date"
               defaultValue={row.pickup_date}
               onChange={(e) => handleChange('pickup_date', e.target.value)}
-              className={inputClassName}
+              className={clsx(inputClassName, validationErrors.pickup_date && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
               required
             />
+            {validationErrors.pickup_date && (
+              <p className="text-xs text-red-500 mt-1">{validationErrors.pickup_date}</p>
+            )}
           </div>
 
           {/* Pickup Time */}
@@ -1211,9 +1460,12 @@ function EditForm({
               type="time"
               defaultValue={row.pickup_time}
               onChange={(e) => handleChange('pickup_time', e.target.value)}
-              className={inputClassName}
+              className={clsx(inputClassName, validationErrors.pickup_time && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
               required
             />
+            {validationErrors.pickup_time && (
+              <p className="text-xs text-red-500 mt-1">{validationErrors.pickup_time}</p>
+            )}
           </div>
 
           {/* Pickup Location */}
@@ -1225,9 +1477,12 @@ function EditForm({
               type="text"
               defaultValue={row.pickup_location}
               onChange={(e) => handleChange('pickup_location', e.target.value)}
-              className={inputClassName}
+              className={clsx(inputClassName, validationErrors.pickup_location && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
               required
             />
+            {validationErrors.pickup_location && (
+              <p className="text-xs text-red-500 mt-1">{validationErrors.pickup_location}</p>
+            )}
           </div>
 
           {/* Dropoff Location */}
@@ -1239,9 +1494,12 @@ function EditForm({
               type="text"
               defaultValue={row.dropoff_location}
               onChange={(e) => handleChange('dropoff_location', e.target.value)}
-              className={inputClassName}
+              className={clsx(inputClassName, validationErrors.dropoff_location && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
               required
             />
+            {validationErrors.dropoff_location && (
+              <p className="text-xs text-red-500 mt-1">{validationErrors.dropoff_location}</p>
+            )}
           </div>
 
           {/* Passenger Name */}
@@ -1269,24 +1527,6 @@ function EditForm({
               className={inputClassName}
               placeholder="Enter mobile number"
             />
-          </div>
-
-          {/* Status Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Status
-            </label>
-            <select
-              defaultValue={row.status}
-              onChange={(e) => handleChange('status', e.target.value)}
-              className={selectClassName}
-            >
-              {statusOptions.map(status => (
-                <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Remarks */}
