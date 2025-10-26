@@ -31,7 +31,7 @@ export interface Job {
   passenger_email: string | null;
   passenger_mobile: string;
   status: JobStatus;
-  
+
   // Additional pickup locations
   pickup_loc1?: string;
   pickup_loc2?: string;
@@ -43,7 +43,7 @@ export interface Job {
   pickup_loc3_price?: number;
   pickup_loc4_price?: number;
   pickup_loc5_price?: number;
-  
+
   // Additional dropoff locations
   dropoff_loc1?: string;
   dropoff_loc2?: string;
@@ -55,7 +55,7 @@ export interface Job {
   dropoff_loc3_price?: number;
   dropoff_loc4_price?: number;
   dropoff_loc5_price?: number;
-  
+
   // Billing information
   base_price: number;
   job_cost?: number;
@@ -66,20 +66,20 @@ export interface Job {
   base_discount_percent?: number;
   customer_discount_percent?: number;
   additional_discount_percent?: number;
-  
+
   // Extra services
   extra_services: Array<{ description: string; price: number }>;
-  
+
   // Invoice information
   invoice_id?: number | null;
   invoice_number?: string;
-  
+
   // Midnight surcharge field
   midnight_surcharge?: number;
-  
+
   // Contractor field
   contractor_id?: number;
-  
+
   // Customer remark field
   customer_remark?: string;
   

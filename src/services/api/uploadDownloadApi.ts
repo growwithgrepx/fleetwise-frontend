@@ -27,8 +27,19 @@ export interface PreviewData {
 
 export interface UploadResult {
   success: boolean;
-  processed: number;
-  message: string;
+  processed_count: number;
+  skipped_count: number;
+  created_jobs?: Array<{
+    job_id: string;
+    row_number: number;
+    customer: string;
+    pickup_date: string;
+  }>;
+  skipped_rows: Array<{
+    row_number: number;
+    reason: string;
+  }>;
+  message?: string;
   errors: string[];
 }
 
