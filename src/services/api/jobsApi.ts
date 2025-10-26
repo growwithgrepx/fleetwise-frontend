@@ -22,6 +22,10 @@ export interface AuditRecord {
   new_status: string;
   reason: string;
   description: string;
+  attachments?: { file_url: string }[] | string[];
+  changed_by_name?: string;
+  role?: 'Admin' | 'Driver' | 'Customer';
+  remark?: string; 
 }
 
 export interface DriverInfo {
@@ -330,6 +334,7 @@ export async function getJobsAuditTrail(params: Record<string, string>): Promise
 /** Get detailed audit trail for a specific job */
 export async function getJobAuditTrail(jobId: number): Promise<JobAuditTrailResponse> {
   const response = await api.get<JobAuditTrailResponse>(`/api/jobs/audit_trail/${jobId}`);
+  console.log('API Response for job audit trail:', response);
   return response.data;
 }
 
