@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
+
 interface UserContextType {
   user: any;
   isLoggedIn: boolean;
@@ -16,6 +17,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
 
   // Check session on mount
   useEffect(() => {
@@ -90,6 +92,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           if (userData && (userData.id || userData.email)) {
             setUser(userData);
             setIsLoggedIn(true);
+
             return true;
           } else {
             console.warn('Invalid user data received during login:', userData);
@@ -97,6 +100,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             setIsLoggedIn(false);
             return false;
           }
+
         }
       }
       
