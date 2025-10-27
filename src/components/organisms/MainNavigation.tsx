@@ -112,32 +112,55 @@ export default function MainNavigation({
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useUser();
 
-  const [allowedNav, setAllowedNav] = useState<string[]>([]);
+// BLOCKLIST MODE: roleAccessRules[role] = array of BLOCKED routes
+const [blockedNav, setBlockedNav] = useState<string[] | null>(null);
 
-  useEffect(() => {
-    fetch("/api/navigation", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => {
-        setAllowedNav(data.allowedNav || []);
-      })
-      .catch(() => setAllowedNav([]));
-  }, []);
+useEffect(() => {
+  fetch("/api/navigation", { credentials: "include" })
+    .then((res) => res.json())
+    .then((data) => setBlockedNav(data.blockedNav ?? [])) // ensure array
+    .catch(() => setBlockedNav([]));
+}, []);
 
-  const isBlocked = (href: string): boolean =>
-  allowedNav.some((pattern) =>
-    pattern.endsWith("/*")
-      ? href.startsWith(pattern.replace("/*", ""))
-      : href === pattern
-  );
+// --- utils ---
+const normalize = (path: string) =>
+  (path || "").split("?")[0].replace(/\/+$/, ""); // remove query + trailing slash
 
+const matchesAny = (patterns: string[], href: string) => {
+  const cleanHref = normalize(href);
+  return patterns.some((p) => {
+    const pat = normalize(p);
 
-  const visibleSections = navSections
-    .map((section) => ({
-      ...section,
-      items: section.items?.filter((item) => !isBlocked(item.href))
+    // wildcard support: "/jobs/*" blocks "/jobs" and any subpath
+    if (pat.endsWith("/*")) {
+      const base = pat.slice(0, -2);
+      return cleanHref === base || cleanHref.startsWith(`${base}/`);
+    }
 
-    }))
-    .filter((section) => section.items && section.items.length > 0);
+    // block exact path or any subpath (so "/jobs/manage" blocks "/jobs/manage/edit")
+    return cleanHref === pat || cleanHref.startsWith(`${pat}/`);
+  });
+};
+
+const isBlocked = (href: string): boolean =>
+  matchesAny(blockedNav || [], href);
+
+// --- filter nav (supports children) ---
+const visibleSections = navSections
+  .map((section) => ({
+    ...section,
+    items: section.items
+      ?.map((item) => ({
+        ...item,
+        children: item.children?.filter((child) => !isBlocked(child.href)),
+      }))
+      .filter(
+        (item) =>
+          !isBlocked(item.href) &&
+          (item.children?.length > 0 || !item.children)
+      ),
+  }))
+  .filter((section) => section.items && section.items.length > 0);
 
 
 // const role = useMemo(() => extractUserRole(user), [user]);

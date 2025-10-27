@@ -396,9 +396,7 @@ const JobsPage = () => {
   const startIdx = (page - 1) * pageSize + 1;
   const endIdx = Math.min(page * pageSize, total);
 
-   if (["driver"].includes(role)) {
-    return <NotAuthorizedPage />;
-  }
+   
 
   if (error) return <div>Failed to load jobs. Error: {error.message}</div>;
 
