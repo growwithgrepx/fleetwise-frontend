@@ -132,6 +132,8 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
       // Invalidate all job-related queries to ensure new jobs appear immediately
       queryClient.invalidateQueries({ queryKey: jobKeys.all });
       queryClient.invalidateQueries({ queryKey: [...jobKeys.all, 'list'] });
+      // Also invalidate the all-status-counts query used in jobs page for status/customer counts
+      queryClient.invalidateQueries({ queryKey: ['jobs', 'all-status-counts'] });
     },
     onError: (error: any) => {
       // Handle scheduling conflict errors specially
@@ -152,6 +154,8 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
       queryClient.invalidateQueries({ queryKey: jobKeys.lists(debouncedFilters) });
       // Also invalidate all job lists to ensure consistency across different filter views
       queryClient.invalidateQueries({ queryKey: [...jobKeys.all, 'list'] });
+      // Also invalidate the all-status-counts query used in jobs page for status/customer counts
+      queryClient.invalidateQueries({ queryKey: ['jobs', 'all-status-counts'] });
     },
     onError: (error: any) => {
       // Handle scheduling conflict errors specially
@@ -170,6 +174,8 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: jobKeys.lists(debouncedFilters), refetchType: "active" });
       queryClient.invalidateQueries({ queryKey: [...jobKeys.all, 'list'] });
+      // Also invalidate the all-status-counts query used in jobs page for status/customer counts
+      queryClient.invalidateQueries({ queryKey: ['jobs', 'all-status-counts'] });
     }
   });
 
@@ -180,6 +186,8 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
       queryClient.invalidateQueries({ queryKey: jobKeys.lists(debouncedFilters) });
       queryClient.invalidateQueries({ queryKey: jobKeys.all });
       queryClient.invalidateQueries({ queryKey: [...jobKeys.all, 'list'] });
+      // Also invalidate the all-status-counts query used in jobs page for status/customer counts
+      queryClient.invalidateQueries({ queryKey: ['jobs', 'all-status-counts'] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to cancel job');
@@ -193,6 +201,8 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
       queryClient.invalidateQueries({ queryKey: jobKeys.lists(debouncedFilters) });
       queryClient.invalidateQueries({ queryKey: jobKeys.all });
       queryClient.invalidateQueries({ queryKey: [...jobKeys.all, 'list'] });
+      // Also invalidate the all-status-counts query used in jobs page for status/customer counts
+      queryClient.invalidateQueries({ queryKey: ['jobs', 'all-status-counts'] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to re-instate job');
@@ -206,6 +216,8 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
       queryClient.invalidateQueries({ queryKey: jobKeys.lists(debouncedFilters) });
       queryClient.invalidateQueries({ queryKey: jobKeys.all });
       queryClient.invalidateQueries({ queryKey: [...jobKeys.all, 'list'] });
+      // Also invalidate the all-status-counts query used in jobs page for status/customer counts
+      queryClient.invalidateQueries({ queryKey: ['jobs', 'all-status-counts'] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to cancel jobs');
