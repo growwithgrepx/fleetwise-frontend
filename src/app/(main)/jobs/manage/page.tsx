@@ -87,16 +87,20 @@ const getJobActions = (
 const ManageJobsPage = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { jobs, isLoading, error, updateJobAsync, deleteJobAsync, cancelJobAsync, reinstateJobAsync } = useJobs();
+  const { jobs, isLoading, error, updateFilters, filters, updateJobAsync, deleteJobAsync, cancelJobAsync, reinstateJobAsync } = useJobs();
   const { setCopiedJobData } = useCopiedJob();
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
-  const [tableFilters, setTableFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState<string>('pickup_date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [search, setSearch] = useState('');
-  const debouncedFilters = useDebounce(tableFilters, 300);
+  const debouncedSearch = useDebounce(search, 500);
+
+  // Local filter state for debouncing before sending to API
+  const [localFilters, setLocalFilters] = useState<Record<string, string>>({});
+  const debouncedLocalFilters = useDebounce(localFilters, 500); // 500ms debounce
+
   const [selectedJobs, setSelectedJobs] = useState<number[]>([]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [reinstateDialogOpen, setReinstateDialogOpen] = useState(false);
@@ -119,13 +123,24 @@ const ManageJobsPage = () => {
     "Entered in Error"
   ];
 
+  // Update API filters when search or column filters change (debounced)
+  // Merged into single effect to prevent race conditions where concurrent updates could overwrite each other
+  React.useEffect(() => {
+    updateFilters({
+      search: debouncedSearch,
+      ...debouncedLocalFilters
+    });
+  }, [debouncedSearch, debouncedLocalFilters, updateFilters]);
+
   const handleFilterChange = (col: string, value: string) => {
-    setTableFilters((prev) => ({ ...prev, [col]: value }));
+    // Update local state immediately (for UI responsiveness)
+    setLocalFilters((prev) => ({ ...prev, [col]: value }));
     setPage(1);
   };
 
   const handleClearFilter = (col: string) => {
-    setTableFilters((prev) => ({ ...prev, [col]: '' }));
+    // Clear local filter immediately
+    setLocalFilters((prev) => ({ ...prev, [col]: '' }));
     setPage(1);
   };
 
@@ -330,17 +345,22 @@ const ManageJobsPage = () => {
   };
 
   // Apply filters to jobs and exclude jc and sd status jobs
+  // Note: Column filters and search are now handled by the API via updateFilters
+  // Only client-side filtering is for excluding completed/stand-down jobs
+  //
+  // TECHNICAL DEBT: Client-side filtering creates O(n) performance overhead.
+  // Ideally, status exclusion should be handled by the backend API via an 'exclude_status' parameter.
+  // Current implementation loads all filtered jobs into memory before filtering out jc/sd statuses.
+  // For datasets >10k jobs, consider moving this to the backend to reduce memory usage and improve performance.
   const filteredJobs = (jobs ?? []).filter(job =>
     // Exclude jobs with jc (completed) or sd (stand-down) status
-    job.status !== 'jc' && job.status !== 'sd' &&
-    Object.entries(debouncedFilters).every(([col, val]) =>
-      !val || (job[col]?.toString().toLowerCase().includes(val.toLowerCase()))
-    ) &&
-    (!search || job.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
-      job.id?.toString().toLowerCase().includes(search.toLowerCase()))
+    job.status !== 'jc' && job.status !== 'sd'
   );
 
-  // Sort jobs
+  // TECHNICAL DEBT: Client-side sorting creates O(n log n) performance overhead.
+  // Ideally, sorting should be handled by the backend API via 'sortBy' and 'sortDir' parameters.
+  // Current implementation sorts all filtered jobs in memory before pagination.
+  // For datasets >10k jobs, consider moving this to the backend.
   const sortedJobs = [...filteredJobs].sort((a, b) => {
     const aVal = a[sortBy];
     const bVal = b[sortBy];
@@ -465,7 +485,7 @@ const ManageJobsPage = () => {
             }}
             onRowClick={handleView}
             expandedRowId={expandedJobId}
-            filters={tableFilters}
+            filters={localFilters}
             onFilterChange={handleFilterChange}
             page={page}
             pageSize={pageSize}
