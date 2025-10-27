@@ -33,7 +33,6 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { useCallback } from "react";
 import classNames from "classnames";
 import { useQueryClient } from "@tanstack/react-query";
-
 // Column configuration for Unbilled Jobs table (simple, filterable)
 const unBillColumns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
   {
@@ -313,6 +312,7 @@ const getCustomerJobActions = (
 
 
 const BillPage = () => {
+  //useRoleGuard(["admin"])
   const router = useRouter();
   const { data: allCustomers = [], isLoading: isCustomersLoading, error: customersError } = useGetAllCustomers();
   const { updateJobAsync } = useJobs();

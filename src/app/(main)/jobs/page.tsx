@@ -23,6 +23,8 @@ import { Eye, Pencil, Trash2, ArrowUp, ArrowDown, Copy } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import JobForm from '@/components/organisms/JobForm';
 import toast from 'react-hot-toast';
+import { useUser } from '@/context/UserContext';
+import NotAuthorizedPage from '@/app/not-authorized/page';
 
 // Column configuration for Jobs table (simple, filterable)
 const columns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
@@ -166,6 +168,9 @@ const JobsPage = () => {
   const debouncedFilters = useDebounce(filters, 500);
   const [editJob, setEditJob] = useState<Job | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const { user } = useUser();
+  const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+
 
   // Update API filters when column filters change (debounced)
   // Not spreading filters to avoid stale closure bugs and infinite loops
@@ -391,6 +396,10 @@ const JobsPage = () => {
   const startIdx = (page - 1) * pageSize + 1;
   const endIdx = Math.min(page * pageSize, total);
 
+   if (["driver"].includes(role)) {
+    return <NotAuthorizedPage />;
+  }
+
   if (error) return <div>Failed to load jobs. Error: {error.message}</div>;
 
   return (
@@ -405,10 +414,10 @@ const JobsPage = () => {
               <Upload className="mr-2 h-4 w-4" />
               Bulk Upload
             </AnimatedButton>
-          </>
-        }
+          </> 
+        } 
         className="mb-4"
-      />
+      /> 
       <div className="flex flex-col md:flex-row md:items-center gap-4 bg-background pt-4 pb-4 rounded-t-xl">
         <div className="flex-1">
           <h3 className="font-bold text-text-main mb-3 px-4 py-2">Filter by status</h3>
@@ -431,7 +440,7 @@ const JobsPage = () => {
           </div>
         </div>
       </div>
-      <div className="flex flex-col md:flex-row md:items-center gap-4 bg-background pt-4 pb-4 rounded-t-xl mt-4">
+      { !["customer", "driver"].includes(role) &&  (<div className="flex flex-col md:flex-row md:items-center gap-4 bg-background pt-4 pb-4 rounded-t-xl mt-4">
         <div className="flex-1">
           <h3 className="font-bold text-text-main mb-3 px-4 py-2">Filter by customer</h3>
           <div className="flex flex-wrap gap-2 px-4 max-h-[140px] overflow-hidden" style={{ maxWidth: '100%' }}>
@@ -466,7 +475,7 @@ const JobsPage = () => {
             ))}
           </div>
         </div>
-      </div>
+      </div> )}
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm text-text-secondary">
           Showing {total === 0 ? 0 : startIdx}-{endIdx} of {total} jobs
