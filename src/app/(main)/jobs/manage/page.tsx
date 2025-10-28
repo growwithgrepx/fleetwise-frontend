@@ -18,7 +18,8 @@ import { useCopiedJob } from '@/context/CopiedJobContext';
 import { UpdateJobStatusModal } from '@/components/molecules/UpdateJobStatusModal';
 import { useQueryClient } from '@tanstack/react-query';
 import { jobKeys } from '@/hooks/useJobs';
-
+import { useUser } from '@/context/UserContext';
+import NotAuthorizedPage from '@/app/not-authorized/page';
 // Column configuration for Jobs table (simple, filterable)
 // Only Job ID, Customer, Status as requested
 const columns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
@@ -87,10 +88,9 @@ const getJobActions = (
 const ManageJobsPage = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { jobs, isLoading, error, updateFilters, updateJobAsync, deleteJobAsync, cancelJobAsync, reinstateJobAsync } = useJobs();
+  const { jobs, isLoading, error, updateFilters, filters, updateJobAsync, deleteJobAsync, cancelJobAsync, reinstateJobAsync } = useJobs();
   const { setCopiedJobData } = useCopiedJob();
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
-  const [tableFilters, setTableFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState<string>('pickup_date');
@@ -120,6 +120,9 @@ const ManageJobsPage = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [updateStatusModalOpen, setUpdateStatusModalOpen] = useState(false);
   const [jobToUpdate, setJobToUpdate] = useState<Job | null>(null);
+  const { user } = useUser();
+  const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+    
 
   // Cancellation reasons
   const cancellationReasons = [
@@ -129,12 +132,23 @@ const ManageJobsPage = () => {
     "Entered in Error"
   ];
 
+  // Update API filters when search or column filters change (debounced)
+  // Merged into single effect to prevent race conditions where concurrent updates could overwrite each other
+  React.useEffect(() => {
+    updateFilters({
+      search: debouncedSearch,
+      ...debouncedLocalFilters
+    });
+  }, [debouncedSearch, debouncedLocalFilters, updateFilters]);
+
   const handleFilterChange = (col: string, value: string) => {
+    // Update local state immediately (for UI responsiveness)
     setLocalFilters((prev) => ({ ...prev, [col]: value }));
     setPage(1);
   };
 
   const handleClearFilter = (col: string) => {
+    // Clear local filter immediately
     setLocalFilters((prev) => ({ ...prev, [col]: '' }));
     setPage(1);
   };
@@ -340,12 +354,23 @@ const ManageJobsPage = () => {
   };
 
   // Filter jobs to exclude jc and sd status jobs (server handles other filters)
+  // Apply filters to jobs and exclude jc and sd status jobs
+  // Note: Column filters and search are now handled by the API via updateFilters
+  // Only client-side filtering is for excluding completed/stand-down jobs
+  //
+  // TECHNICAL DEBT: Client-side filtering creates O(n) performance overhead.
+  // Ideally, status exclusion should be handled by the backend API via an 'exclude_status' parameter.
+  // Current implementation loads all filtered jobs into memory before filtering out jc/sd statuses.
+  // For datasets >10k jobs, consider moving this to the backend to reduce memory usage and improve performance.
   const filteredJobs = (jobs ?? []).filter(job =>
     // Exclude jobs with jc (completed) or sd (stand-down) status
     job.status !== 'jc' && job.status !== 'sd'
   );
 
-  // Sort jobs
+  // TECHNICAL DEBT: Client-side sorting creates O(n log n) performance overhead.
+  // Ideally, sorting should be handled by the backend API via 'sortBy' and 'sortDir' parameters.
+  // Current implementation sorts all filtered jobs in memory before pagination.
+  // For datasets >10k jobs, consider moving this to the backend.
   const sortedJobs = [...filteredJobs].sort((a, b) => {
     const aVal = a[sortBy];
     const bVal = b[sortBy];
@@ -372,10 +397,14 @@ const ManageJobsPage = () => {
   const startIdx = (page - 1) * pageSize + 1;
   const endIdx = Math.min(page * pageSize, total);
 
+   if (["customer","driver"].includes(role)) {
+    return <NotAuthorizedPage />;
+  }
+
   if (error) return <div>Failed to load jobs. Error: {error.message}</div>;
 
-  return (
-    <div className="max-w-7xl mx-auto px-2 py-6 w-full flex flex-col gap-4">
+  return (<div>
+     <div className="max-w-7xl mx-auto px-2 py-6 w-full flex flex-col gap-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold text-text-main">Manage Jobs</h1>
         <div className="flex gap-2 self-start md:self-auto">
@@ -415,7 +444,7 @@ const ManageJobsPage = () => {
             {[10, 20, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
           </select>
         </div>
-      </div>
+      </div> 
       <div className="flex-grow rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden">
         <div className="w-full overflow-x-auto md:overflow-x-visible">
           <EntityTable
@@ -479,7 +508,7 @@ const ManageJobsPage = () => {
             onSelectionChange={(selectedIds) => setSelectedJobs(selectedIds.map(id => Number(id)))}
           />
         </div>
-      </div>
+      </div> 
       
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -548,7 +577,7 @@ const ManageJobsPage = () => {
               >
                 Cancel Job
               </button>
-            </div>
+            </div> 
           </div>
         </div>
       )}
@@ -599,8 +628,8 @@ const ManageJobsPage = () => {
               >
                 Cancel Jobs
               </button>
-            </div>
-          </div>
+            </div> 
+          </div> 
         </div>
       )}
       
@@ -634,9 +663,11 @@ const ManageJobsPage = () => {
         cancelLabel="Cancel"
         onConfirm={confirmDelete}
         onCancel={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
-      />
+      />  
+    </div>  
+  
     </div>
-  );
+  ); 
 };
 
 export default ManageJobsPage;

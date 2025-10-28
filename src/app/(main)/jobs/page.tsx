@@ -24,7 +24,12 @@ import { Eye, Pencil, Trash2, ArrowUp, ArrowDown, Copy } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import JobForm from '@/components/organisms/JobForm';
 import toast from 'react-hot-toast';
+
 import { parseJobText } from '@/utils/jobTextParser';
+
+import { useUser } from '@/context/UserContext';
+import NotAuthorizedPage from '@/app/not-authorized/page';
+
 
 // Column configuration for Jobs table (simple, filterable)
 const columns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
@@ -158,11 +163,43 @@ const JobsPage = () => {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+<<<<<<< HEAD
   const [localFilters, setLocalFilters] = useState<Record<string, string>>({});
   const debouncedLocalFilters = useDebounce(localFilters, 500);
   const debouncedSearch = useDebounce(search, 500);
+=======
+
+  // Local filter state for debouncing column filters before sending to API
+  const [localFilters, setLocalFilters] = useState<Record<string, string>>({});
+  const debouncedLocalFilters = useDebounce(localFilters, 500); // 500ms debounce for column filters
+
+  // Version counter to cancel stale debounced filter updates (e.g., when user switches tabs)
+  const filterVersionRef = React.useRef(0);
+
+  // Standardized to 500ms to match localFilters debounce and prevent race conditions
+  const debouncedFilters = useDebounce(filters, 500);
+>>>>>>> main
   const [editJob, setEditJob] = useState<Job | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const { user } = useUser();
+  const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+
+
+  // Update API filters when column filters change (debounced)
+  // Not spreading filters to avoid stale closure bugs and infinite loops
+  React.useEffect(() => {
+    const currentVersion = filterVersionRef.current;
+    const timeoutId = setTimeout(() => {
+      // Only apply the update if version hasn't changed (no tab switch occurred)
+      if (currentVersion === filterVersionRef.current) {
+        updateFilters({
+          ...debouncedLocalFilters
+        });
+      }
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [debouncedLocalFilters, updateFilters]);
 
   // Update server-side filters when search or local filters change
   React.useEffect(() => {
@@ -178,7 +215,7 @@ const JobsPage = () => {
     allJobs.forEach(job => {
       counts[job.status] = (counts[job.status] || 0) + 1;
     });
-    
+
     // Calculate total count for "All" tab
     const totalCount = allJobs.length || 0;
     return { ...counts, all: totalCount };
@@ -186,17 +223,38 @@ const JobsPage = () => {
 
   const handleTabChange = (value: string) => {
     const statusValue = value === 'all' ? undefined : value;
+    // Increment version to cancel any pending debounced filter updates
+    filterVersionRef.current += 1;
     // Reset customer filter to "All Customers" when changing status filter
+
     setLocalFilters(prev => ({ ...prev, status: statusValue, customer_name: '' }));
   };
 
   const handleFilterChange = (col: string, value: string) => {
-    setLocalFilters(prev => ({ ...prev, [col]: value }));
+    setLocalFiters(prev => ({ ...prev, [col]: value }));
+
+    updateFilters({ ...filters, status: statusValue, customer_name: '' });
+    // Also clear local filters
+    setLocalFilters({});
+  };
+
+  // Immediate filter change (for button clicks like customer filter) - no debouncing
+  const handleImmediateFilterChange = (col: string, value: string) => {
+    updateFilters({ ...filters, [col]: value });
+    setLocalFilters((prev) => ({ ...prev, [col]: value }));
+    setPage(1);
+  };
+
+  // Debounced filter change (for text input in column filters)
+  const handleFilterChange = (col: string, value: string) => {
+    // Update local state immediately (for UI responsiveness)
+    setLocalFilters((prev) => ({ ...prev, [col]: value }))
     setPage(1);
   };
 
   const handleClearFilter = (col: string) => {
-    setLocalFilters(prev => ({ ...prev, [col]: '' }));
+    // Clear local filter immediately
+    setLocalFilters((prev) => ({ ...prev, [col]: '' }));
     setPage(1);
   };
 
@@ -338,8 +396,20 @@ const JobsPage = () => {
     }
   };
 
-  // Sort jobs (use server-filtered jobs directly)
-  const sortedJobs = [...(jobs ?? [])].sort((a, b) => {
+  // TECHNICAL DEBT: Client-side filtering creates O(n) performance overhead.
+  // The debouncedFilters are applied client-side here, but ideally all filtering should be done by the API.
+  // Current implementation loads all jobs matching API filters, then re-filters them client-side.
+  // For datasets >10k jobs, consider removing this and relying entirely on backend filtering.
+  const filteredJobs = (jobs ?? []).filter(job =>
+    Object.entries(debouncedFilters).every(([col, val]) =>
+      !val || (job[col]?.toString().toLowerCase().includes(val.toLowerCase()))
+    )
+  );
+
+  // TECHNICAL DEBT: Client-side sorting creates O(n log n) performance overhead.
+  // Ideally, sorting should be handled by the backend API via 'sortBy' and 'sortDir' parameters.
+  // Current implementation sorts all filtered jobs in memory before pagination.
+  const sortedJobs = [...filteredJobs].sort((a, b) => {
     const aVal = a[sortBy];
     const bVal = b[sortBy];
     
@@ -365,16 +435,30 @@ const JobsPage = () => {
   const startIdx = (page - 1) * pageSize + 1;
   const endIdx = Math.min(page * pageSize, total);
 
+   if (["driver"].includes(role)) {
+    return <NotAuthorizedPage />;
+  }
+
   if (error) return <div>Failed to load jobs. Error: {error.message}</div>;
 
   return (
     <div className="max-w-7xl mx-auto px-2 py-6 w-full flex flex-col gap-4">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-4">
-          <EntityHeader 
-            title="Jobs" 
-            className="mb-0"
-          />
+       <EntityHeader 
+        title="Jobs" 
+        onAddClick={() => router.push('/jobs/new')} 
+        addLabel="Add Job"
+        extraActions={
+          <>
+            <AnimatedButton onClick={() => router.push('/jobs/bulk-upload')} variant="outline" className="flex items-center">
+              <Upload className="mr-2 h-4 w-4" />
+              Bulk Upload
+            </AnimatedButton>
+          </> 
+        } 
+        className="mb-4"
+      />      
           <div className="w-full md:w-64">
             <input
               type="text"
@@ -410,6 +494,7 @@ const JobsPage = () => {
         onClose={() => setOpenCreateFromTextModal(false)}
         onSubmit={handleCreateJobFromText}
       />
+
       <div className="flex flex-col md:flex-row md:items-center gap-4 bg-background pt-4 pb-4 rounded-t-xl">
         <div className="flex-1">
           <h3 className="font-bold text-text-main mb-3 px-4 py-2">Filter by status</h3>
@@ -432,15 +517,15 @@ const JobsPage = () => {
           </div>
         </div>
       </div>
-      <div className="flex flex-col md:flex-row md:items-center gap-4 bg-background pt-4 pb-4 rounded-t-xl mt-4">
+      { !["customer", "driver"].includes(role) &&  (<div className="flex flex-col md:flex-row md:items-center gap-4 bg-background pt-4 pb-4 rounded-t-xl mt-4">
         <div className="flex-1">
           <h3 className="font-bold text-text-main mb-3 px-4 py-2">Filter by customer</h3>
           <div className="flex flex-wrap gap-2 px-4 max-h-[140px] overflow-hidden" style={{ maxWidth: '100%' }}>
             <button
-              onClick={() => handleFilterChange('customer_name', '')}
+              onClick={() => handleImmediateFilterChange('customer_name', '')}
               className={`px-2 py-2 rounded-lg text-sm transition-all min-w-[calc(12.5%-0.875rem)] flex-1 text-center flex flex-col items-center justify-center
                 ${!filters.customer_name
-                  ? 'bg-primary text-white shadow-lg' 
+                  ? 'bg-primary text-white shadow-lg'
                   : 'bg-transparent text-text-main border border-border-color hover:border-primary'}`}
               style={{ minWidth: 'calc(12.5% - 0.875rem)', flex: '1 1 calc(12.5% - 0.875rem)', maxWidth: 'calc(12.5% - 0.875rem)' }}
             >
@@ -452,7 +537,7 @@ const JobsPage = () => {
             {filteredCustomers.slice(0, 17).map((customer: any) => (
               <button
                 key={customer.id}
-                onClick={() => handleFilterChange('customer_name', customer.name)}
+                onClick={() => handleImmediateFilterChange('customer_name', customer.name)}
                 className={`px-2 py-2 rounded-lg text-sm transition-all min-w-[calc(12.5%-0.875rem)] flex-1 text-center flex flex-col items-center justify-center
                   ${filters.customer_name === customer.name
                     ? 'bg-primary text-white shadow-lg' 
@@ -467,7 +552,7 @@ const JobsPage = () => {
             ))}
           </div>
         </div>
-      </div>
+      </div> )}
       <div className="flex items-center justify-between mb-2">
         <div className="text-sm text-text-secondary">
           Showing {total === 0 ? 0 : startIdx}-{endIdx} of {total} jobs

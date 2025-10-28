@@ -7,11 +7,17 @@ import JobForm from '@/components/organisms/JobForm';
 import type { JobFormData } from '@/types/job';
 import toast from 'react-hot-toast';
 import { useCopiedJob } from '@/context/CopiedJobContext';
+import { useUser } from '@/context/UserContext';
+import NotAuthorizedPage from '@/app/not-authorized/page';
 
 export default function NewJobPage() {
   const router = useRouter();
   const { createJob, createJobAsync, isCreating, error } = useJobs();
   const { copiedJobData, clearCopiedJobData } = useCopiedJob();
+  const { user } = useUser();
+  const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+    
+    
 
   console.log('[NewJobPage] Component rendered', { copiedJobData });
 
@@ -49,6 +55,9 @@ export default function NewJobPage() {
     clearCopiedJobData();
     router.push('/jobs');
   };
+   if (["driver"].includes(role)) {
+    return <NotAuthorizedPage />;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -57,7 +66,7 @@ export default function NewJobPage() {
         onSave={handleSubmit}
         isLoading={isCreating}
         onCancel={handleCancel}
-      />
+      /> 
     </div>
   );
 }
