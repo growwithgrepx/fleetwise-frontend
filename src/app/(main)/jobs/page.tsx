@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as jobsApi from '@/services/api/jobsApi';
 import { api } from '@/lib/api';
 import { useCopiedJob } from '@/context/CopiedJobContext';
-import { Job,JobFormData } from '@/types/job';
+import { Job, JobFormData } from '@/types/job';
 import { EntityTable, EntityTableColumn, EntityTableAction } from '@/components/organisms/EntityTable';
 import { createStandardEntityActions } from '@/components/common/StandardActions';
 import { EntityHeader } from '@/components/organisms/EntityHeader';
@@ -35,7 +35,25 @@ import NotAuthorizedPage from '@/app/not-authorized/page';
 const columns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
   { label: 'Job ID', accessor: 'id', filterable: true, stringLabel: 'Job ID', width: '80px' },
   { label: 'Customer', accessor: 'customer_name', filterable: true, stringLabel: 'Customer' },
-  { label: 'Service', accessor: 'service_type', filterable: true, stringLabel: 'Service' },
+  {
+    label: 'Service',
+    accessor: 'service_type',
+    filterable: true,
+    stringLabel: 'Service',
+    render: (job) => {
+      // Handle both service object and service_type string
+      // The API returns a service object but the type only has service_type string
+      const jobData = job as any;
+
+      if (jobData.service && typeof jobData.service === 'object') {
+        const serviceName = jobData.service.name;
+        return <span>{serviceName ? String(serviceName) : '-'}</span>;
+      }
+
+      const serviceType = job.service_type || jobData.type_of_service;
+      return <span>{serviceType ? String(serviceType) : '-'}</span>;
+    }
+  },
   { label: 'Pickup', accessor: 'pickup_location', filterable: true, stringLabel: 'Pickup' },
   { label: 'Drop-off', accessor: 'dropoff_location', filterable: true, stringLabel: 'Drop-off' },
   { label: 'Pickup Date', accessor: 'pickup_date', filterable: true, stringLabel: 'Pickup Date' },
