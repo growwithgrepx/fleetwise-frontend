@@ -36,12 +36,12 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       role,
-      allowedNav: roleAccessRules[role] || []
+      blockedNav: roleAccessRules[role] || []
     });
   } catch {
     return NextResponse.json({
       role: "guest",
-      allowedNav: roleAccessRules["guest"] || []
+      blockedNav: roleAccessRules["guest"] || []
     });
   }
 }
