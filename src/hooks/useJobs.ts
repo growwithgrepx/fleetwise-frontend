@@ -2,7 +2,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as jobsApi from '@/services/api/jobsApi';
-import { Job, CreateJobInput, UpdateJobInput } from '@/types/job';
+import { Job, ApiJob, CreateJobInput, UpdateJobInput } from '@/types/job';
 import { JobFilters } from '@/services/api/jobsApi';
 import toast from 'react-hot-toast';
 
@@ -16,8 +16,8 @@ export const jobKeys = {
 
 export type UseJobsReturn = {
   // Queries
-  jobs: Job[] | undefined
-  job: Job | undefined
+  jobs: ApiJob[] | undefined
+  job: ApiJob | undefined
   isLoading: boolean
   error: Error | null
   filters: JobFilters

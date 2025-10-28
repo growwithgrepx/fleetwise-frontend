@@ -7,7 +7,8 @@ import { useQuery } from '@tanstack/react-query';
 import * as jobsApi from '@/services/api/jobsApi';
 import { api } from '@/lib/api';
 import { useCopiedJob } from '@/context/CopiedJobContext';
-import { Job, JobFormData } from '@/types/job';
+import { Job, JobFormData, ApiJob } from '@/types/job';
+import { safeStringValue } from '@/utils/jobNormalizer';
 import { EntityTable, EntityTableColumn, EntityTableAction } from '@/components/organisms/EntityTable';
 import { createStandardEntityActions } from '@/components/common/StandardActions';
 import { EntityHeader } from '@/components/organisms/EntityHeader';
@@ -32,7 +33,7 @@ import NotAuthorizedPage from '@/app/not-authorized/page';
 
 
 // Column configuration for Jobs table (simple, filterable)
-const columns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
+const columns: EntityTableColumn<ApiJob & { stringLabel?: string }>[] = [
   { label: 'Job ID', accessor: 'id', filterable: true, stringLabel: 'Job ID', width: '80px' },
   { label: 'Customer', accessor: 'customer_name', filterable: true, stringLabel: 'Customer' },
   {
@@ -40,18 +41,17 @@ const columns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
     accessor: 'service_type',
     filterable: true,
     stringLabel: 'Service',
-    render: (job) => {
-      // Handle both service object and service_type string
-      // The API returns a service object but the type only has service_type string
-      const jobData = job as any;
+    render: (job: ApiJob) => {
+      // Check for null explicitly since API returns service: null when not set
+      // Use optional chaining and nullish coalescing for safe property access
+      const serviceName = (job.service && job.service.name) ? job.service.name : (job.service_type ?? job.type_of_service);
 
-      if (jobData.service && typeof jobData.service === 'object') {
-        const serviceName = jobData.service.name;
-        return <span>{serviceName ? String(serviceName) : '-'}</span>;
+      // Optional: Log missing data for debugging in development
+      if (!serviceName && process.env.NODE_ENV === 'development') {
+        console.warn('Missing service data for job:', job.id, job);
       }
 
-      const serviceType = job.service_type || jobData.type_of_service;
-      return <span>{serviceType ? String(serviceType) : '-'}</span>;
+      return <span>{serviceName || '-'}</span>;
     }
   },
   { label: 'Pickup', accessor: 'pickup_location', filterable: true, stringLabel: 'Pickup' },
@@ -65,11 +65,11 @@ const columns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
 const getJobActions = (
   router: AppRouterInstance,
   handleDelete: (id: number | string) => void,
-  isDeleting: (item: Job) => boolean,
-  handleView: (job: Job) => void,
-  handleEdit: (job: Job) => void,
-  handleCopy: (job: Job) => void,
-): EntityTableAction<Job>[] => [
+  isDeleting: (item: ApiJob) => boolean,
+  handleView: (job: ApiJob) => void,
+  handleEdit: (job: ApiJob) => void,
+  handleCopy: (job: ApiJob) => void,
+): EntityTableAction<ApiJob>[] => [
   {
     label: 'View',
     icon: <Eye className="w-5 h-5 text-primary" />,
