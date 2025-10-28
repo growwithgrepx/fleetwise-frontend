@@ -280,7 +280,9 @@ const JobAuditTrailModal: React.FC<JobAuditTrailModalProps> = ({ jobId, isOpen, 
                             <div className="mb-3 p-3 bg-purple-900/50 rounded-lg border border-purple-700">
                               <div className="text-sm font-medium text-purple-300 mb-1">Extra Services</div>
                               <div className="text-gray-200">
-                                {record.extra_services.join(', ')}
+                                {record.extra_services
+                                  .filter((service): service is string => typeof service === 'string' && service.trim().length > 0)
+                                  .join(', ')}
                               </div>
                             </div>
                           )}
@@ -295,22 +297,7 @@ const JobAuditTrailModal: React.FC<JobAuditTrailModalProps> = ({ jobId, isOpen, 
                             </div>
                         )}
                         
-                        {/* Show driver remark for other stages */}
-                        {((record.new_status?.toLowerCase() !== 'confirmed') || 
-                          (record.new_status?.toLowerCase() === 'confirmed' && 
-                           record.old_status?.toLowerCase() !== 'new' && 
-                           record.old_status?.toLowerCase() !== 'pending')) && 
-                         record.new_status?.toLowerCase() !== 'pob' && 
-                         record.new_status?.toLowerCase() !== 'ots' && 
-                         record.new_status?.toLowerCase() !== 'otw' && 
-                         record.remark && (
-                          <div className="mb-3 p-3 bg-green-900/50 rounded-lg border border-green-700">
-                            <div className="text-sm font-medium text-green-300 mb-1">Driver Remark</div>
-                            <div className="text-gray-200">{record.remark}</div>
-                          </div>
-                        )}
-                        
-                        {/* Show specific driver remarks for pob, ots, and otw statuses */}
+                        {/* Show specific driver remarks for pob, ots, otw, and jc statuses */}
                         {record.new_status?.toLowerCase() === 'pob' && record.driver_remarks && record.driver_remarks.length > 0 && (
                           <div className="mb-3 p-3 bg-yellow-900/50 rounded-lg border border-yellow-700">
                             <div className="text-sm font-medium text-yellow-300 mb-1">Driver Remark</div>
@@ -324,7 +311,7 @@ const JobAuditTrailModal: React.FC<JobAuditTrailModalProps> = ({ jobId, isOpen, 
                           <div className="mb-3 p-3 bg-yellow-900/50 rounded-lg border border-yellow-700">
                             <div className="text-sm font-medium text-yellow-300 mb-1">Driver Remark</div>
                             <div className="text-gray-200">
-                              {record.driver_remarks.length > 1 ? record.driver_remarks[record.driver_remarks.length - 2]?.remark : record.driver_remarks[0]?.remark}
+                              {record.driver_remarks[record.driver_remarks.length - 1]?.remark}
                             </div>
                           </div>
                         )}
@@ -333,7 +320,16 @@ const JobAuditTrailModal: React.FC<JobAuditTrailModalProps> = ({ jobId, isOpen, 
                           <div className="mb-3 p-3 bg-yellow-900/50 rounded-lg border border-yellow-700">
                             <div className="text-sm font-medium text-yellow-300 mb-1">Driver Remark</div>
                             <div className="text-gray-200">
-                              {record.driver_remarks.length > 2 ? record.driver_remarks[record.driver_remarks.length - 3]?.remark : record.driver_remarks[0]?.remark}
+                              {record.driver_remarks[record.driver_remarks.length - 1]?.remark}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {record.new_status?.toLowerCase() === 'jc' && record.driver_remarks && record.driver_remarks.length > 0 && (
+                          <div className="mb-3 p-3 bg-yellow-900/50 rounded-lg border border-yellow-700">
+                            <div className="text-sm font-medium text-yellow-300 mb-1">Driver Remark</div>
+                            <div className="text-gray-200">
+                              {record.driver_remarks[record.driver_remarks.length - 1]?.remark}
                             </div>
                           </div>
                         )}

@@ -14,8 +14,8 @@ export interface JobFilters {
 
 export interface DriverRemark {
   id: number;
-  remark: string;
-  created_at: string;
+  remark: string | null;
+  created_at: string | null;
 }
 
 export interface AuditRecord {
@@ -31,9 +31,9 @@ export interface AuditRecord {
   attachments?: { file_url: string }[] | string[];
   changed_by_name?: string;
   role?: 'Admin' | 'Driver' | 'Customer';
-  remark?: string;
-  extra_services?: string[]; // Added extra_services field
-  driver_remarks?: DriverRemark[]; // Added driver_remarks field
+  remark?: string | null;
+  extra_services: string[]; // Added extra_services field
+  driver_remarks: DriverRemark[]; // Added driver_remarks field
 }
 
 export interface DriverInfo {
