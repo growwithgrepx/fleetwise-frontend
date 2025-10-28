@@ -15,14 +15,20 @@ export function CopiedJobProvider({ children }: { children: ReactNode }) {
   const [copiedJobData, setCopiedJobData] = useState<Partial<JobFormData> | null>(null);
 
   const clearCopiedJobData = () => {
+    console.log('[CopiedJobContext] Clearing copied job data');
     setCopiedJobData(null);
   };
+
+  console.log('[CopiedJobContext] Provider rendered', { copiedJobData });
 
   return (
     <CopiedJobContext.Provider 
       value={{ 
         copiedJobData, 
-        setCopiedJobData, 
+        setCopiedJobData: (data) => {
+          console.log('[CopiedJobContext] Setting copied job data', data);
+          setCopiedJobData(data);
+        }, 
         clearCopiedJobData 
       }}
     >

@@ -11,6 +11,7 @@ import { Job,JobFormData } from '@/types/job';
 import { EntityTable, EntityTableColumn, EntityTableAction } from '@/components/organisms/EntityTable';
 import { createStandardEntityActions } from '@/components/common/StandardActions';
 import { EntityHeader } from '@/components/organisms/EntityHeader';
+import { CreateJobFromTextModal } from '@/components/organisms/CreateJobFromTextModal';
 import { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 
@@ -23,8 +24,12 @@ import { Eye, Pencil, Trash2, ArrowUp, ArrowDown, Copy } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import JobForm from '@/components/organisms/JobForm';
 import toast from 'react-hot-toast';
+
+import { parseJobText } from '@/utils/jobTextParser';
+
 import { useUser } from '@/context/UserContext';
 import NotAuthorizedPage from '@/app/not-authorized/page';
+
 
 // Column configuration for Jobs table (simple, filterable)
 const columns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
@@ -150,8 +155,10 @@ const JobsPage = () => {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
-
+  const [search, setSearch] = useState('');
+  
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+  const [openCreateFromTextModal, setOpenCreateFromTextModal] = useState(false);
   const [sortBy, setSortBy] = useState<string>('pickup_date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -160,6 +167,7 @@ const JobsPage = () => {
   // Local filter state for debouncing column filters before sending to API
   const [localFilters, setLocalFilters] = useState<Record<string, string>>({});
   const debouncedLocalFilters = useDebounce(localFilters, 500); // 500ms debounce for column filters
+  const debouncedSearch = useDebounce(search, 500);
 
   // Version counter to cancel stale debounced filter updates (e.g., when user switches tabs)
   const filterVersionRef = React.useRef(0);
@@ -170,7 +178,6 @@ const JobsPage = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const { user } = useUser();
   const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
-
 
   // Update API filters when column filters change (debounced)
   // Not spreading filters to avoid stale closure bugs and infinite loops
@@ -187,6 +194,14 @@ const JobsPage = () => {
 
     return () => clearTimeout(timeoutId);
   }, [debouncedLocalFilters, updateFilters]);
+
+  // Update server-side filters when search or local filters change
+  React.useEffect(() => {
+    updateFilters({
+      search: debouncedSearch,
+      ...debouncedLocalFilters
+    });
+  }, [debouncedSearch, debouncedLocalFilters, updateFilters]);
 
   // Calculate status counts from all jobs, not filtered jobs
   const statusCounts = useMemo(() => {
@@ -205,9 +220,8 @@ const JobsPage = () => {
     // Increment version to cancel any pending debounced filter updates
     filterVersionRef.current += 1;
     // Reset customer filter to "All Customers" when changing status filter
-    updateFilters({ ...filters, status: statusValue, customer_name: '' });
-    // Also clear local filters
-    setLocalFilters({});
+
+    setLocalFilters(prev => ({ ...prev, status: statusValue, customer_name: '' }));
   };
 
   // Immediate filter change (for button clicks like customer filter) - no debouncing
@@ -343,6 +357,17 @@ const JobsPage = () => {
     }
   };
 
+  const handleCreateJobFromText = (text: string) => {
+    const parseResult = parseJobText(text);
+    if (parseResult.errors) {
+      toast.error(parseResult.errors.join(', '));
+      return;
+    }
+    setCopiedJobData(parseResult.data);
+    router.push('/jobs/new');
+    setOpenCreateFromTextModal(false);
+  };
+
   const confirmDelete = async () => {
     if (pendingDeleteId == null) return;
     setDeletingId(pendingDeleteId);
@@ -357,20 +382,8 @@ const JobsPage = () => {
     }
   };
 
-  // TECHNICAL DEBT: Client-side filtering creates O(n) performance overhead.
-  // The debouncedFilters are applied client-side here, but ideally all filtering should be done by the API.
-  // Current implementation loads all jobs matching API filters, then re-filters them client-side.
-  // For datasets >10k jobs, consider removing this and relying entirely on backend filtering.
-  const filteredJobs = (jobs ?? []).filter(job =>
-    Object.entries(debouncedFilters).every(([col, val]) =>
-      !val || (job[col]?.toString().toLowerCase().includes(val.toLowerCase()))
-    )
-  );
-
-  // TECHNICAL DEBT: Client-side sorting creates O(n log n) performance overhead.
-  // Ideally, sorting should be handled by the backend API via 'sortBy' and 'sortDir' parameters.
-  // Current implementation sorts all filtered jobs in memory before pagination.
-  const sortedJobs = [...filteredJobs].sort((a, b) => {
+  // Sort jobs (use server-filtered jobs directly)
+  const sortedJobs = [...(jobs ?? [])].sort((a, b) => {
     const aVal = a[sortBy];
     const bVal = b[sortBy];
     
@@ -396,15 +409,12 @@ const JobsPage = () => {
   const startIdx = (page - 1) * pageSize + 1;
   const endIdx = Math.min(page * pageSize, total);
 
-   if (["driver"].includes(role)) {
-    return <NotAuthorizedPage />;
-  }
-
   if (error) return <div>Failed to load jobs. Error: {error.message}</div>;
 
   return (
     <div className="max-w-7xl mx-auto px-2 py-6 w-full flex flex-col gap-4">
-      <EntityHeader 
+     
+     { !["driver"].includes(role) &&  (  <EntityHeader 
         title="Jobs" 
         onAddClick={() => router.push('/jobs/new')} 
         addLabel="Add Job"
@@ -414,10 +424,15 @@ const JobsPage = () => {
               <Upload className="mr-2 h-4 w-4" />
               Bulk Upload
             </AnimatedButton>
+            <AnimatedButton onClick={() => setOpenCreateFromTextModal(true)} variant="outline" className="flex items-center">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create from Text
+            </AnimatedButton>
           </> 
         } 
         className="mb-4"
       /> 
+      )}
       <div className="flex flex-col md:flex-row md:items-center gap-4 bg-background pt-4 pb-4 rounded-t-xl">
         <div className="flex-1">
           <h3 className="font-bold text-text-main mb-3 px-4 py-2">Filter by status</h3>
@@ -569,6 +584,11 @@ const JobsPage = () => {
           </div>
         </div>
       )}
+      <CreateJobFromTextModal
+        isOpen={openCreateFromTextModal}
+        onClose={() => setOpenCreateFromTextModal(false)}
+        onSubmit={handleCreateJobFromText}
+      />
       <ConfirmDialog
         open={confirmOpen}
         title="Delete Job?"

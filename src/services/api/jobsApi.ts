@@ -135,6 +135,8 @@ export async function getJobById(id: number): Promise<Job> {
 
 /** Create a new job */
 export async function createJob(data: JobFormData): Promise<Job> {
+  console.log('[jobsApi] Creating job with data:', data);
+  
   // Transform form data to match backend expectations
   const dbData = {
     // Customer info
@@ -204,11 +206,17 @@ export async function createJob(data: JobFormData): Promise<Job> {
     midnight_surcharge: Number(data.midnight_surcharge) || 0
   };
 
-  console.log('Sending job data to backend:', dbData);
+  console.log('[jobsApi] Sending job data to backend:', dbData);
+  
+  // Also log the original data for comparison
+  console.log('[jobsApi] Original form data:', data);
+  
   try {
     const response = await api.post<Job>('/api/jobs', dbData);
+    console.log('[jobsApi] Received response from backend:', response.data);
     return response.data;
   } catch (error: any) {
+    console.error('[jobsApi] Error creating job:', error);
     // Re-throw all errors - let the api interceptor handle SchedulingConflict creation
     throw error;
   }

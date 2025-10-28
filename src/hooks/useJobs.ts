@@ -129,6 +129,7 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
   const createJobMutation = useMutation({
     mutationFn: (data: CreateJobInput) => jobsApi.createJob(data),
     onSuccess: () => {
+      console.log('Job created successfully, invalidating queries');
       // Invalidate all job-related queries to ensure new jobs appear immediately
       queryClient.invalidateQueries({ queryKey: jobKeys.all });
       queryClient.invalidateQueries({ queryKey: [...jobKeys.all, 'list'] });

@@ -96,12 +96,17 @@ const ManageJobsPage = () => {
   const [sortBy, setSortBy] = useState<string>('pickup_date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [search, setSearch] = useState('');
+  const [localFilters, setLocalFilters] = useState<Record<string, string>>({});
+  const debouncedLocalFilters = useDebounce(localFilters, 500);
   const debouncedSearch = useDebounce(search, 500);
 
-  // Local filter state for debouncing before sending to API
-  const [localFilters, setLocalFilters] = useState<Record<string, string>>({});
-  const debouncedLocalFilters = useDebounce(localFilters, 500); // 500ms debounce
-
+  // Update server-side filters when search or local filters change
+  React.useEffect(() => {
+    updateFilters({
+      search: debouncedSearch,
+      ...debouncedLocalFilters
+    });
+  }, [debouncedSearch, debouncedLocalFilters, updateFilters]);
   const [selectedJobs, setSelectedJobs] = useState<number[]>([]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [reinstateDialogOpen, setReinstateDialogOpen] = useState(false);
@@ -348,6 +353,7 @@ const ManageJobsPage = () => {
     setUpdateStatusModalOpen(true);
   };
 
+  // Filter jobs to exclude jc and sd status jobs (server handles other filters)
   // Apply filters to jobs and exclude jc and sd status jobs
   // Note: Column filters and search are now handled by the API via updateFilters
   // Only client-side filtering is for excluding completed/stand-down jobs

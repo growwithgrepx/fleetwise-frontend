@@ -302,7 +302,7 @@ export const defaultJobValues: JobFormData = {
   
   // Service Details
   service_id: 0,
-  service_type: 'Corporate Charter',
+  service_type: '',
   
   // Dates and Times
   pickup_date: '',
@@ -350,7 +350,7 @@ export const defaultJobValues: JobFormData = {
   // Billing Information
   base_price: 0,
   job_cost: undefined,
-  cash_to_collect: undefined,
+  cash_to_collect: 0,
   additional_discount: 0,
   extra_charges: 0,
   final_price: 0,
@@ -374,16 +374,15 @@ export const defaultJobValues: JobFormData = {
   locations: [],
   reference: '',
   has_request: false,
-  type_of_service: '',
   
-  // Contractor field
+  // Midnight surcharge field - Set default to 0
+  midnight_surcharge: 0,
+  
+  // Contractor field - Set default to undefined
   contractor_id: undefined,
-  
-  // Customer remark field
-  customer_remark: undefined,
-  
-  // Booking reference field
-  booking_ref: undefined
+
+  // Vehicle type id field
+  vehicle_type_id: undefined,
 };
 
 // Make sure to import this in your JobForm.tsx

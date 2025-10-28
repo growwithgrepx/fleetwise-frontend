@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSubCustomers } from '@/hooks/useSubCustomers';
 import DynamicLocationList from '@/components/molecules/DynamicLocationList';
@@ -236,91 +236,17 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     });
   }, [initialData]);
   
-  // Determine if fields should be locked based on job status
-  // Helper to check if a field should be locked
-  const isFieldLocked = (field: string) => job ? shouldLockField(job.status, field) : false;
-  // For legacy code, fieldsLocked is true if any lockable status
-  const fieldsLocked = job && ["jc", "sd", "canceled", "otw", "ots", "pob"].includes(job.status);
-
-  // Multiple address lookup hooks for different fields
+  // Router
+  const router = useRouter();
+  
   // Refs to track previous values
   const prevCustomerIdRef = useRef<number>(0);
   const prevServiceTypeRef = useRef<string>('');
   const prevVehicleTypeRef = useRef<string>('');
   const isCheckingConflict = useRef(false);
-
-  // Address lookup hooks
-  const { lookup: pickupLookup, result: pickupAddressResult, loading: pickupAddressLoading, error: pickupAddressError } = useAddressLookup();
-
-  // When job prop changes (edit mode), update formData and reset userModifiedPricing to trigger pricing effect
-  useEffect(() => {
-    if (job) {
-      // Use vehicle_type_id to find the correct vehicle type name from allVehicleTypes
-      let vehicleTypeName = '';
-      if (job.vehicle_type_id && Array.isArray(allVehicleTypes)) {
-        const vt = allVehicleTypes.find(vt => vt.id === job.vehicle_type_id);
-        if (vt) vehicleTypeName = vt.name;
-      }
-      // Fallbacks if not found
-      if (!vehicleTypeName) {
-        const vt = job.vehicle_type;
-        if (vt != null && typeof vt === 'object' && 'name' in (vt as any) && typeof (vt as any).name === 'string') {
-          vehicleTypeName = (vt as any).name;
-        } else if (typeof vt === 'string') {
-          vehicleTypeName = vt;
-        } else {
-          vehicleTypeName = '';
-        }
-      }
-      setFormData(prev => ({
-        ...prev,
-        customer_id: job.customer_id || prev.customer_id,
-        sub_customer_name: job.sub_customer_name || prev.sub_customer_name,
-        service_type: job.service_type || prev.service_type,
-        vehicle_type: vehicleTypeName,
-      }));
-  setUserModifiedPricing(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job]);
-
-  // Safeguard: ensure vehicle_type is always a string on mount (catches copied object shapes)
-  useEffect(() => {
-    setFormData(prev => {
-      if (prev.vehicle_type && typeof prev.vehicle_type !== 'string') {
-        const vt = prev.vehicle_type as any;
-        return {
-          ...prev,
-          vehicle_type: vt && (vt.name || vt.label || vt.value) ? (vt.name || vt.label || vt.value) : String(vt)
-        };
-      }
-      return prev;
-    });
-    // run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const { lookup: dropoffLookup, result: dropoffAddressResult, loading: dropoffAddressLoading, error: dropoffAddressError } = useAddressLookup();
-  
-  const router = useRouter();
-  const { subCustomers } = useSubCustomers(job?.customer_id ?? 0);
-  const { data: customer } = useGetCustomerById(job?.customer_id ?? "");
-  const { data: allVehicles = [] } = useGetAllVehicles();
-  const { data: allDrivers = [] } = useGetAllDrivers();
-  const { data: allCustomers = [] } = useGetAllCustomers();
-  const { data: allServices = [] } = useGetAllServices();
-  const { data: allVehicleTypes = [] } = useGetAllVehicleTypes();
-  const { data: allContractors = [] } = useGetAllContractors();
-  
   
   // State
-  // Normalize incoming initialData.vehicle_type to string if provided as object
-  const normalizedInitialData = { ...initialData } as Partial<JobFormData>;
-  if (normalizedInitialData && (normalizedInitialData as any).vehicle_type && typeof (normalizedInitialData as any).vehicle_type !== 'string') {
-    const vt = (normalizedInitialData as any).vehicle_type;
-    normalizedInitialData.vehicle_type = vt && (vt.name || vt.label || vt.value) ? (vt.name || vt.label || vt.value) : String(vt);
-  }
-
-  const [formData, setFormData] = useState<JobFormData>({ ...defaultJobValues, ...normalizedInitialData });
+  const [formData, setFormData] = useState<JobFormData>({ ...defaultJobValues, ...initialData });
   const [errors, setErrors] = useState<Partial<Record<keyof JobFormData, string>>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error' | 'conflict'>('idle');
   const [driverConflictWarning, setDriverConflictWarning] = useState<string>('');
@@ -330,97 +256,64 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   const [uiAdditionalDropoffLocations, setUiAdditionalDropoffLocations] = useState<Location[]>([]);
   const [userModifiedPricing, setUserModifiedPricing] = useState<boolean>(false);
   const [initialFormData, setInitialFormData] = useState<Partial<JobFormData> | null>(null);
+  const [toastState, setToastState] = useState<string | null>(null);
 
-   // Get current date and time for defaults
-   const getCurrentDateTime = () => {
-     const now = new Date();
-     const date = now.toISOString().split('T')[0]; // YYYY-MM-DD format
-     const time = now.toTimeString().slice(0, 5); // HH:MM format
-     return { date, time };
-   };
+  // Get current date and time for defaults
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const date = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const time = now.toTimeString().slice(0, 5); // HH:MM format
+    return { date, time };
+  };
 
-  // Reset userModifiedPricing flag when service_type or vehicle_type changes
-  useEffect(() => {
-    // Check if service_type or vehicle_type has actually changed
-    if (
-      (formData.customer_id && formData.customer_id !== prevCustomerIdRef.current) ||
-      (formData.service_type && formData.service_type !== prevServiceTypeRef.current) ||
-      (formData.vehicle_type && formData.vehicle_type !== prevVehicleTypeRef.current)
-    ) {
-      // Reset the userModifiedPricing flag to allow automatic pricing updates
-      setUserModifiedPricing(false);
-        // Optional: Log the change for debugging
-      console.log('[Pricing Reset] Field changed - resetting userModifiedPricing flag', {
-      customer: { old: prevCustomerIdRef.current, new: formData.customer_id },
-      service: { old: prevServiceTypeRef.current, new: formData.service_type },
-      vehicle: { old: prevVehicleTypeRef.current, new: formData.vehicle_type }
-    });
-    }
+  // Normalize incoming initialData.vehicle_type to string if provided as object
+  const normalizedInitialData = { ...initialData } as Partial<JobFormData>;
+  if (normalizedInitialData && (normalizedInitialData as any).vehicle_type && typeof (normalizedInitialData as any).vehicle_type !== 'string') {
+    const vt = (normalizedInitialData as any).vehicle_type;
+    normalizedInitialData.vehicle_type = vt && (vt.name || vt.label || vt.value) ? (vt.name || vt.label || vt.value) : String(vt);
+  }
 
-    // Update the refs with current values
-    prevCustomerIdRef.current = formData.customer_id || 0;
-    prevServiceTypeRef.current = formData.service_type || '';
-    prevVehicleTypeRef.current = formData.vehicle_type || '';
-  }, [formData.customer_id, formData.service_type, formData.vehicle_type]); // Fixed dependencies to only include the specific fields we're checking
+  // Data hooks
+  const { subCustomers } = useSubCustomers(job?.customer_id ?? 0);
+  const { data: customer } = useGetCustomerById(job?.customer_id ?? "");
+  const { data: allVehicles = [] } = useGetAllVehicles();
+  const { data: allDrivers = [] } = useGetAllDrivers();
+  const { data: allCustomers = [] } = useGetAllCustomers();
+  const { data: allServices = [] } = useGetAllServices();
+  const { data: allVehicleTypes = [] } = useGetAllVehicleTypes();
+  const { data: allContractors = [] } = useGetAllContractors();
   
+  // Address lookup hooks
+  const { lookup: pickupLookup, result: pickupAddressResult, loading: pickupAddressLoading, error: pickupAddressError } = useAddressLookup();
+  const { lookup: dropoffLookup, result: dropoffAddressResult, loading: dropoffAddressLoading, error: dropoffAddressError } = useAddressLookup();
 
-  // Only call pricing API when vehicle type changes, not on service change
-  // const [pricingServiceType, setPricingServiceType] = useState<string>(formData.service_type);
-  // Update pricingServiceType only when vehicle_type changes, and only if different
-  // useEffect(() => {
-  //   if (pricingServiceType !== formData.service_type) {
-  //     setPricingServiceType(formData.service_type);
-  //   }
-  // }, [formData.vehicle_type]);
-
+  // Pricing hooks
   const { data: customerServicePricing } = useCustomerServicePricing(
     formData.customer_id ?? 0,
     formData.service_type,
     formData.vehicle_type
   );
+  
+  // Debug logging for pricing
+  useEffect(() => {
+    console.log('[JobForm] Customer service pricing params:', {
+      customerId: formData.customer_id,
+      serviceType: formData.service_type,
+      vehicleType: formData.vehicle_type
+    });
+    console.log('[JobForm] Customer service pricing data:', customerServicePricing);
+  }, [formData.customer_id, formData.service_type, formData.vehicle_type, customerServicePricing]);
 
   // Contractor pricing (move after formData is initialized)
   const { data: contractorPricing = [], refetch: refetchPricing } = useContractorServicePricing(
     formData.contractor_id as number | undefined
   );
-
-  // Function to determine job status based on form data
-  const determineJobStatus = (data: JobFormData): JobStatus => {
-    // If current status is not a basic state, don't change it
-    const currentStatus = data.status as JobStatus;
-    if (currentStatus && !['new', 'pending', 'confirmed'].includes(currentStatus)) {
-      return currentStatus;
-    }
-
-    // Check if all mandatory fields are populated using proper type checking
-    const mandatoryFieldsComplete = Boolean(
-      // Convert customer_id to number and check if greater than 0
-      Number(data.customer_id) > 0 && 
-      // Check string fields with optional chaining and trim
-      data.passenger_name?.trim() && 
-      data.service_type?.trim() && 
-      data.pickup_date && 
-      data.pickup_time && 
-      data.pickup_location?.trim() && 
-      data.dropoff_location?.trim()
-    );
-
-    // Check if both vehicle and driver are selected using proper number comparison
-    const vehicleAndDriverSelected = Boolean(
-      // Convert to number and check if greater than 0
-      Number(data.vehicle_id) > 0 &&
-      Number(data.driver_id) > 0 &&
-      Number(data.contractor_id) > 0
-    );
-
-    if (mandatoryFieldsComplete && vehicleAndDriverSelected) {
-      return 'confirmed';
-    } else if (mandatoryFieldsComplete) {
-      return 'pending';
-    } else {
-      return 'new';
-    }
-  };
+  
+  // Determine if fields should be locked based on job status
+  // Helper to check if a field should be locked
+  const isFieldLocked = (field: string) => job ? shouldLockField(job.status, field) : false;
+  // For legacy code, fieldsLocked is true if any lockable status
+  const fieldsLocked = job && ["jc", "sd", "canceled", "otw", "ots", "pob"].includes(job.status);
 
   // Initialize form data with job data if editing
   useEffect(() => {
@@ -576,6 +469,426 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       }
     }
   }, [job, initialData]); // Fixed dependencies to properly respond to job data changes
+
+  // When job prop changes (edit mode), update formData and reset userModifiedPricing to trigger pricing effect
+  useEffect(() => {
+    if (job) {
+      // Use vehicle_type_id to find the correct vehicle type name from allVehicleTypes
+      let vehicleTypeName = '';
+      if (job.vehicle_type_id && Array.isArray(allVehicleTypes)) {
+        const vt = allVehicleTypes.find(vt => vt.id === job.vehicle_type_id);
+        if (vt) vehicleTypeName = vt.name;
+      }
+      // Fallbacks if not found
+      if (!vehicleTypeName) {
+        const vt = job.vehicle_type;
+        if (vt != null && typeof vt === 'object' && 'name' in (vt as any) && typeof (vt as any).name === 'string') {
+          vehicleTypeName = (vt as any).name;
+        } else if (typeof vt === 'string') {
+          vehicleTypeName = vt;
+        } else {
+          vehicleTypeName = '';
+        }
+      }
+      setFormData(prev => ({
+        ...prev,
+        customer_id: job.customer_id || prev.customer_id,
+        sub_customer_name: job.sub_customer_name || prev.sub_customer_name,
+        service_type: job.service_type || prev.service_type,
+        vehicle_type: vehicleTypeName,
+      }));
+  setUserModifiedPricing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job]);
+
+  // Safeguard: ensure vehicle_type is always a string on mount (catches copied object shapes)
+  useEffect(() => {
+    setFormData(prev => {
+      if (prev.vehicle_type && typeof prev.vehicle_type !== 'string') {
+        const vt = prev.vehicle_type as any;
+        return {
+          ...prev,
+          vehicle_type: vt && (vt.name || vt.label || vt.value) ? (vt.name || vt.label || vt.value) : String(vt)
+        };
+      }
+      return prev;
+    });
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // Auto-map names to IDs when options are loaded (for text-parsed jobs)
+  const mappingDoneRef = useRef(false);
+  
+  // Memoize customer matching to avoid recomputing on every render
+  const matchedCustomerId = useMemo(() => {
+    // Only run matching if we have a customer name but no customer_id
+    if (!formData.customer_name || formData.customer_id) return null;
+    
+    // Normalize customer names for comparison
+    const normalizeName = (name: string) => {
+      if (!name) return '';
+      return name
+        .toLowerCase()
+        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+        .replace(/[^\w\s\-&']/g, '') // Keep alphanumeric, spaces, hyphens, ampersands, and apostrophes
+        .trim();
+    };
+    
+    const normalizedInputName = normalizeName(formData.customer_name);
+    
+    // Early return if no customers or empty input
+    if (!allCustomers || allCustomers.length === 0 || !normalizedInputName) {
+      return null;
+    }
+    
+    // Try exact match first (most efficient)
+    let match = allCustomers.find(c => 
+      normalizeName(c.name) === normalizedInputName
+    );
+    
+    // If no exact match, try partial match
+    if (!match) {
+      match = allCustomers.find(c => 
+        normalizeName(c.name).includes(normalizedInputName) || 
+        normalizedInputName.includes(normalizeName(c.name))
+      );
+    }
+    
+    // If still no match, return null (fuzzy matching will be handled separately)
+    return match?.id || null;
+  }, [formData.customer_name, formData.customer_id, allCustomers]); // Only recompute when these values change
+  
+  // Memoize fuzzy matching to avoid expensive computations
+  const fuzzyMatchedCustomerId = useMemo(() => {
+    // Only run fuzzy matching if we have a customer name, no customer_id, and no exact/partial match
+    if (!formData.customer_name || formData.customer_id || matchedCustomerId) return null;
+    
+    // Normalize customer names for comparison
+    const normalizeName = (name: string) => {
+      if (!name) return '';
+      return name
+        .toLowerCase()
+        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+        .replace(/[^\w\s\-&']/g, '') // Keep alphanumeric, spaces, hyphens, ampersands, and apostrophes
+        .trim();
+    };
+    
+    const normalizedInputName = normalizeName(formData.customer_name);
+    
+    // Early return if no customers or empty input
+    if (!allCustomers || allCustomers.length === 0 || !normalizedInputName) {
+      return null;
+    }
+    
+    // Simple fuzzy matching - check if names are similar enough
+    const similarityThreshold = 0.8;
+    const getSimilarity = (str1: string, str2: string): number => {
+      const longer = str1.length > str2.length ? str1 : str2;
+      const shorter = str1.length > str2.length ? str2 : str1;
+      if (longer.length === 0) return 1.0;
+      
+      const editDistance = (s1: string, s2: string): number => {
+        const costs = new Array(s2.length + 1);
+        for (let i = 0; i <= s1.length; i++) {
+          let lastValue = i;
+          for (let j = 0; j <= s2.length; j++) {
+            if (i === 0) {
+              costs[j] = j;
+            } else {
+              if (j > 0) {
+                let newValue = costs[j - 1];
+                if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+                  newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                }
+                costs[j - 1] = lastValue;
+                lastValue = newValue;
+              }
+            }
+          }
+          if (i > 0) costs[s2.length] = lastValue;
+        }
+        return costs[s2.length];
+      };
+      
+      return (longer.length - editDistance(longer, shorter)) / parseFloat(longer.length.toString());
+    };
+    
+    const matchingCustomer = allCustomers.find(c => {
+      const normalizedCustomerName = normalizeName(c.name);
+      const similarity = getSimilarity(normalizedInputName, normalizedCustomerName);
+      return similarity >= similarityThreshold;
+    });
+    
+    return matchingCustomer?.id || null;
+  }, [formData.customer_name, formData.customer_id, allCustomers, matchedCustomerId]); // Only recompute when these values change
+  
+  // Effect to update form data when customer match is found
+  useEffect(() => {
+    if (matchedCustomerId && !formData.customer_id) {
+      setFormData(prev => ({ ...prev, customer_id: matchedCustomerId }));
+    } else if (fuzzyMatchedCustomerId && !formData.customer_id) {
+      setFormData(prev => ({ ...prev, customer_id: fuzzyMatchedCustomerId }));
+    }
+  }, [matchedCustomerId, fuzzyMatchedCustomerId, formData.customer_id]);
+  
+  useEffect(() => {
+    const isTextParsedJob = props.initialData && !job?.id && !mappingDoneRef.current;
+    
+    if (!isTextParsedJob) return;
+    
+    // Debug log to see what we're working with
+    console.log('[JobForm] Auto-mapping check:', {
+      isTextParsedJob,
+      formDataCustomerName: formData.customer_name,
+      formDataCustomerId: formData.customer_id,
+      allCustomersLength: allCustomers?.length,
+      initialData: props.initialData
+    });
+    
+    // Map customer name to customer ID
+    if (formData.customer_name && !formData.customer_id && allCustomers && allCustomers.length > 0) {
+      // Reset toast state if customer name has changed
+      if (toastState && toastState !== formData.customer_name) {
+        setToastState(null);
+      }
+      
+      // Normalize customer names for comparison
+      const normalizeName = (name: string) => {
+        if (!name) return '';
+        return name
+          .toLowerCase()
+          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+          .replace(/[^\w\s\-&']/g, '') // Keep alphanumeric, spaces, hyphens, ampersands, and apostrophes
+          .trim();
+      };
+      
+      const normalizedInputName = normalizeName(formData.customer_name);
+      
+      console.log('[JobForm] Customer matching attempt:', {
+        inputName: formData.customer_name,
+        normalizedInputName,
+        availableCustomers: allCustomers.slice(0, 10).map(c => ({ // Only show first 10 for performance
+          id: c.id,
+          name: c.name,
+          normalized: normalizeName(c.name)
+        }))
+      });
+      
+      // Try to find a matching customer
+      let matchingCustomer = null;
+      
+      // Exact match first
+      matchingCustomer = allCustomers.find(c => 
+        normalizeName(c.name) === normalizedInputName
+      );
+      
+      // If no exact match, try partial match
+      if (!matchingCustomer) {
+        matchingCustomer = allCustomers.find(c => 
+          normalizeName(c.name).includes(normalizedInputName) || 
+          normalizedInputName.includes(normalizeName(c.name))
+        );
+      }
+      
+      // If still no match, we'll let the separate fuzzy matching useEffect handle it
+      // This avoids expensive computations in the main mapping effect
+      
+      if (matchingCustomer) {
+        console.log('[JobForm] Found customer match:', matchingCustomer);
+        setFormData(prev => ({
+          ...prev,
+          customer_id: matchingCustomer.id
+        }));
+        // Reset toast state when customer is successfully matched
+        setToastState(null);
+      } else {
+        console.log('[JobForm] No customer match found');
+        // For text-parsed jobs, we should not show toast here as the main useEffect will handle it
+        // Just set the customer_id to null to indicate no match was found
+        setFormData(prev => ({
+          ...prev,
+          customer_id: null
+        }));
+      }
+    }
+    
+    // Map service type to service ID
+    if (formData.service_type && !formData.service_id && allServices && allServices.length > 0) {
+      // Normalize service names for comparison
+      const normalizeName = (name: string) => {
+        return name
+          .toLowerCase()
+          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+          .trim();
+      };
+      
+      const normalizedServiceName = normalizeName(formData.service_type);
+      
+      const matchingService = allServices.find(s => 
+        normalizeName(s.name) === normalizedServiceName
+      );
+      
+      if (matchingService) {
+        setFormData(prev => ({
+          ...prev,
+          service_id: matchingService.id
+        }));
+      }
+    }
+    
+    // Map contractor name to contractor ID
+    if ((props.initialData as any)?.contractor_name && !formData.contractor_id && allContractors && allContractors.length > 0) {
+      // Normalize contractor names for comparison
+      const normalizeName = (name: string) => {
+        return name
+          .toLowerCase()
+          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+          .trim();
+      };
+      
+      const normalizedContractorName = normalizeName((props.initialData as any)?.contractor_name);
+      
+      const matchingContractor = allContractors.find(c => 
+        normalizeName(c.name) === normalizedContractorName
+      );
+      
+      if (matchingContractor) {
+        setFormData(prev => ({
+          ...prev,
+          contractor_id: matchingContractor.id
+        }));
+      }
+    }
+    
+    // Map vehicle type name to vehicle type ID
+    if (formData.vehicle_type && !formData.vehicle_type_id && allVehicleTypes && allVehicleTypes.length > 0) {
+      // Normalize vehicle type names for comparison
+      const normalizeName = (name: string) => {
+        return name
+          .toLowerCase()
+          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+          .trim();
+      };
+      
+      const normalizedVehicleTypeName = normalizeName(formData.vehicle_type);
+      
+      const matchingVehicleType = allVehicleTypes.find(vt => 
+        normalizeName(vt.name) === normalizedVehicleTypeName
+      );
+      
+      if (matchingVehicleType) {
+        setFormData(prev => ({
+          ...prev,
+          vehicle_type_id: matchingVehicleType.id
+        }));
+      }
+    }
+    
+    // Mark mapping as done to prevent re-running
+    mappingDoneRef.current = true;
+  }, [props.initialData, job?.id]); // Only essential deps
+  
+  // Reset toast state when component unmounts
+  useEffect(() => {
+    return () => {
+      setToastState(null);
+    };
+  }, []);
+
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const { pickup_date, pickup_time, ...rest } = formData;
+    const pickupDateTime = new Date(`${pickup_date}T${pickup_time}`);
+
+    const submitData = {
+      pickup_date: pickupDateTime.toISOString(),
+      pickup_time,
+      ...rest
+    };
+
+    if (job) {
+      // Update existing job
+      updateJob(job.id, submitData);
+    } else {
+      // Create new job
+      createJob(submitData);
+    }
+  };
+
+  // Reset userModifiedPricing flag when service_type or vehicle_type changes
+  useEffect(() => {
+    // Check if service_type or vehicle_type has actually changed
+    if (
+      (formData.customer_id && formData.customer_id !== prevCustomerIdRef.current) ||
+      (formData.service_type && formData.service_type !== prevServiceTypeRef.current) ||
+      (formData.vehicle_type && formData.vehicle_type !== prevVehicleTypeRef.current)
+    ) {
+      // Reset the userModifiedPricing flag to allow automatic pricing updates
+      setUserModifiedPricing(false);
+        // Optional: Log the change for debugging
+      console.log('[Pricing Reset] Field changed - resetting userModifiedPricing flag', {
+      customer: { old: prevCustomerIdRef.current, new: formData.customer_id },
+      service: { old: prevServiceTypeRef.current, new: formData.service_type },
+      vehicle: { old: prevVehicleTypeRef.current, new: formData.vehicle_type }
+    });
+    }
+
+    // Update the refs with current values
+    prevCustomerIdRef.current = formData.customer_id || 0;
+    prevServiceTypeRef.current = formData.service_type || '';
+    prevVehicleTypeRef.current = formData.vehicle_type || '';
+  }, [formData.customer_id, formData.service_type, formData.vehicle_type]); // Fixed dependencies to only include the specific fields we're checking
+  
+  // Only call pricing API when vehicle type changes, not on service change
+  // const [pricingServiceType, setPricingServiceType] = useState<string>(formData.service_type);
+  // Update pricingServiceType only when vehicle_type changes, and only if different
+  // useEffect(() => {
+  //   if (pricingServiceType !== formData.service_type) {
+  //     setPricingServiceType(formData.service_type);
+  //   }
+  // }, [formData.vehicle_type]);
+
+  // Function to determine job status based on form data
+  const determineJobStatus = (data: JobFormData): JobStatus => {
+    // If current status is not a basic state, don't change it
+    const currentStatus = data.status as JobStatus;
+    if (currentStatus && !['new', 'pending', 'confirmed'].includes(currentStatus)) {
+      return currentStatus;
+    }
+
+    // Check if all mandatory fields are populated using proper type checking
+    const mandatoryFieldsComplete = Boolean(
+      // Convert customer_id to number and check if greater than 0
+      Number(data.customer_id) > 0 && 
+      // Check string fields with optional chaining and trim
+      data.passenger_name?.trim() && 
+      data.service_type?.trim() && 
+      data.pickup_date && 
+      data.pickup_time && 
+      data.pickup_location?.trim() && 
+      data.dropoff_location?.trim()
+    );
+
+    // Check if both vehicle and driver are selected using proper number comparison
+    const vehicleAndDriverSelected = Boolean(
+      // Convert to number and check if greater than 0
+      Number(data.vehicle_id) > 0 &&
+      Number(data.driver_id) > 0 &&
+      Number(data.contractor_id) > 0
+    );
+
+    if (mandatoryFieldsComplete && vehicleAndDriverSelected) {
+      return 'confirmed';
+    } else if (mandatoryFieldsComplete) {
+      return 'pending';
+    } else {
+      return 'new';
+    }
+  };
+
   // Helper function to safely convert values to numbers  
   const safeNumber = (value: any): number => {
     if (typeof value === 'number') return value;
@@ -929,30 +1242,117 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
   // Validate form
   const validateForm = (): boolean => {
+    console.log('[JobForm] Starting validation');
     const newErrors: Partial<Record<keyof JobFormData, string>> = {};
 
+    // Check if this is a text-parsed job (has initialData but no job ID)
+    const isTextParsedJob = initialData && Object.keys(initialData).length > 0 && !job?.id;
+    console.log('[JobForm] Job type check:', { isTextParsedJob, initialData, jobId: job?.id });
+    
     // Required field validation
-    if (!formData.customer_id) newErrors.customer_id = "Customer is required";
-    if (!formData.passenger_name?.trim()) newErrors.passenger_name = "Passenger name is required";
-    if (!formData.service_type?.trim()) newErrors.service_type = "Service is required";
-    if (!formData.vehicle_type?.trim()) newErrors.vehicle_type = "Vehicle type is required";
-    if (!formData.pickup_date) newErrors.pickup_date = "Pickup date is required";
-    if (!formData.pickup_time) newErrors.pickup_time = "Pickup time is required";
-    if (!formData.pickup_location?.trim()) newErrors.pickup_location = "Pickup location is required";
-    if (!formData.dropoff_location?.trim()) newErrors.dropoff_location = "Drop-off location is required";
-    if (!formData.contractor_id) newErrors.contractor_id = "Assigned To (Contractor) is required"; 
+    // Check if customer_id is missing or invalid (0, null, undefined, or falsy)
+    const customerIdValue = formData.customer_id;
+    console.log('[JobForm] Customer ID validation check:', { 
+      customerIdValue, 
+      type: typeof customerIdValue,
+      isFalsy: !customerIdValue, 
+      isZero: customerIdValue === 0,
+      isNull: customerIdValue === null,
+      isUndefined: customerIdValue === undefined
+    });
+    
+    // Simplified validation - check for falsy values or 0
+    if (!customerIdValue || customerIdValue === 0) {
+      console.log('[JobForm] Customer ID is invalid, setting error');
+      newErrors.customer_id = "Customer is required";
+    }
+    
+    if (!formData.passenger_name?.trim()) {
+      newErrors.passenger_name = "Passenger name is required";
+    }
+    
+    if (!formData.service_type?.trim()) {
+      // For text-parsed jobs, having service_type name is acceptable initially
+      if (!isTextParsedJob) {
+        newErrors.service_type = "Service is required";
+      }
+    }
+    
+    if (!formData.vehicle_type?.trim()) {
+      newErrors.vehicle_type = "Vehicle type is required";
+    }
+    if (!formData.pickup_date) {
+      newErrors.pickup_date = "Pickup date is required";
+    }
+    if (!formData.pickup_time) {
+      newErrors.pickup_time = "Pickup time is required";
+    }
+    if (!formData.pickup_location?.trim()) {
+      newErrors.pickup_location = "Pickup location is required";
+    }
+    if (!formData.dropoff_location?.trim()) {
+      newErrors.dropoff_location = "Drop-off location is required";
+    }
+    
+    if (!formData.contractor_id || formData.contractor_id === 0) {
+      // For text-parsed jobs, having contractor_name is acceptable initially
+      if (!isTextParsedJob || !(initialData as any)?.contractor_name) {
+        newErrors.contractor_id = "Assigned To (Contractor) is required"; 
+      }
+    }
+    
+    console.log('[JobForm] Setting errors:', newErrors);
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const isValid = Object.keys(newErrors).length === 0;
+    
+    // Log validation result for debugging
+    console.log('[JobForm] Validation result:', { isValid, errors: newErrors });
+    
+    return isValid;
   };
 
   // Handle save
   const handleSave = async () => {
+    console.log('[JobForm] Save button clicked');
+    console.log('[JobForm] Current form data:', formData);
+    console.log('[JobForm] Current errors before validation:', errors);
+    
     const isValid = validateForm();
-    if (!isValid) return;
+    console.log('[JobForm] Form validation result:', isValid);
+    console.log('[JobForm] Errors after validation:', errors);
+    
+    // Double-check validation result
+    const finalValidationCheck = Object.keys(errors).length === 0;
+    console.log('[JobForm] Final validation check:', finalValidationCheck);
+    
+    // Additional explicit check for customer_id - simplified to match validation
+    const isCustomerIdValid = Boolean(formData.customer_id) && formData.customer_id !== 0;
+    console.log('[JobForm] Explicit customer ID check:', { 
+      customerId: formData.customer_id, 
+      isValid: isCustomerIdValid 
+    });
+    
+    // Force validation failure if customer_id is invalid
+    if (!isCustomerIdValid) {
+      console.log('[JobForm] FORCING validation failure due to invalid customer_id');
+      toast.error('Customer is required. Please select a valid customer.');
+      return;
+    }
+    
+    if (!isValid || !finalValidationCheck) {
+      console.log('[JobForm] Form validation failed, not submitting');
+      toast.error('Please fix the validation errors before saving.');
+      return;
+    }
+    
+    console.log('[JobForm] Form is valid, proceeding with submission');
 
     // Rate limiting
     const now = Date.now();
-    if (now - lastSaveTime < 1000) return;
+    if (now - lastSaveTime < 1000) {
+      console.log('[JobForm] Rate limiting, not submitting');
+      return;
+    }
     setLastSaveTime(now);
 
     setSaveStatus("saving");
@@ -986,12 +1386,14 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       };
       // Remove final_price so backend always recalculates
       delete jobData.final_price;
+      
+      console.log('[JobForm] Saving job with data:', jobData);
 
       await onSave(jobData);
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
-      console.error('Save error:', error);
+      console.error('[JobForm] Save error:', error);
       
       // Enhanced error handling for production
       let errorMessage = 'Failed to save job. Please try again.';
@@ -1108,7 +1510,23 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     showQuickAdd = false,
     quickAddType,
     disabled = false, // Add disabled prop
-  }) => (
+  }) => {
+    // Check if the current value exists in the options
+    const valueExistsInOptions = value !== undefined && value !== null && 
+      value !== '' && options.some(option => String(option.value) === String(value));
+    
+    // If value doesn't exist in options, we'll add a special option to show this
+    const selectOptions = valueExistsInOptions 
+      ? options 
+      : [
+          ...(value && !valueExistsInOptions ? [{ value: value, label: `${value} (Not Found)` }] : []),
+          ...options
+        ];
+    
+    // Determine the actual value to use for the select
+    const selectValue = valueExistsInOptions || (value && !valueExistsInOptions) ? (value ?? "") : "";
+    
+    return (
     <div className={`space-y-1 ${className}`}>
       <div className="flex items-center justify-between">
         <label className="block text-sm font-medium text-gray-300">
@@ -1122,14 +1540,14 @@ const JobForm: React.FC<JobFormProps> = (props) => {
         )}
       </div>
       <select
-        value={value ?? ""}
+        value={selectValue}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         className={`w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
           error ? "border-red-500" : ""
         } ${disabled ? "bg-gray-600 cursor-not-allowed" : ""}`}
       >
-        {options.map((option) => (
+        {selectOptions.map((option) => (
           <option
             key={option.value}
             value={option.value}
@@ -1142,7 +1560,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       </select>
       {error && <p className="text-sm text-red-400">{error}</p>}
     </div>
-  );
+  )};
 
 
   // Initialize UI location states based on form data
@@ -1323,7 +1741,28 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                     onChange={(v) => {
                       // Only allow changes if fields are not locked
                       if (!fieldsLocked) {
-                        handleInputChange("customer_id", Number(v));
+                        // If empty string is selected, set customer_id to 0 instead of null to match validation
+                        const customerId = v === "" ? 0 : Number(v);
+                        console.log('[JobForm] Customer selection changed:', { 
+                          selectedValue: v, 
+                          convertedCustomerId: customerId,
+                          previousCustomerId: formData.customer_id
+                        });
+                        
+                        // Additional validation to ensure we don't set invalid values
+                        if (v === "") {
+                          // Clear any existing customer-related data when "Select Customer" is chosen
+                          setFormData(prev => ({
+                            ...prev,
+                            customer_id: 0,
+                            customer_name: "",
+                            customer_mobile: "",
+                            customer_email: null,
+                            customer_reference: ""
+                          }));
+                        } else {
+                          handleInputChange("customer_id", customerId);
+                        }
                       }
                     }}
                     required
@@ -1789,21 +2228,19 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                 <div className="space-y-4">
                   {/* Base Price Field */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-sm font-medium text-gray-300">
-                        Base Price
-                      </label>
-                      {/* Only show pricing indicators for NEW jobs, not when editing */}
+                    <div className="flex items-center space-x-2">
                       {!job?.id && formData.customer_id && formData.service_type && (
-                        customerServicePricing ? (
-                          <span className="px-2 py-1 text-xs bg-blue-600 text-blue-100 rounded-full">
-                            Pricing Applied
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 text-xs bg-gray-600 text-gray-100 rounded-full">
-                            No Pricing
-                          </span>
-                        )
+                        <>
+                          {customerServicePricing ? (
+                            <span className="px-2 py-1 text-xs bg-blue-600 text-blue-100 rounded-full">
+                              Pricing Applied
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs bg-gray-600 text-gray-100 rounded-full">
+                              No Pricing
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
                     <input
