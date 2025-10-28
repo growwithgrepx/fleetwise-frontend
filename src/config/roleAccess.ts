@@ -34,4 +34,20 @@ export const roleAccessRules: Record<string, string[]> = {
     "/jobs/bulk-upload",
     "/jobs/manage",
   ],
+  guest: [
+    "/dashboard",
+    "/billing",
+    "/drivers",
+    "/customers",
+    "/contractors",
+    "/vehicles",
+    "/vehicle-types",
+    "/general-settings",
+    "/services-vehicle-price",
+    "/jobs",
+    "/jobs/new",
+    "/jobs/bulk-upload",
+    "/jobs/manage",
+    "/jobs/*",
+  ]
 };

@@ -273,18 +273,20 @@ export default function ExcelUploadTable({
       // Validate required fields
       const errors: string[] = [];
 
+      // Normalize optional fields to null
+      currentEditData.vehicle_id = currentEditData.vehicle_id ?? null;
+      currentEditData.driver_id = currentEditData.driver_id ?? null;
+      currentEditData.vehicle = currentEditData.vehicle ?? null;
+      currentEditData.driver = currentEditData.driver ?? null;
+
+      // Validate required fields
       if (!currentEditData.customer_id || !currentEditData.customer) {
         errors.push('Customer is required');
       }
       if (!currentEditData.service) {
         errors.push('Service is required');
       }
-      if (!currentEditData.vehicle_id || !currentEditData.vehicle) {
-        errors.push('Vehicle is required');
-      }
-      if (!currentEditData.driver_id || !currentEditData.driver) {
-        errors.push('Driver is required');
-      }
+      // Driver and vehicle are optional for bulk upload
       if (!currentEditData.pickup_date) {
         errors.push('Pickup date is required');
       }
