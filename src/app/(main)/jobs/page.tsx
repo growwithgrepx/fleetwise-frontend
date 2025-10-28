@@ -396,14 +396,17 @@ const JobsPage = () => {
   const startIdx = (page - 1) * pageSize + 1;
   const endIdx = Math.min(page * pageSize, total);
 
-   if (["driver"].includes(role)) {
-    return <NotAuthorizedPage />;
-  }
+  function RoleGate({ allow, role, children }) {
+  if (!allow.includes(role)) return null;
+  return <>{children}</>;
+}
 
   if (error) return <div>Failed to load jobs. Error: {error.message}</div>;
 
   return (
     <div className="max-w-7xl mx-auto px-2 py-6 w-full flex flex-col gap-4">
+      <RoleGate allow={["admin", "manager", "customer", "accountant"]} role={role}>
+
       <EntityHeader 
         title="Jobs" 
         onAddClick={() => router.push('/jobs/new')} 
@@ -418,6 +421,7 @@ const JobsPage = () => {
         } 
         className="mb-4"
       /> 
+      </RoleGate>
       <div className="flex flex-col md:flex-row md:items-center gap-4 bg-background pt-4 pb-4 rounded-t-xl">
         <div className="flex-1">
           <h3 className="font-bold text-text-main mb-3 px-4 py-2">Filter by status</h3>
