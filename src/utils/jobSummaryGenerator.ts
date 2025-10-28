@@ -1,5 +1,8 @@
 import type { Job } from '@/types/types';
 
+// Define a type for vehicle_type that could be either a string or an object with a name property
+type VehicleType = string | { name: string };
+
 /**
  * Generates a formatted text summary of a job for sharing
  * @param job The job object to generate summary for
@@ -20,7 +23,10 @@ export function generateJobSummary(job: Job): string {
 
   // Type of vehicle
   if (job.vehicle_type) {
-    lines.push(`Type of vehicle: ${job.vehicle_type}`);
+    const vehicleType = typeof job.vehicle_type === 'object' && (job.vehicle_type as { name: string }).name 
+      ? (job.vehicle_type as { name: string }).name 
+      : job.vehicle_type as string;
+    lines.push(`Type of vehicle: ${vehicleType}`);
   }
 
   // Pick up Date and Time
@@ -42,7 +48,7 @@ export function generateJobSummary(job: Job): string {
   }
 
   // Passenger Details
-  const passengerDetails = [];
+  const passengerDetails: string[] = [];
   if (job.passenger_name) {
     passengerDetails.push(job.passenger_name);
   }
@@ -55,8 +61,9 @@ export function generateJobSummary(job: Job): string {
   }
 
   // Driver Notes
-  if (job.remarks) {
-    lines.push(`Driver Notes: ${job.remarks}`);
+  // Implement fallback logic as specified in acceptance criteria
+  if (job.remarks || (job as any).customer_remark) {
+    lines.push(`Driver Notes: ${job.remarks || (job as any).customer_remark}`);
   }
 
   return lines.join('\n');
