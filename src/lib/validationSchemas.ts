@@ -12,7 +12,6 @@ export const agentSchema = z.object({
 export const vehicleSchema = z.object({
   name: z.string().min(1, "Name is required"),
   number: z.string().min(1, "Number is required"),
-  type: z.string().optional(),
   status: z.string().optional(),
 });
 
