@@ -9,8 +9,9 @@ export default function NewVehiclePage() {
   const createVehicleMutation = useCreateVehicle();
 
   const handleSubmit = async (data: any) => {
-    const { name, number, type, status } = data;
-    await createVehicleMutation.mutateAsync({ name, number, type, status });
+    const { name, number, status } = data;
+    // Always include type field with empty string value to satisfy backend constraint
+    await createVehicleMutation.mutateAsync({ name, number, status, type: '' } as any);
     router.push("/vehicles");
   };
 

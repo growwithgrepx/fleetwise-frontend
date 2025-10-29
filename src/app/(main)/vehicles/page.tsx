@@ -103,18 +103,6 @@ export default function VehiclesPage() {
     },
     { 
       label: (
-        <span className="inline-flex items-center gap-1 cursor-pointer select-none" onClick={() => handleSort('type')}>
-          Type
-          {sortBy === 'type' ? (
-            sortDir === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />
-          ) : null}
-        </span>
-      ), 
-      accessor: 'type', 
-      filterable: true 
-    },
-    { 
-      label: (
         <span className="inline-flex items-center gap-1 cursor-pointer select-none" onClick={() => handleSort('status')}>
           Status
           {sortBy === 'status' ? (

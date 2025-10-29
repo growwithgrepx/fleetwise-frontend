@@ -17,15 +17,24 @@ type VehicleFormProps = {
 export default function VehicleForm({ initialData, onSubmit, isSubmitting, onBack }: VehicleFormProps) {
   const { register, handleSubmit, formState: { errors, touchedFields }, trigger } = useForm<VehicleFormValues>({
     resolver: zodResolver(vehicleSchema),
-    defaultValues: { name: '', number: '', type: 'Sedan', status: 'Active', ...initialData },
+    defaultValues: { name: '', number: '', status: 'Active', ...initialData },
     mode: 'onBlur',
   });
 
   // More robust detection of edit mode - checks for existence and non-null value of ID
   const isEditing = initialData && typeof initialData.id !== 'undefined' && initialData.id !== null;
 
+  const handleFormSubmit = (data: VehicleFormValues) => {
+    // Always include type field with empty string value to satisfy backend constraint
+    const formData = {
+      ...data,
+      type: ''
+    };
+    onSubmit(formData);
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-xl mx-auto bg-gray-900 p-8 rounded-lg shadow">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6 max-w-xl mx-auto bg-gray-900 p-8 rounded-lg shadow">
       <h2 className="text-2xl font-bold text-white mb-6">{isEditing ? 'Edit Vehicle' : 'Add Vehicle'}</h2>
       <div className="grid grid-cols-1 gap-y-6">
         <div>
@@ -37,16 +46,6 @@ export default function VehicleForm({ initialData, onSubmit, isSubmitting, onBac
           <label className="block text-gray-300 mb-1">Number</label>
           <input {...register("number")} onBlur={e => { register("number").onBlur(e); trigger('number'); }} className="w-full px-3 py-2 rounded bg-gray-800 text-white border border-gray-700" />
           {touchedFields.number && errors.number && <span className="text-red-400 text-sm">{errors.number.message}</span>}
-        </div>
-        <div>
-          <label className="block text-gray-300 mb-1">Type</label>
-          <select {...register("type")} onBlur={e => { register("type").onBlur(e); trigger('type'); }} className="w-full px-3 py-2 rounded bg-gray-800 text-white border border-gray-700">
-            <option value="Sedan">Sedan</option>
-            <option value="SUV">SUV</option>
-            <option value="Van">Van</option>
-            <option value="Bus">Bus</option>
-          </select>
-          {touchedFields.type && errors.type && <span className="text-red-400 text-sm">{errors.type.message}</span>}
         </div>
         <div>
           <label className="block text-gray-300 mb-1">Status</label>
