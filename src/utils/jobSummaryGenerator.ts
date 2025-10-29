@@ -1,14 +1,15 @@
 import type { Job } from '@/types/types';
+import type { ApiJob } from '@/types/job';
 
 // Define a type for vehicle_type that could be either a string or an object with a name property
 type VehicleType = string | { name: string };
 
 /**
  * Generates a formatted text summary of a job for sharing
- * @param job The job object to generate summary for
+ * @param job The job object to generate summary for (accepts both Job and ApiJob types)
  * @returns Formatted text summary
  */
-export function generateJobSummary(job: Job): string {
+export function generateJobSummary(job: Job | ApiJob): string {
   const lines: string[] = [];
 
   // Customer Account
