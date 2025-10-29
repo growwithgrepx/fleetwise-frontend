@@ -71,7 +71,7 @@ const navSections: NavSection[] = [
       },
       {
         label: "Cost Summary",
-        href: "/cost-summary",
+        href: "",
         icon: <WalletIcon className="w-5 h-5" />,
         description: "View cost summaries",
         children: [
@@ -382,63 +382,106 @@ const open = finalMenuState[item.href] ?? anyChildActive;
 
         return (
       <div key={item.href} className="mx-2">
-        <div
-          className={clsx(
-            "flex items-center rounded-xl transition-all duration-200 relative overflow-hidden",
-            parentActive
-              ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25"
-              : "text-text-secondary hover:bg-background-light hover:text-text-main hover:shadow-sm",
-            isCollapsed && "justify-center"
-          )}
-        >
-          {/* Parent link */}
-          <Link
-            href={item.href}
-            onClick={() => !isDesktop && handleMobileClose()}
+        {/* Check if item is non-clickable (no href) */}
+        {item.href === "" ? (
+          // Non-clickable header
+          <div
             className={clsx(
-              "flex items-center flex-1 px-4 py-3 focus:outline-none",
+              "flex items-center rounded-xl transition-all duration-200 relative overflow-hidden cursor-default",
+              "text-text-secondary bg-background-light/50",
               isCollapsed && "justify-center"
             )}
-            aria-current={parentActive ? "page" : undefined}
-            title={isCollapsed ? `${item.label} - ${item.description}` : ""}
           >
-            {parentActive && isCollapsed && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full" />
-            )}
-            <div className={clsx("flex items-center", !isCollapsed && "w-full")}>
-              <div className={clsx(
-                "flex items-center justify-center",
-                parentActive ? "text-white" : "group-hover:scale-110 transition-transform duration-200"
-              )}>
+            <div className={clsx(
+              "flex items-center flex-1 px-4 py-3",
+              isCollapsed && "justify-center"
+            )}>
+              <div className="flex items-center justify-center">
                 {item.icon}
               </div>
               {!isCollapsed && (
                 <div className="ml-3 flex-1 text-left">
                   <span className="font-medium text-sm block">{item.label}</span>
-                  <span className={clsx(
-                    "text-xs block mt-0.5",
-                    parentActive ? "text-white/80" : "text-text-secondary/60"
-                  )}>
+                  <span className="text-xs block mt-0.5 text-text-secondary/60">
                     {item.description}
                   </span>
                 </div>
               )}
             </div>
-          </Link>
 
-          {/* Chevron for expand */}
-          {!isCollapsed && (
-            <button
-              onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleMenu(item.href); }}
-              className="px-3 py-3 rounded-r-xl hover:bg-white/10 focus:outline-none"
-              aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
-              aria-expanded={open}
-              aria-controls={`submenu-${item.href}`}
+            {/* Chevron for expand */}
+            {!isCollapsed && (
+              <button
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleMenu(item.href); }}
+                className="px-3 py-3 rounded-r-xl hover:bg-white/10 focus:outline-none"
+                aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
+                aria-expanded={open}
+                aria-controls={`submenu-${item.href}`}
+              >
+                {open ? <ChevronDownIcon className="w-4 h-4 opacity-90" /> : <ChevronRightIcon className="w-4 h-4 opacity-90" />}
+              </button>
+            )}
+          </div>
+        ) : (
+          // Clickable parent item
+          <div
+            className={clsx(
+              "flex items-center rounded-xl transition-all duration-200 relative overflow-hidden",
+              parentActive
+                ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25"
+                : "text-text-secondary hover:bg-background-light hover:text-text-main hover:shadow-sm",
+              isCollapsed && "justify-center"
+            )}
+          >
+            {/* Parent link */}
+            <Link
+              href={item.href}
+              onClick={() => !isDesktop && handleMobileClose()}
+              className={clsx(
+                "flex items-center flex-1 px-4 py-3 focus:outline-none",
+                isCollapsed && "justify-center"
+              )}
+              aria-current={parentActive ? "page" : undefined}
+              title={isCollapsed ? `${item.label} - ${item.description}` : ""}
             >
-              {open ? <ChevronDownIcon className="w-4 h-4 opacity-90" /> : <ChevronRightIcon className="w-4 h-4 opacity-90" />}
-            </button>
-          )}
-        </div>
+              {parentActive && isCollapsed && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full" />
+              )}
+              <div className={clsx("flex items-center", !isCollapsed && "w-full")}>
+                <div className={clsx(
+                  "flex items-center justify-center",
+                  parentActive ? "text-white" : "group-hover:scale-110 transition-transform duration-200"
+                )}>
+                  {item.icon}
+                </div>
+                {!isCollapsed && (
+                  <div className="ml-3 flex-1 text-left">
+                    <span className="font-medium text-sm block">{item.label}</span>
+                    <span className={clsx(
+                      "text-xs block mt-0.5",
+                      parentActive ? "text-white/80" : "text-text-secondary/60"
+                    )}>
+                      {item.description}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </Link>
+
+            {/* Chevron for expand */}
+            {!isCollapsed && (
+              <button
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleMenu(item.href); }}
+                className="px-3 py-3 rounded-r-xl hover:bg-white/10 focus:outline-none"
+                aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
+                aria-expanded={open}
+                aria-controls={`submenu-${item.href}`}
+              >
+                {open ? <ChevronDownIcon className="w-4 h-4 opacity-90" /> : <ChevronRightIcon className="w-4 h-4 opacity-90" />}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Submenu */}
         {!isCollapsed && (
