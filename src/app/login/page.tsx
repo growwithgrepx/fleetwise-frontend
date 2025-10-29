@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../../context/UserContext';
 import Link from 'next/link';
+import { getUserRole } from '@/utils/roleUtils';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -12,13 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const router = useRouter();
   const { login, isLoggedIn, isLoading, user } = useUser();
-  const role =
-  Array.isArray(user?.roles) && user.roles.length > 0
-    ? (typeof user.roles[0] === 'string'
-        ? user.roles[0]
-        : user.roles[0]?.name || user.roles[0]?.role || 'guest'
-      ).toLowerCase()
-    : 'guest';
+  const role = getUserRole(user);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -29,7 +24,7 @@ if (role === 'admin') {
   router.replace('/jobs');
 }
     }
-  }, [isLoggedIn, isLoading, router]);
+  }, [isLoggedIn, isLoading, user, role, router]);
 
   // Don't render form while checking authentication or if already logged in
   if (isLoading || isLoggedIn) {
@@ -52,15 +47,11 @@ if (role === 'admin') {
       const success = await login(email, password);
       setLoading(false);
       
-      if (success && user) {
-       if (user.role === 'admin') {
-          router.replace('/dashboard');
-        } else {
-          router.replace('/jobs');
-        }
+      if (success) {
+        router.replace('/dashboard');
       } else {
-        setError('Invalid email or password');
-      }
+      setError('Invalid email or password');
+    }
     } catch (err) {
       setLoading(false);
       setError('Login failed. Please try again.');

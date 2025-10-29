@@ -78,8 +78,12 @@ api.interceptors.response.use(
         msg = 'Scheduling conflict detected. Please select a different date or time.';
       }
       
-     if (data && typeof data === "object" && Object.keys(data).length > 0) {
+    if (data && typeof data === "object") {
   console.error("API Error Response:", data);
+} else if (data) {
+  console.error("API Error Response (non-object):", data);
+} else {
+  console.error("API Error: No response data");
 }
 
       

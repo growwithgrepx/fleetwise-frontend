@@ -32,6 +32,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAddressLookup } from '@/hooks/useAddressLookup';
 import PhoneInput from '@/components/molecules/PhoneInput';
 import { useUser } from '@/context/UserContext';
+import { getUserRole } from '@/utils/roleUtils';
 
 import { 
   createJob, 
@@ -275,14 +276,14 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   }
 
   const { user } = useUser();
-  const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+  const role = getUserRole(user);
 
   // only fetch drivers for allowed roles
   const isRoleAllowed = ["admin", "manager", "accountant"].includes(role);
 
-  const { data: allDrivers = [] } = isRoleAllowed
-    ? useGetAllDrivers()
-    : { data: [] };
+  const { data: allDriversRaw = [] } = useGetAllDrivers();
+  const allDrivers = isRoleAllowed ? allDriversRaw : [];
+
 
   // Data hooks
   const { subCustomers } = useSubCustomers(job?.customer_id ?? 0);

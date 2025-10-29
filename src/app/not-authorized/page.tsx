@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
+import { getUserRole } from "@/utils/roleUtils";
 
 export default function NotAuthorizedPage() {
   const router = useRouter();
@@ -8,13 +9,7 @@ export default function NotAuthorizedPage() {
 
   let backLink = "/login";
   let backText = "Go to Login";
-  const role =
-  Array.isArray(user?.roles) && user.roles.length > 0
-    ? (typeof user.roles[0] === 'string'
-        ? user.roles[0]
-        : user.roles[0]?.name || user.roles[0]?.role || 'guest'
-      ).toLowerCase()
-    : 'guest';
+  const role = getUserRole(user);
   if (isLoggedIn && role) {
     // ✅ Role-based redirect paths
     switch (role) {
