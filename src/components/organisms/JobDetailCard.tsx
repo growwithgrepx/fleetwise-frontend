@@ -9,23 +9,39 @@ import { generateJobSummary } from '@/utils/jobSummaryGenerator';
 
 // Local StatusBadge component with the exact styling you specified
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  // Guard against invalid status values
+  if (!status || typeof status !== 'string' || status.trim() === '') {
+    return null;
+  }
+  
   // Format status text with proper capitalization
   const formatStatus = (status: string) => {
-    if (!status) return '';
-    return status.charAt(0).toUpperCase() + status.slice(1);
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
   };
   
   // Use the exact styling you provided for canceled status
   const getStatusClass = (status: string) => {
-    switch (status?.toLowerCase()) {
+    switch (status.toLowerCase()) {
       case 'canceled':
         return 'px-3 py-1 text-xs font-medium rounded-full bg-red-700 text-red-100';
       case 'confirmed':
         return 'px-3 py-1 text-xs font-medium rounded-full bg-green-700 text-green-100';
       case 'pending':
         return 'px-3 py-1 text-xs font-medium rounded-full bg-yellow-700 text-yellow-100';
-      default:
+      case 'new':
         return 'px-3 py-1 text-xs font-medium rounded-full bg-blue-700 text-blue-100';
+      case 'otw': // On The Way
+        return 'px-3 py-1 text-xs font-medium rounded-full bg-indigo-700 text-indigo-100';
+      case 'ots': // On The Scene
+        return 'px-3 py-1 text-xs font-medium rounded-full bg-purple-700 text-purple-100';
+      case 'pob': // Passenger On Board
+        return 'px-3 py-1 text-xs font-medium rounded-full bg-cyan-700 text-cyan-100';
+      case 'jc': // Job Complete
+        return 'px-3 py-1 text-xs font-medium rounded-full bg-teal-700 text-teal-100';
+      case 'sd': // Stand Down
+        return 'px-3 py-1 text-xs font-medium rounded-full bg-emerald-700 text-emerald-100';
+      default:
+        return 'px-3 py-1 text-xs font-medium rounded-full bg-gray-700 text-gray-100';
     }
   };
   
@@ -57,7 +73,7 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
           <div>
             <h2 className="text-2xl font-bold text-text-main">
               Job Details{' '}
-              {job.status && <StatusBadge status={job.status} />}
+              {normalized.status && <StatusBadge status={String(normalized.status)} />}
             </h2>
           </div>
           <Button variant="primary" onClick={handleGenerateText}>
@@ -80,10 +96,9 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
               <DetailItem label="Date & Time" value={normalized.pickupDate && normalized.pickupTime ? `${normalized.pickupDate} at ${normalized.pickupTime}` : (normalized.pickupDate || '')} />
           </DetailSection>
 
-          <DetailSection title="Pricing & Status">
+          <DetailSection title="Pricing">
               <DetailItem label="Base Price" value={normalized.basePrice !== undefined ? `S$ ${normalized.basePrice.toFixed(2)}` : 'N/A'} />
               <DetailItem label="Final Price" value={normalized.finalPrice !== undefined ? `S$ ${normalized.finalPrice.toFixed(2)}` : 'N/A'} />
-              <DetailItem label="Job Status" value={normalized.status && <StatusBadge status={String(normalized.status)} />} />
           </DetailSection>
 
           <DetailSection title="Assignment & Other">

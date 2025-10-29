@@ -71,7 +71,7 @@ const navSections: NavSection[] = [
       },
       {
         label: "Cost Summary",
-        href: "",
+        href: "", // Non-clickable
         icon: <WalletIcon className="w-5 h-5" />,
         description: "View cost summaries",
         children: [
@@ -238,7 +238,9 @@ const computedMenus = useMemo(() => {
 
   // Example: expand "Jobs" if pathname starts with /jobs
   if (pathname.startsWith("/jobs")) next["jobs"] = true;
-  if (pathname.startsWith("/billing")) next["billing"] = true;
+  if (pathname.startsWith("/billing") && !pathname.startsWith("/billing/contractor-billing") && !pathname.startsWith("/billing/driver-billing")) next["billing"] = true;
+  // Use the label as the key for Cost Summary
+  if (pathname.startsWith("/billing/contractor-billing") || pathname.startsWith("/billing/driver-billing")) next["Cost Summary"] = true;
 
   return next;
 }, [pathname]);
@@ -311,7 +313,14 @@ const finalMenuState = { ...computedMenus, ...manualOverrides };
     };
   }, [isMobileOpen]);
 
-  const isActive = (href: string) => pathname?.startsWith(href) ?? false;
+  const isActive = (href: string) => {
+    if (!href) return false;
+    // For main billing page, ensure we don't match child routes
+    if (href === "/billing") {
+      return pathname === "/billing" || pathname === "/billing/";
+    }
+    return pathname?.startsWith(href) ?? false;
+  };
 
  // toggle just updates manualOverrides
 const toggleMenu = (key: string) => {
@@ -369,10 +378,20 @@ const toggleMenu = (key: string) => {
               {/* Section Items */}
          <div className="space-y-1">
   {section.items.map((item) => {
-    const parentActive = pathname.startsWith(item.href) && !item.children?.some(c => pathname.startsWith(c.href));
-const anyChildActive = item.children?.some((c) => pathname.startsWith(c.href));
-const open = finalMenuState[item.href] ?? anyChildActive;
-
+    // More precise active state detection
+    const parentActive = item.href !== "" && 
+      (pathname === item.href || 
+       (pathname.startsWith(item.href) && 
+        !item.children?.some(c => pathname.startsWith(c.href)) &&
+        // Special handling for Billing to avoid matching child routes
+        !(item.href === "/billing" && 
+          (pathname.startsWith("/billing/contractor-billing") || 
+           pathname.startsWith("/billing/driver-billing")))));
+    
+    const anyChildActive = item.children?.some((c) => pathname.startsWith(c.href));
+    // For Cost Summary, we don't want to highlight the parent when children are active
+    const isCostSummaryActive = item.label === "Cost Summary" && parentActive; // Only highlight if directly on the parent (which is never since it's non-clickable)
+    const open = finalMenuState[item.label] ?? anyChildActive;
 
     // CASE 1: item with children (collapsible group)
     if ('children' in item && Array.isArray(item.children)) {
@@ -388,7 +407,9 @@ const open = finalMenuState[item.href] ?? anyChildActive;
           <div
             className={clsx(
               "flex items-center rounded-xl transition-all duration-200 relative overflow-hidden cursor-default",
-              "text-text-secondary bg-background-light/50",
+              isCostSummaryActive
+                ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25"
+                : "text-text-secondary bg-background-light/50",
               isCollapsed && "justify-center"
             )}
           >
@@ -412,11 +433,11 @@ const open = finalMenuState[item.href] ?? anyChildActive;
             {/* Chevron for expand */}
             {!isCollapsed && (
               <button
-                onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleMenu(item.href); }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleMenu(item.label); }}
                 className="px-3 py-3 rounded-r-xl hover:bg-white/10 focus:outline-none"
                 aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
                 aria-expanded={open}
-                aria-controls={`submenu-${item.href}`}
+                aria-controls={`submenu-${item.label}`}
               >
                 {open ? <ChevronDownIcon className="w-4 h-4 opacity-90" /> : <ChevronRightIcon className="w-4 h-4 opacity-90" />}
               </button>
@@ -471,11 +492,11 @@ const open = finalMenuState[item.href] ?? anyChildActive;
             {/* Chevron for expand */}
             {!isCollapsed && (
               <button
-                onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleMenu(item.href); }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleMenu(item.label); }}
                 className="px-3 py-3 rounded-r-xl hover:bg-white/10 focus:outline-none"
                 aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
                 aria-expanded={open}
-                aria-controls={`submenu-${item.href}`}
+                aria-controls={`submenu-${item.label}`}
               >
                 {open ? <ChevronDownIcon className="w-4 h-4 opacity-90" /> : <ChevronRightIcon className="w-4 h-4 opacity-90" />}
               </button>
@@ -486,7 +507,7 @@ const open = finalMenuState[item.href] ?? anyChildActive;
         {/* Submenu */}
         {!isCollapsed && (
           <div
-            id={`submenu-${item.href}`}
+            id={`submenu-${item.label}`}
             className={clsx(
               "overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out",
               open ? "max-h-80 opacity-100 mt-1" : "max-h-0 opacity-0"
@@ -494,7 +515,7 @@ const open = finalMenuState[item.href] ?? anyChildActive;
           >
             <ul className="pl-10 pr-2 py-1 space-y-1">
               {item.children.map((child) => {
-                const childActive = pathname.startsWith(child.href);
+                const childActive = pathname === child.href; // Exact match instead of startsWith for precise highlighting
                 return (
                   <li key={child.href}>
                     <Link
@@ -731,4 +752,5 @@ const open = finalMenuState[item.href] ?? anyChildActive;
   <SidebarContent />
 </aside>
       </div>
-    </>  );}
+    </>  );
+}
