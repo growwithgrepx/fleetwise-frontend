@@ -69,7 +69,8 @@ const getJobActions = (
   handleView: (job: ApiJob) => void,
   handleEdit: (job: ApiJob) => void,
   handleCopy: (job: ApiJob) => void,
-): EntityTableAction<ApiJob>[] => [
+): EntityTableAction<ApiJob>[] => {
+  const actions: EntityTableAction<ApiJob>[] = [
   {
     label: 'View',
     icon: <Eye className="w-5 h-5 text-primary" />,
@@ -99,7 +100,44 @@ const getJobActions = (
     title: 'Delete',
     disabled: isDeleting,
   },
+  
 ];
+const restrictedRolesDelete = ["driver", "customer", "guest"];
+const restrictedRolesEdit = ["driver", "guest"];
+const { user } = useUser();
+const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+
+let filteredActions = actions;
+
+// Remove Delete for restricted roles
+if (restrictedRolesDelete.includes(role)) {
+  filteredActions = filteredActions.filter((a) => a.label !== "Delete");
+}
+
+// Remove Edit for restricted roles
+if (restrictedRolesEdit.includes(role)) {
+  filteredActions = filteredActions.filter((a) => a.label !== "Edit");
+}
+
+// Remove Copy for restricted roles
+if (restrictedRolesEdit.includes(role)) {
+  filteredActions = filteredActions.filter((a) => a.label !== "Copy");
+}
+
+// ✅ Now map over filteredActions (not actions)
+filteredActions = filteredActions.map((a) => {
+  if (a.label === "Edit" || a.label === "Delete") {
+    return {
+      ...a,
+      disabled: (job: ApiJob) =>
+        role === "customer" && job.status === "confirmed",
+    };
+  }
+  return a;
+});
+
+return filteredActions;
+};
 
 // Job status tabs for filtering the main jobs list
 const jobStatuses = [
@@ -118,7 +156,9 @@ const jobStatuses = [
 const JobsPage = () => {
   const router = useRouter();
   const { jobs, isLoading, error, updateFilters, deleteJobAsync, updateJobAsync, createJobAsync, filters } = useJobs();
-  
+  const { user } = useUser();
+  const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+  const isDriver = role === "driver";
   // Fetch all jobs without status filter for count calculation
   const { data: allJobsData } = useQuery({
     queryKey: ['jobs', 'all-status-counts'],
@@ -136,6 +176,7 @@ const JobsPage = () => {
       const response = await api.get('/api/customers');
       return response.data;
     },
+    enabled: !isDriver,
   });
   
   const allJobs = allJobsData?.items || [];
@@ -194,8 +235,7 @@ const JobsPage = () => {
   const debouncedFilters = useDebounce(filters, 500);
   const [editJob, setEditJob] = useState<Job | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const { user } = useUser();
-  const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+  
 
   // Update API filters when column filters change (debounced)
   // Not spreading filters to avoid stale closure bugs and infinite loops

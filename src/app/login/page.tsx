@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../../context/UserContext';
 import Link from 'next/link';
+import { getUserRole } from '@/utils/roleUtils';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -11,14 +12,19 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-  const { login, isLoggedIn, isLoading } = useUser();
+  const { login, isLoggedIn, isLoading, user } = useUser();
+  const role = getUserRole(user);
 
   // Redirect if already logged in
   useEffect(() => {
-    if (!isLoading && isLoggedIn) {
-      router.replace('/dashboard');
+    if (!isLoading && isLoggedIn && user) {
+if (role === 'admin') {
+  router.replace('/dashboard');
+} else {
+  router.replace('/jobs');
+}
     }
-  }, [isLoggedIn, isLoading, router]);
+  }, [isLoggedIn, isLoading, user, role, router]);
 
   // Don't render form while checking authentication or if already logged in
   if (isLoading || isLoggedIn) {
@@ -42,11 +48,10 @@ export default function LoginPage() {
       setLoading(false);
       
       if (success) {
-        // Successful login, redirect to dashboard
         router.replace('/dashboard');
       } else {
-        setError('Invalid email or password');
-      }
+      setError('Invalid email or password');
+    }
     } catch (err) {
       setLoading(false);
       setError('Login failed. Please try again.');
