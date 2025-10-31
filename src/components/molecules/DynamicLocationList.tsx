@@ -67,7 +67,8 @@ export const DynamicLocationList: React.FC<DynamicLocationListProps> = ({
         // Only update if:
         // 1. The field still contains a postal code (user hasn't typed over it)
         // 2. The lookup is newer than the last user input
-        if (/^\d{4,8}$/.test(currentValue.trim()) && lookupTimestamp > userTimestamp) {
+        // But allow updates if the field is empty (newly added row)
+        if ((/^\d{4,8}$/.test(currentValue.trim()) && lookupTimestamp > userTimestamp) || currentValue.trim() === '') {
           try {
             const formattedAddress = formatAddress(hook.result.display_name);
             console.log(`[DynamicLocationList] Setting ${type} location ${index + 1} to:`, formattedAddress);
