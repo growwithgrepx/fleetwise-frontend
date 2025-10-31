@@ -1,4 +1,4 @@
-import { Job, JobFormData } from '@/types/job';
+import { Job, JobFormData, ApiJob } from '@/types/job';
 import { api } from '@/lib/api';
 
 export interface JobFilters {
@@ -43,7 +43,7 @@ export interface DriverInfo {
 }
 
 export interface JobsResponse {
-  items: Job[];
+  items: ApiJob[];
   total: number;
   page: number;
   pageSize: number;
@@ -128,8 +128,8 @@ export async function getJobs(filters: JobFilters = {}): Promise<JobsResponse> {
 }
 
 /** Fetch a single job by ID */
-export async function getJobById(id: number): Promise<Job> {
-  const response = await api.get<Job>(`/api/jobs/${id}`);
+export async function getJobById(id: number): Promise<ApiJob> {
+  const response = await api.get<ApiJob>(`/api/jobs/${id}`);
   return { ...response.data, extra_services: parseExtraServices(response.data.extra_services) };
 }
 

@@ -363,16 +363,8 @@ export function EntityTable<
                                       </span>
                                     )
                                   ) : isViewAction ? (
-                                    <div
-                                      className={clsx(
-                                        "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                                        expandedRowId === row.id
-                                          ? "bg-primary text-white"
-                                          : "bg-primary/20 text-primary hover:bg-primary/30"
-                                      )}
-                                    >
-                                      <EyeIcon className="h-4 w-4" />
-                                    </div>
+                                    // Commented out eye icon button
+                                    null
                                   ) : (
                                     <div className="flex items-center justify-center">
                                       {action.icon}
@@ -435,16 +427,8 @@ export function EntityTable<
                                       </span>
                                     )
                                   ) : isViewAction ? (
-                                    <div
-                                      className={clsx(
-                                        "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                                        expandedRowId === row.id
-                                          ? "bg-primary text-white"
-                                          : "bg-primary/20 text-primary hover:bg-primary/30"
-                                      )}
-                                    >
-                                      <EyeIcon className="h-4 w-4" />
-                                    </div>
+                                    // Commented out eye icon button
+                                    null
                                   ) : (
                                     <div className="flex items-center justify-center">
                                       {action.icon}

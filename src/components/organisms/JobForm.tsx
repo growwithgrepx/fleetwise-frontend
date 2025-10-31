@@ -31,6 +31,8 @@ import { createDriver } from '@/services/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAddressLookup } from '@/hooks/useAddressLookup';
 import PhoneInput from '@/components/molecules/PhoneInput';
+import { useUser } from '@/context/UserContext';
+import { getUserRole } from '@/utils/roleUtils';
 
 import { 
   createJob, 
@@ -273,11 +275,21 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     normalizedInitialData.vehicle_type = vt && (vt.name || vt.label || vt.value) ? (vt.name || vt.label || vt.value) : String(vt);
   }
 
+  const { user } = useUser();
+  const role = getUserRole(user);
+
+  // only fetch drivers for allowed roles
+  const isRoleAllowed = ["admin", "manager", "accountant"].includes(role);
+
+  const { data: allDriversRaw = [] } = useGetAllDrivers();
+  const allDrivers = isRoleAllowed ? allDriversRaw : [];
+
+
   // Data hooks
   const { subCustomers } = useSubCustomers(job?.customer_id ?? 0);
   const { data: customer } = useGetCustomerById(job?.customer_id ?? "");
   const { data: allVehicles = [] } = useGetAllVehicles();
-  const { data: allDrivers = [] } = useGetAllDrivers();
+  // const { data: allDrivers = [] } = useGetAllDrivers();
   const { data: allCustomers = [] } = useGetAllCustomers();
   const { data: allServices = [] } = useGetAllServices();
   const { data: allVehicleTypes = [] } = useGetAllVehicleTypes();
@@ -1812,47 +1824,6 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                   </div>
 		  <div className="space-y-2">
 		  </div>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-300">
-                      Passenger Name <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="passenger_name"
-                      value={formData.passenger_name || ""}
-                      onChange={(e) => {
-                        if (!isFieldLocked("passenger_name")) {
-                          handleInputChange("passenger_name", e.target.value);
-                        }
-                      }}
-                      readOnly={isFieldLocked("passenger_name")}
-                      className={`w-full px-4 py-3 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                        errors.passenger_name ? 'border-red-500' : 'border-gray-600'
-                      } ${isFieldLocked("passenger_name") ? 'bg-gray-600 cursor-not-allowed' : ''}`}
-                      placeholder="Enter passenger name"
-                    />
-                    {errors.passenger_name && <p className="text-sm text-red-400">{errors.passenger_name}</p>}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-300">
-                      Passenger Mobile
-                    </label>
-                    <PhoneInput
-                      value={formData.passenger_mobile || ""}
-                      onChange={(phone) => {
-                        if (!isFieldLocked("passenger_mobile")) {
-                          handleInputChange("passenger_mobile", phone);
-                        }
-                      }}
-                      error={errors.passenger_mobile}
-                      placeholder="Enter mobile number"
-                      name="passenger_mobile"
-                      className="w-full"
-                      disabled={isFieldLocked("passenger_mobile")}
-                    />
-                  </div>
-                  
                   {/* Service Field */}
                   <SelectField 
                     label="Service" 
@@ -1965,6 +1936,50 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                   </svg>
                   <span>Trip Details</span>
                 </h2>
+                
+                {/* Passenger Information moved to top of Trip Details */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-300">
+                      Passenger Name <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="passenger_name"
+                      value={formData.passenger_name || ""}
+                      onChange={(e) => {
+                        if (!isFieldLocked("passenger_name")) {
+                          handleInputChange("passenger_name", e.target.value);
+                        }
+                      }}
+                      readOnly={isFieldLocked("passenger_name")}
+                      className={`w-full px-4 py-3 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                        errors.passenger_name ? 'border-red-500' : 'border-gray-600'
+                      } ${isFieldLocked("passenger_name") ? 'bg-gray-600 cursor-not-allowed' : ''}`}
+                      placeholder="Enter passenger name"
+                    />
+                    {errors.passenger_name && <p className="text-sm text-red-400">{errors.passenger_name}</p>}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-300">
+                      Passenger Mobile
+                    </label>
+                    <PhoneInput
+                      value={formData.passenger_mobile || ""}
+                      onChange={(phone) => {
+                        if (!isFieldLocked("passenger_mobile")) {
+                          handleInputChange("passenger_mobile", phone);
+                        }
+                      }}
+                      error={errors.passenger_mobile}
+                      placeholder="Enter mobile number"
+                      name="passenger_mobile"
+                      className="w-full"
+                      disabled={isFieldLocked("passenger_mobile")}
+                    />
+                  </div>
+                </div>
                 
                 {/* Primary Locations */}
 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

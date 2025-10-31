@@ -90,6 +90,125 @@ export interface Job {
   sub_customer_name?: string;
 }
 
+// API Response Types - nested objects returned by backend
+export interface ServiceObject {
+  id: number;
+  name: string;
+  description?: string;
+  status: string;
+  is_deleted: boolean;
+  create?: string;
+  update?: string;
+}
+
+export interface ContractorObject {
+  id: number;
+  name: string;
+  email?: string | null;
+  contact_person?: string | null;
+  contact_number?: string | null;
+  status: string;
+  is_deleted: boolean;
+  jobs?: number[];
+  bills?: any[];
+  service_pricing?: number[];
+}
+
+export interface VehicleObject {
+  id: number;
+  name: string;
+  number: string;
+  type: string;
+  status: string;
+  is_deleted: boolean;
+}
+
+export interface CustomerObject {
+  id: number;
+  name: string;
+  email: string;
+  mobile: string;
+  company_name?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  is_deleted: boolean;
+  create?: string;
+  update?: string;
+}
+
+export interface DriverObject {
+  id: number;
+  name: string;
+  email?: string;
+  mobile?: string;
+  license_number?: string;
+  is_deleted: boolean;
+  create?: string;
+  update?: string;
+}
+
+export interface InvoiceObject {
+  id: number;
+  invoice_number?: string;
+  amount?: number;
+  status?: string;
+  create?: string;
+  update?: string;
+}
+
+// ApiJob extends Job with nested objects that come from the API
+export interface ApiJob extends Job {
+  service?: ServiceObject | null;
+  customer?: CustomerObject;
+  driver?: DriverObject;
+  invoice?: InvoiceObject;
+  contractor?: ContractorObject;
+  vehicle?: VehicleObject;
+  type_of_service?: string;
+  customer_email?: string;
+  company_name?: string;
+  vehicle_number?: string;
+}
+
+// Normalized job for display - flat structure with extracted values
+export interface NormalizedJobDisplay {
+  id: number;
+  status: JobStatus;
+
+  // Service information
+  serviceName: string;
+
+  // Customer information
+  customerName: string;
+  customerEmail: string;
+  customerMobile: string;
+  companyName: string;
+
+  // Driver information
+  driverName: string;
+
+  // Invoice information
+  invoiceId: string;
+
+  // Job details
+  vehicleType: string;
+  pickupLocation: string;
+  dropoffLocation: string;
+  pickupDate: string;
+  pickupTime: string;
+  passengerName: string;
+
+  // Pricing
+  basePrice: number;
+  finalPrice?: number;
+
+  // Original job data for other fields
+  job: Job;
+}
+
 export interface Location {
   location: string;
   price: number;

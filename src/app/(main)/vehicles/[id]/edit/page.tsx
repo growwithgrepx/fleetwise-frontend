@@ -14,7 +14,8 @@ export default function EditVehiclePage() {
   const { mutate, isPending: isSubmitting } = useUpdateVehicle();
 
   const handleSubmit = (data: Partial<Vehicle>) => {
-    mutate({ id, ...data });
+    // Always include type field with empty string value to satisfy backend constraint
+    mutate({ id, ...data, type: '' } as any);
     router.push('/vehicles');
   };
 

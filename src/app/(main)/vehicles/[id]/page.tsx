@@ -24,11 +24,10 @@ export default function VehicleDetailsPage() {
       <ul>
         <li><b>Name:</b> {vehicle.name}</li>
         <li><b>Number:</b> {vehicle.number}</li>
-        <li><b>Type:</b> {vehicle.type}</li>
         <li><b>Status:</b> {vehicle.status}</li>
       </ul>
       <button onClick={() => router.push(`/vehicles/${vehicle.id}/edit`)}>Edit</button>
       <button onClick={() => router.push('/vehicles')} style={{ marginLeft: 8 }}>Back</button>
     </div>
   );
-} 
+}

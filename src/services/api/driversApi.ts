@@ -1,6 +1,5 @@
 import { api } from '@/lib/api';
 import type { Driver } from '@/lib/types';
-
 export interface DriverFilters {
   search?: string;
   status?: string;

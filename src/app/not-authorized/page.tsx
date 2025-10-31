@@ -1,14 +1,34 @@
-// src/app/not-authorized/page.tsx
 "use client";
 import { useRouter } from "next/navigation";
-import { useUser } from "@/context/UserContext"; // Adjust import if needed
+import { useUser } from "@/context/UserContext";
+import { getUserRole } from "@/utils/roleUtils";
 
 export default function NotAuthorizedPage() {
   const router = useRouter();
-  const { isLoggedIn } = useUser(); // Or your auth hook/context
+  const { isLoggedIn, user } = useUser(); // make sure user includes role
 
-  const backLink = isLoggedIn ? "/dashboard" : "/login";
-  const backText = isLoggedIn ? "Go back to Dashboard" : "Go to Login";
+  let backLink = "/login";
+  let backText = "Go to Login";
+  const role = getUserRole(user);
+  if (isLoggedIn && role) {
+    // ✅ Role-based redirect paths
+    switch (role) {
+      case "admin":
+        backLink = "/dashboard";
+        backText = "Go back to Dashboard";
+        break;
+      case "manager":
+      case "accountant":
+      case "driver":
+      case "customer":
+        backLink = "/jobs";
+        backText = "Go back to Jobs";
+        break;
+      default:
+        backLink = "/dashboard";
+        backText = "Go back Home";
+    }
+  }
 
   return (
     <div className="flex flex-col h-[80vh] justify-center items-center text-center">

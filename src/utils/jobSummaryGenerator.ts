@@ -1,14 +1,30 @@
 import type { Job } from '@/types/types';
+import type { ApiJob } from '@/types/job';
 
 // Define a type for vehicle_type that could be either a string or an object with a name property
 type VehicleType = string | { name: string };
 
+// Add type guard helper functions
+function hasReference(job: Job | ApiJob): job is Job & { reference: string } {
+  return 'reference' in job && typeof job.reference === 'string' && job.reference.length > 0;
+}
+
+function getDriverNotes(job: Job | ApiJob): string | undefined {
+  if ('remarks' in job && job.remarks) {
+    return job.remarks;
+  }
+  if ('customer_remark' in job && typeof (job as any).customer_remark === 'string') {
+    return (job as any).customer_remark;
+  }
+  return undefined;
+}
+
 /**
  * Generates a formatted text summary of a job for sharing
- * @param job The job object to generate summary for
+ * @param job The job object to generate summary for (accepts both Job and ApiJob types)
  * @returns Formatted text summary
  */
-export function generateJobSummary(job: Job): string {
+export function generateJobSummary(job: Job | ApiJob): string {
   const lines: string[] = [];
 
   // Customer Account
@@ -17,7 +33,7 @@ export function generateJobSummary(job: Job): string {
   }
 
   // SIXT Booking Reference
-  if (job.reference) {
+  if (hasReference(job)) {
     lines.push(`SIXT Booking Reference: ${job.reference}`);
   }
 
@@ -61,9 +77,9 @@ export function generateJobSummary(job: Job): string {
   }
 
   // Driver Notes
-  // Implement fallback logic as specified in acceptance criteria
-  if (job.remarks || (job as any).customer_remark) {
-    lines.push(`Driver Notes: ${job.remarks || (job as any).customer_remark}`);
+  const driverNotes = getDriverNotes(job);
+  if (driverNotes) {
+    lines.push(`Driver Notes: ${driverNotes}`);
   }
 
   return lines.join('\n');

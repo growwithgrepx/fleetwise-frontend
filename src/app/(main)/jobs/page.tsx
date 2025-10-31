@@ -7,7 +7,8 @@ import { useQuery } from '@tanstack/react-query';
 import * as jobsApi from '@/services/api/jobsApi';
 import { api } from '@/lib/api';
 import { useCopiedJob } from '@/context/CopiedJobContext';
-import { Job,JobFormData } from '@/types/job';
+import { Job, JobFormData, ApiJob } from '@/types/job';
+import { safeStringValue } from '@/utils/jobNormalizer';
 import { EntityTable, EntityTableColumn, EntityTableAction } from '@/components/organisms/EntityTable';
 import { createStandardEntityActions } from '@/components/common/StandardActions';
 import { EntityHeader } from '@/components/organisms/EntityHeader';
@@ -32,10 +33,27 @@ import NotAuthorizedPage from '@/app/not-authorized/page';
 
 
 // Column configuration for Jobs table (simple, filterable)
-const columns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
+const columns: EntityTableColumn<ApiJob & { stringLabel?: string }>[] = [
   { label: 'Job ID', accessor: 'id', filterable: true, stringLabel: 'Job ID', width: '80px' },
   { label: 'Customer', accessor: 'customer_name', filterable: true, stringLabel: 'Customer' },
-  { label: 'Service', accessor: 'service_type', filterable: true, stringLabel: 'Service' },
+  {
+    label: 'Service',
+    accessor: 'service_type',
+    filterable: true,
+    stringLabel: 'Service',
+    render: (job: ApiJob) => {
+      // Check for null explicitly since API returns service: null when not set
+      // Use optional chaining and nullish coalescing for safe property access
+      const serviceName = (job.service && job.service.name) ? job.service.name : (job.service_type ?? job.type_of_service);
+
+      // Optional: Log missing data for debugging in development
+      if (!serviceName && process.env.NODE_ENV === 'development') {
+        console.warn('Missing service data for job:', job.id, job);
+      }
+
+      return <span>{serviceName || '-'}</span>;
+    }
+  },
   { label: 'Pickup', accessor: 'pickup_location', filterable: true, stringLabel: 'Pickup' },
   { label: 'Drop-off', accessor: 'dropoff_location', filterable: true, stringLabel: 'Drop-off' },
   { label: 'Pickup Date', accessor: 'pickup_date', filterable: true, stringLabel: 'Pickup Date' },
@@ -47,11 +65,12 @@ const columns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
 const getJobActions = (
   router: AppRouterInstance,
   handleDelete: (id: number | string) => void,
-  isDeleting: (item: Job) => boolean,
-  handleView: (job: Job) => void,
-  handleEdit: (job: Job) => void,
-  handleCopy: (job: Job) => void,
-): EntityTableAction<Job>[] => [
+  isDeleting: (item: ApiJob) => boolean,
+  handleView: (job: ApiJob) => void,
+  handleEdit: (job: ApiJob) => void,
+  handleCopy: (job: ApiJob) => void,
+): EntityTableAction<ApiJob>[] => {
+  const actions: EntityTableAction<ApiJob>[] = [
   {
     label: 'View',
     icon: <Eye className="w-5 h-5 text-primary" />,
@@ -81,7 +100,44 @@ const getJobActions = (
     title: 'Delete',
     disabled: isDeleting,
   },
+  
 ];
+const restrictedRolesDelete = ["driver", "customer", "guest"];
+const restrictedRolesEdit = ["driver", "guest"];
+const { user } = useUser();
+const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+
+let filteredActions = actions;
+
+// Remove Delete for restricted roles
+if (restrictedRolesDelete.includes(role)) {
+  filteredActions = filteredActions.filter((a) => a.label !== "Delete");
+}
+
+// Remove Edit for restricted roles
+if (restrictedRolesEdit.includes(role)) {
+  filteredActions = filteredActions.filter((a) => a.label !== "Edit");
+}
+
+// Remove Copy for restricted roles
+if (restrictedRolesEdit.includes(role)) {
+  filteredActions = filteredActions.filter((a) => a.label !== "Copy");
+}
+
+// ✅ Now map over filteredActions (not actions)
+filteredActions = filteredActions.map((a) => {
+  if (a.label === "Edit" || a.label === "Delete") {
+    return {
+      ...a,
+      disabled: (job: ApiJob) =>
+        role === "customer" && job.status === "confirmed",
+    };
+  }
+  return a;
+});
+
+return filteredActions;
+};
 
 // Job status tabs for filtering the main jobs list
 const jobStatuses = [
@@ -100,7 +156,9 @@ const jobStatuses = [
 const JobsPage = () => {
   const router = useRouter();
   const { jobs, isLoading, error, updateFilters, deleteJobAsync, updateJobAsync, createJobAsync, filters } = useJobs();
-  
+  const { user } = useUser();
+  const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+  const isDriver = role === "driver";
   // Fetch all jobs without status filter for count calculation
   const { data: allJobsData } = useQuery({
     queryKey: ['jobs', 'all-status-counts'],
@@ -118,6 +176,7 @@ const JobsPage = () => {
       const response = await api.get('/api/customers');
       return response.data;
     },
+    enabled: !isDriver,
   });
   
   const allJobs = allJobsData?.items || [];
@@ -176,8 +235,7 @@ const JobsPage = () => {
   const debouncedFilters = useDebounce(filters, 500);
   const [editJob, setEditJob] = useState<Job | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const { user } = useUser();
-  const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
+  
 
   // Update API filters when column filters change (debounced)
   // Not spreading filters to avoid stale closure bugs and infinite loops
