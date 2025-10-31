@@ -163,14 +163,29 @@ export default function ExcelUploadTable({
   const fetchReferenceData = async () => {
     setIsLoadingReferenceData(true);
     try {
-      // Fetch data with individual error handling for each endpoint
+      const fetchWithLogging = async (url: string, name: string) => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            console.error(`Failed to fetch ${name}: ${response.status}`);
+            toast.error(`Failed to load ${name} - please refresh`);
+            return [];
+          }
+          return await response.json();
+        } catch (error) {
+          console.error(`Error fetching ${name}:`, error);
+          toast.error(`Failed to load ${name} - please refresh`);
+          return [];
+        }
+      };
+
       const [customersRes, servicesRes, vehiclesRes, driversRes, contractorsRes, vehicleTypesRes] = await Promise.all([
-        fetch('/api/customers').then(r => r.ok ? r.json() : []).catch(() => []),
-        fetch('/api/services').then(r => r.ok ? r.json() : []).catch(() => []),
-        fetch('/api/vehicles').then(r => r.ok ? r.json() : []).catch(() => []),
-        fetch('/api/drivers').then(r => r.ok ? r.json() : []).catch(() => []),
-        fetch('/api/contractors').then(r => r.ok ? r.json() : []).catch(() => []),
-        fetch('/api/vehicle-types').then(r => r.ok ? r.json() : []).catch(() => [])
+        fetchWithLogging('/api/customers', 'customers'),
+        fetchWithLogging('/api/services', 'services'),
+        fetchWithLogging('/api/vehicles', 'vehicles'),
+        fetchWithLogging('/api/drivers', 'drivers'),
+        fetchWithLogging('/api/contractors', 'contractors'),
+        fetchWithLogging('/api/vehicle-types', 'vehicle types')
       ]);
 
       console.log('✅ Reference data fetched:', {
@@ -1058,6 +1073,15 @@ function EditForm({
   const row = editingDataRef.current[rowNumber];
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    if (userRole === 'customer' && user?.customer_id) {
+      const currentCustomer = row?.customer_id || row?.customer;
+      if (currentCustomer !== user.customer_id) {
+        handleCustomerChange({ target: { value: user.customer_id.toString() } } as React.ChangeEvent<HTMLSelectElement>);
+      }
+    }
+  }, [userRole, user?.customer_id]);
+
   if (!row) return null;
 
   // Filter reference data based on user role
@@ -1070,9 +1094,15 @@ function EditForm({
   }, [userRole, user, referenceData.customers]);
 
   const filteredContractors = useMemo(() => {
-    // Show only "AG Internal" contractor
-    const agInternal = referenceData.contractors.find(c => c.name.toLowerCase() === 'ag internal');
-    return agInternal ? [agInternal] : referenceData.contractors;
+    let agInternal = referenceData.contractors.find(c => 
+      ['ag', 'ag (internal)'].includes(c.name.toLowerCase())
+    );
+    if (!agInternal) {
+      agInternal = referenceData.contractors.find(c => 
+        c.name.toLowerCase().includes('ag')
+      );
+    }
+    return agInternal ? [agInternal] : [];
   }, [referenceData.contractors]);
 
   const validateField = useCallback((field: string, value: any) => {
@@ -1096,13 +1126,19 @@ function EditForm({
         break;
       case 'vehicle_id':
       case 'vehicle':
-        // Vehicle is now optional (disabled for bulk upload)
-        delete errors.vehicle;
+        if (userRole !== 'customer' && !value) {
+          errors.vehicle = 'Vehicle is required';
+        } else {
+          delete errors.vehicle;
+        }
         break;
       case 'driver_id':
       case 'driver':
-        // Driver is now optional (disabled for bulk upload)
-        delete errors.driver;
+        if (userRole !== 'customer' && !value) {
+          errors.driver = 'Driver is required';
+        } else {
+          delete errors.driver;
+        }
         break;
       case 'pickup_date':
         if (!value) {
@@ -1329,7 +1365,7 @@ function EditForm({
             ) : (
               <>
                 <select
-                  defaultValue={row.vehicle_id || ""}
+                  value={userRole === 'customer' ? '' : (row.vehicle_id || '')}
                   onChange={(e) => {
                     handleVehicleChange(e);
                   }}
@@ -1361,7 +1397,7 @@ function EditForm({
             ) : (
               <>
                 <select
-                  defaultValue={row.driver_id || ''}
+                  value={userRole === 'customer' ? '' : (row.driver_id || '')}
                   onChange={handleDriverChange}
                   className={clsx(selectClassName, validationErrors.driver && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
                   disabled={true}
