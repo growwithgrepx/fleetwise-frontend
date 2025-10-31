@@ -237,8 +237,8 @@ const computedMenus = useMemo(() => {
   const next: Record<string, boolean> = {};
 
   // Example: expand "Jobs" if pathname starts with /jobs
-  if (pathname.startsWith("/jobs")) next["jobs"] = true;
-  if (pathname.startsWith("/billing") && !pathname.startsWith("/billing/contractor-billing") && !pathname.startsWith("/billing/driver-billing")) next["billing"] = true;
+  if (pathname.startsWith("/jobs")) next["Jobs"] = true;
+  if (pathname.startsWith("/billing") && !pathname.startsWith("/billing/contractor-billing") && !pathname.startsWith("/billing/driver-billing")) next["Billing"] = true;
   // Use the label as the key for Cost Summary
   if (pathname.startsWith("/billing/contractor-billing") || pathname.startsWith("/billing/driver-billing")) next["Cost Summary"] = true;
 
@@ -515,7 +515,7 @@ const toggleMenu = (key: string) => {
           >
             <ul className="pl-10 pr-2 py-1 space-y-1">
               {item.children.map((child) => {
-                const childActive = pathname === child.href; // Exact match instead of startsWith for precise highlighting
+                const childActive = pathname?.startsWith(child.href) ?? false;
                 return (
                   <li key={child.href}>
                     <Link
@@ -524,8 +524,8 @@ const toggleMenu = (key: string) => {
                       className={clsx(
                         "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all",
                         childActive
-                        ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25"
-    : "text-text-secondary hover:bg-background-light hover:text-text-main"
+                          ? "bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg shadow-primary/25"
+                          : "text-text-secondary hover:bg-background-light hover:text-text-main"
                       )}
                       aria-current={childActive ? "page" : undefined}
                     >

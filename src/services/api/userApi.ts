@@ -1,5 +1,7 @@
 import { api } from '@/lib/api';
 import type { User, Role } from '@/lib/types';
+import type { Driver } from '@/lib/types';
+import type { Customer } from '@/types/customer';
 
 export interface UserFilters {
   search?: string;
@@ -97,4 +99,47 @@ export async function updateRole(id: number, data: Partial<Role>): Promise<Role>
  */
 export async function deleteRole(id: number): Promise<void> {
   await api.delete(`/api/roles/${id}`);
+}
+
+/**
+ * Assign a customer or driver to a user
+ */
+export async function assignCustomerOrDriver(userId: number, userType: 'customer' | 'driver', entityId: number): Promise<User> {
+  const response = await api.put<User>(`/api/auth/users/${userId}/assign`, {
+    user_type: userType,
+    entity_id: entityId
+  });
+  return response.data;
+}
+
+/**
+ * Fetch unassigned drivers
+ */
+export async function getUnassignedDrivers(): Promise<Driver[]> {
+  const response = await api.get<Driver[]>('/api/auth/users/unassigned-drivers');
+  return response.data;
+}
+
+/**
+ * Fetch unassigned customers
+ */
+export async function getUnassignedCustomers(): Promise<Customer[]> {
+  const response = await api.get<Customer[]>('/api/auth/users/unassigned-customers');
+  return response.data;
+}
+
+/**
+ * Fetch a specific driver by ID
+ */
+export async function getDriverById(driverId: number): Promise<Driver> {
+  const response = await api.get<Driver>(`/api/drivers/${driverId}`);
+  return response.data;
+}
+
+/**
+ * Fetch a specific customer by ID
+ */
+export async function getCustomerById(customerId: number): Promise<Customer> {
+  const response = await api.get<Customer>(`/api/customers/${customerId}`);
+  return response.data;
 }

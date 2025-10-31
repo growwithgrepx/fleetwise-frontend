@@ -247,6 +247,9 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   const prevVehicleTypeRef = useRef<string>('');
   const isCheckingConflict = useRef(false);
   
+  // Track user input timestamps for main location fields to prevent stale data overwrites
+  const userLocationTimestamps = useRef<{ pickup: number; dropoff: number }>({ pickup: 0, dropoff: 0 });
+  
   // State
   const [formData, setFormData] = useState<JobFormData>({ ...defaultJobValues, ...initialData });
   const [errors, setErrors] = useState<Partial<Record<keyof JobFormData, string>>>({});
@@ -991,6 +994,13 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       setUserModifiedPricing(true);
     }
     
+    // Track user input timestamps for location fields
+    if (field === 'pickup_location') {
+      userLocationTimestamps.current.pickup = Date.now();
+    } else if (field === 'dropoff_location') {
+      userLocationTimestamps.current.dropoff = Date.now();
+    }
+    
     // Auto-populate driver when vehicle is selected
     if (field === 'vehicle_id' && value) {
       const selectedVehicleId = Number(value);
@@ -1135,7 +1145,13 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     if (pickupAddressResult && pickupAddressResult.display_name) {
       const formattedAddress = formatAddress(pickupAddressResult.display_name);
       // Only update if the address has actually changed
-      if (formData.pickup_location !== formattedAddress) {
+      // And only if the current value is still a postal code (user hasn't typed over it)
+      // Also check that the lookup is newer than the last user input
+      const userTimestamp = userLocationTimestamps.current.pickup;
+      const lookupTimestamp = Date.now(); // Approximate timestamp for when the lookup result is processed
+      if (formData.pickup_location !== formattedAddress && 
+          /^\d{4,8}$/.test(formData.pickup_location.trim()) && 
+          lookupTimestamp > userTimestamp) {
         setFormData(prev => ({ ...prev, pickup_location: formattedAddress }));
       }
     }
@@ -1145,7 +1161,13 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     if (dropoffAddressResult && dropoffAddressResult.display_name) {
       const formattedAddress = formatAddress(dropoffAddressResult.display_name);
       // Only update if the address has actually changed
-      if (formData.dropoff_location !== formattedAddress) {
+      // And only if the current value is still a postal code (user hasn't typed over it)
+      // Also check that the lookup is newer than the last user input
+      const userTimestamp = userLocationTimestamps.current.dropoff;
+      const lookupTimestamp = Date.now(); // Approximate timestamp for when the lookup result is processed
+      if (formData.dropoff_location !== formattedAddress && 
+          /^\d{4,8}$/.test(formData.dropoff_location.trim()) && 
+          lookupTimestamp > userTimestamp) {
         setFormData(prev => ({ ...prev, dropoff_location: formattedAddress }));
       }
     }
@@ -2011,6 +2033,11 @@ const JobForm: React.FC<JobFormProps> = (props) => {
             }
           }
         }}
+        onFocus={() => {
+          // Reset timestamp tracking when user focuses on the field
+          // This ensures user inputs take priority over automated updates
+          userLocationTimestamps.current.pickup = Date.now();
+        }}
         readOnly={fieldsLocked}
         className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}`}
         placeholder="Enter pickup location or postal code"
@@ -2051,6 +2078,11 @@ const JobForm: React.FC<JobFormProps> = (props) => {
               console.log('[JobForm] Dropoff value does not match postal code pattern (4-8 digits):', value);
             }
           }
+        }}
+        onFocus={() => {
+          // Reset timestamp tracking when user focuses on the field
+          // This ensures user inputs take priority over automated updates
+          userLocationTimestamps.current.dropoff = Date.now();
         }}
         readOnly={fieldsLocked}
         className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}`}
