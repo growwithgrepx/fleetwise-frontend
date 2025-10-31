@@ -309,36 +309,36 @@ const handleAISuggestDriver = async (retryCount = 0) => {
     });
     const data = await res.json();
 
-    // ✅ Case 1: Workflow complete or skipped
+    // Case 1: Workflow complete or skipped
     if (data.status === "ok" || data.status === "skipped") {
       if (aiToastId) toast.dismiss(aiToastId); // 🧹 clear old "processing" toast
 
       const topDriver = data.best_driver || data.ranking?.[0];
 
 if (!topDriver) {
-  toast.error("⚠️ No driver recommendation found");
+  toast.error("No driver recommendation found");
   return;
 }
 
 // enforce lock check before updating
 if (!isFieldLocked("driver_id")) {
   handleInputChange("driver_id", topDriver.driver_id);
-  toast.success(`🤖 AI selected: ${topDriver.name}`);
+  toast.success(`AI selected: ${topDriver.name}`);
 } else {
-  toast.error("🔒 Driver field is locked and cannot be modified");
+  toast.error("Driver field is locked and cannot be modified");
 }
 return }
 
       
 
-    // ⚙️ Case 2: Still processing
+    // Case 2: Still processing
     if (data.status === "processing") {
       // If first time processing, create a loading toast and store its id
       if (!aiToastId) {
-        aiToastId = toast.loading(`⚙️ AI processing new data… (${retryCount + 1}/3)`);
+        aiToastId = toast.loading(`AI processing new data… (${retryCount + 1}/3)`);
       } else {
         // Update existing toast instead of stacking new ones
-        toast.loading(`⚙️ AI processing new data… (${retryCount + 1}/3)`, { id: aiToastId });
+        toast.loading(`AI processing new data… (${retryCount + 1}/3)`, { id: aiToastId });
       }
 
       if (retryCount < 3) {
@@ -351,7 +351,7 @@ return }
       return;
     }
 
-    // ❌ Case 3: Error response
+    // Case 3: Error response
     if (aiToastId) toast.dismiss(aiToastId);
     toast.error(`AI failed: ${data.message || "Unknown error"}`);
   } catch (err) {
