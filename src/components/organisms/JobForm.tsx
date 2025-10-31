@@ -301,7 +301,20 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   
   // AI Suggested 
   const [isAiLoading, setIsAiLoading] = useState(false);
-  let aiToastId: string | null = null; // keep global toast reference
+  let aiToastId = useRef<string | null>(null);
+  const AI_MAX_RETRIES = 3;
+  const AI_RETRY_DELAY_MS = 5000;
+
+
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+useEffect(() => {
+  return () => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+    }
+  };
+}, []);
 
 const handleAISuggestDriver = async (retryCount = 0) => {
   try {
@@ -310,16 +323,32 @@ const handleAISuggestDriver = async (retryCount = 0) => {
     const res = await fetch("/api/ai_suggest_driver", {
       method: "POST",
     });
+    if (!res.ok) {
+  // Try parsing JSON error body, but handle plain text too
+  const errorData = await res.json().catch(() => ({
+    message: res.statusText,
+  }));
+
+  // Throw a proper error so it's caught by your catch block
+  throw new Error(errorData.message || `HTTP ${res.status}`);
+}
     const data = await res.json();
 
     // Case 1: Workflow complete or skipped
     if (data.status === "ok" || data.status === "skipped") {
-      if (aiToastId) toast.dismiss(aiToastId); // 🧹 clear old "processing" toast
+      if (aiToastId.current) toast.dismiss(aiToastId.current); // 🧹 clear old "processing" toast
 
       const topDriver = data.best_driver || data.ranking?.[0];
 
 if (!topDriver) {
   toast.error("No driver recommendation found");
+  return;
+}
+const driverExists = Array.isArray(allDrivers) && allDrivers.some(
+  (d) => d.id === topDriver.driver_id
+);
+if (!driverExists) {
+  toast.error("AI returned an unavailable driver");
   return;
 }
 
@@ -337,29 +366,29 @@ return }
     // Case 2: Still processing
     if (data.status === "processing") {
       // If first time processing, create a loading toast and store its id
-      if (!aiToastId) {
-        aiToastId = toast.loading(`AI processing new data… (${retryCount + 1}/3)`);
+      if (!aiToastId.current) {
+        aiToastId.current = toast.loading(`AI processing new data… (${retryCount + 1}/3)`);
       } else {
         // Update existing toast instead of stacking new ones
-        toast.loading(`AI processing new data… (${retryCount + 1}/3)`, { id: aiToastId });
+        toast.loading(`AI processing new data… (${retryCount + 1}/3)`, { id: aiToastId.current });
       }
 
-      if (retryCount < 3) {
+      if (retryCount < AI_MAX_RETRIES) {
         console.log(`AI retry #${retryCount + 1}`);
-        setTimeout(() => handleAISuggestDriver(retryCount + 1), 5000);
+        setTimeout(() => handleAISuggestDriver(retryCount + 1), AI_RETRY_DELAY_MS);
       } else {
         toast.error("AI still processing. Please try again later.");
-        aiToastId = null;
+        aiToastId.current = null;
       }
       return;
     }
 
     // Case 3: Error response
-    if (aiToastId) toast.dismiss(aiToastId);
+    if (aiToastId.current) toast.dismiss(aiToastId.current);
     toast.error(`AI failed: ${data.message || "Unknown error"}`);
   } catch (err) {
     console.error("AI Suggest error:", err);
-    if (aiToastId) toast.dismiss(aiToastId);
+    if (aiToastId.current) toast.dismiss(aiToastId.current);
     toast.error("Could not connect to AI backend.");
   } finally {
     setIsAiLoading(false);
@@ -2234,15 +2263,14 @@ return }
 <button
   type="button"
   onClick={() => handleAISuggestDriver()}
-  disabled={isAiLoading}
-  className={`px-2.5 py-1 text-[11px] font-semibold text-white rounded-md shadow-md transition-all
-    ${
-      isAiLoading
-        ? "bg-gradient-to-r from-pink-500/60 to-yellow-400/60 cursor-not-allowed"
-        : "bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-400 hover:to-yellow-300"
-    }`}
+  disabled={isAiLoading || isFieldLocked("driver_id")}
+  className={`px-2.5 py-1 text-[11px] font-semibold text-white rounded-md shadow-md transition-all ${
+    (isAiLoading || isFieldLocked("driver_id"))
+      ? "bg-gradient-to-r from-pink-500/60 to-yellow-400/60 cursor-not-allowed"
+      : "bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-400 hover:to-yellow-300"
+  }`}
 >
-  {isAiLoading ? "..." : "AI"}
+  {isAiLoading ? "Processing..." : "AI Suggest Driver"}
 </button>
 
       {/* Existing Quick Add button */}
