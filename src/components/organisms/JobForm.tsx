@@ -34,7 +34,6 @@ import PhoneInput from '@/components/molecules/PhoneInput';
 import { useUser } from '@/context/UserContext';
 import { getUserRole } from '@/utils/roleUtils';
 
-
 import { 
   createJob, 
   updateJob, 
@@ -263,7 +262,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   const [userModifiedPricing, setUserModifiedPricing] = useState<boolean>(false);
   const [initialFormData, setInitialFormData] = useState<Partial<JobFormData> | null>(null);
   const [toastState, setToastState] = useState<string | null>(null);
-  
+
   // Get current date and time for defaults
   const getCurrentDateTime = () => {
     const now = new Date();
@@ -298,114 +297,6 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   const { data: allServices = [] } = useGetAllServices();
   const { data: allVehicleTypes = [] } = useGetAllVehicleTypes();
   const { data: allContractors = [] } = useGetAllContractors();
-  
-  // AI Suggested 
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const aiToastId = useRef<string | null>(null);
-  const AI_MAX_RETRIES = 3;
-  const AI_RETRY_DELAY_MS = 5000;
-
-
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-useEffect(() => {
-  return () => {
-    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
-    if (aiToastId.current) toast.dismiss(aiToastId.current);
-  };
-}, []);
-
-
-
-const handleAISuggestDriver = async (retryCount = 0) => {
-  try {
-    setIsAiLoading(true);
-
-    const res = await fetch("/api/ai_suggest_driver", {
-      method: "POST",
-    });
-    if (!res.ok) {
-  // Try parsing JSON error body, but handle plain text too
-  const errorData = await res.json().catch(() => ({
-    message: res.statusText,
-  }));
-
-  // Throw a proper error so it's caught by your catch block
-  throw new Error(errorData.message || `HTTP ${res.status}`);
-}
-    const data = await res.json();
-
-    // Case 1: Workflow complete or skipped
-    if (data.status === "ok" || data.status === "skipped") {
-      if (aiToastId.current) toast.dismiss(aiToastId.current); // 🧹 clear old "processing" toast
-      aiToastId.current = null;
-      const topDriver = data.best_driver || data.ranking?.[0];
-
-if (!topDriver) {
-  toast.error("No driver recommendation found");
-  return;
-}
-const driverExists = Array.isArray(allDrivers) && allDrivers.some(
-  (d) => d.id === topDriver.driver_id
-);
-if (!driverExists) {
-  toast.error("AI returned an unavailable driver");
-  return;
-}
-
-// enforce lock check before updating
-if (!isFieldLocked("driver_id")) {
-  handleInputChange("driver_id", topDriver.driver_id);
-  toast.success(`AI selected: ${topDriver.name}`);
-} else {
-  toast.error("Driver field is locked and cannot be modified");
-}
-return }
-
-      
-
-    // Case 2: Still processing
-    if (data.status === "processing") {
-      // If first time processing, create a loading toast and store its id
-      if (!aiToastId.current) {
-        aiToastId.current = toast.loading(`AI processing new data… (${retryCount + 1}/${AI_MAX_RETRIES})`);
-      } else {
-        // Update existing toast instead of stacking new ones
-        toast.loading(`AI processing new data… (${retryCount + 1}/${AI_MAX_RETRIES})`, { id: aiToastId.current });
-      }
-
-      if (retryCount < AI_MAX_RETRIES) {
-    console.log(`AI retry #${retryCount}`);
-    
-    if (retryTimeoutRef.current) {
-      clearTimeout(retryTimeoutRef.current);
-    }
-    retryTimeoutRef.current = setTimeout(
-      () => handleAISuggestDriver(retryCount + 1),
-      AI_RETRY_DELAY_MS
-    );
-  } else {
-    toast.dismiss(aiToastId.current);
-    toast.error("AI still processing. Please try again later.");
-    aiToastId.current = null;
-  }
-  setIsAiLoading(false);
-      return;
-    }
-
-    // Case 3: Error response
-    if (aiToastId.current) toast.dismiss(aiToastId.current);
-    toast.error(`AI failed: ${data.message || "Unknown error"}`);
-  } catch (err) {
-    console.error("AI Suggest error:", err);
-    
-    if (aiToastId.current) toast.dismiss(aiToastId.current);
-    toast.error("Could not connect to AI backend.");
-  } finally {
-    setIsAiLoading(false);
-  }
-};
-
   
   // Address lookup hooks
   const { lookup: pickupLookup, result: pickupAddressResult, loading: pickupAddressLoading, error: pickupAddressError } = useAddressLookup();
@@ -2265,77 +2156,39 @@ return }
                     className={isFieldLocked("vehicle_id") ? "opacity-75" : ""}
                     disabled={isFieldLocked("vehicle_id")}
                   />
-                <div className="space-y-1">
-  <div className="flex items-center justify-between">
-    <label className="text-sm font-semibold text-gray-200">Driver</label>
-    <div className="flex items-center space-x-2">
-      {/* AI Suggest button */}
-      {/* // Inside JSX: */}
-<button
-  type="button"
-  onClick={() => handleAISuggestDriver()}
-  disabled={isAiLoading || isFieldLocked("driver_id")}
-  className={`px-2.5 py-1 text-[11px] font-semibold text-white rounded-md shadow-md transition-all ${
-    (isAiLoading || isFieldLocked("driver_id"))
-      ? "bg-gradient-to-r from-pink-500/60 to-yellow-400/60 cursor-not-allowed"
-      : "bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-400 hover:to-yellow-300"
-  }`}
->
-  {isAiLoading ? "Processing..." : "AI Suggest Driver"}
-</button>
-
-      {/* Existing Quick Add button */}
-      <button
-        type="button"
-        onClick={() => openQuickAddModal("driver")}
-        className="px-2.5 py-1 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-md transition-all"
-      >
-        + Quick Add
-      </button>
-    </div>
-  </div>
-
-  <SelectField
-    label=""
-    value={formData.driver_id || ""}
-    onChange={(v) => {
-      if (!isFieldLocked("driver_id")) {
-        handleInputChange("driver_id", parseInt(v, 10));
-      }
-    }}
-    error={errors.driver_id}
-    showQuickAdd={false}
-    options={[
-      { value: "", label: "Select Driver" },
-      ...allDrivers.map((d) => ({ value: d.id, label: d.name })),
-    ]}
-    className={isFieldLocked("driver_id") ? "opacity-75" : ""}
-    disabled={isFieldLocked("driver_id")}
-  />
-
-  {/* Conflict warning */}
-  {driverConflictWarning && (
-    <div className="mt-2 p-3 bg-yellow-900 border border-yellow-700 rounded-lg">
-      <div className="flex items-start">
-        <svg
-          className="w-5 h-5 text-yellow-400 mt-0.5 mr-2 flex-shrink-0"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-          />
-        </svg>
-        <p className="text-sm text-yellow-200">{driverConflictWarning}</p>
-      </div>
-    </div>
-  )}
-</div>
-
+                  <div className="space-y-1">
+                    <SelectField
+                      label="Driver"
+                      value={formData.driver_id || ""}
+                      onChange={(v) => {
+                        if (!isFieldLocked("driver_id")) {
+                          handleInputChange("driver_id", parseInt(v, 10));
+                        }
+                      }}
+                      error={errors.driver_id}
+                      showQuickAdd={!isFieldLocked("driver_id")}
+                      quickAddType="driver"
+                      options={[
+                        { value: "", label: "Select Driver" },
+                        ...allDrivers.map((d) => ({ value: d.id, label: d.name })),
+                      ]}
+                      className={isFieldLocked("driver_id") ? "opacity-75" : ""}
+                      disabled={isFieldLocked("driver_id")}
+                    />
+                    {/* Driver Conflict Warning */}
+                    {driverConflictWarning && (
+                      <div className="mt-2 p-3 bg-yellow-900 border border-yellow-700 rounded-lg">
+                        <div className="flex items-start">
+                          <svg className="w-5 h-5 text-yellow-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          <p className="text-sm text-yellow-200">
+                            {driverConflictWarning}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   
                   <SelectField
                     label="Assigned To"
@@ -2815,12 +2668,6 @@ return }
           schema={driverQuickAddSchema}
           onSubmit={createDriver}
           onSuccess={handleQuickAddSuccess}
-//           onAISuggest={(topDriver) => {
-//   handleInputChange("driver_id", topDriver.driver_id);
-
-//   toast.success(`AI selected driver: ${topDriver.name}`);
-// }}
-
           fields={[
             { name: 'name', label: 'Driver Name', type: 'text', required: true, placeholder: 'Enter driver name' },
             { name: 'mobile', label: 'Mobile', type: 'tel', placeholder: 'Enter mobile number' },
