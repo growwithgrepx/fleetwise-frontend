@@ -17,6 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { uploadDownloadApi } from '@/services/api/uploadDownloadApi';
 import toast from 'react-hot-toast';
+import { useUser } from '@/context/UserContext';
 
 interface ExcelRow {
   row_number: number;
@@ -111,6 +112,10 @@ export default function ExcelUploadTable({
   onSelectionChange,
   isLoading = false
 }: ExcelUploadTableProps) {
+  // Get logged-in user information
+  const { user } = useUser();
+  const userRole = (user?.roles?.[0]?.name || "guest").toLowerCase();
+
   // State management
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
@@ -158,21 +163,32 @@ export default function ExcelUploadTable({
   const fetchReferenceData = async () => {
     setIsLoadingReferenceData(true);
     try {
-      // Replace these with your actual API endpoints
-      // Based on your JobForm, these might be:
-      // /api/customers, /api/services, /api/vehicles, /api/drivers, /api/contractors, /api/vehicle-types
+      const fetchWithLogging = async (url: string, name: string) => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            console.error(`Failed to fetch ${name}: ${response.status}`);
+            toast.error(`Failed to load ${name} - please refresh`);
+            return [];
+          }
+          return await response.json();
+        } catch (error) {
+          console.error(`Error fetching ${name}:`, error);
+          toast.error(`Failed to load ${name} - please refresh`);
+          return [];
+        }
+      };
+
       const [customersRes, servicesRes, vehiclesRes, driversRes, contractorsRes, vehicleTypesRes] = await Promise.all([
-        fetch('/api/customers').then(r => r.json()),
-        fetch('/api/services').then(r => r.json()),
-        fetch('/api/vehicles').then(r => r.json()),
-        fetch('/api/drivers').then(r => r.json()),
-        fetch('/api/contractors').then(r => r.json()),
-        fetch('/api/vehicle-types').then(r => r.json())
+        fetchWithLogging('/api/customers', 'customers'),
+        fetchWithLogging('/api/services', 'services'),
+        fetchWithLogging('/api/vehicles', 'vehicles'),
+        fetchWithLogging('/api/drivers', 'drivers'),
+        fetchWithLogging('/api/contractors', 'contractors'),
+        fetchWithLogging('/api/vehicle-types', 'vehicle types')
       ]);
 
-      console.log('✅ Vehicle Types fetched from API:', vehicleTypesRes);
-
-      setReferenceData({
+      console.log('✅ Reference data fetched:', {
         customers: customersRes,
         services: servicesRes,
         vehicles: vehiclesRes,
@@ -180,9 +196,27 @@ export default function ExcelUploadTable({
         contractors: contractorsRes,
         vehicle_types: vehicleTypesRes
       });
+
+      setReferenceData({
+        customers: Array.isArray(customersRes) ? customersRes : [],
+        services: Array.isArray(servicesRes) ? servicesRes : [],
+        vehicles: Array.isArray(vehiclesRes) ? vehiclesRes : [],
+        drivers: Array.isArray(driversRes) ? driversRes : [],
+        contractors: Array.isArray(contractorsRes) ? contractorsRes : [],
+        vehicle_types: Array.isArray(vehicleTypesRes) ? vehicleTypesRes : []
+      });
     } catch (error) {
       console.error('Error fetching reference data:', error);
       toast.error('Failed to load dropdown data');
+      // Set empty arrays as fallback
+      setReferenceData({
+        customers: [],
+        services: [],
+        vehicles: [],
+        drivers: [],
+        contractors: [],
+        vehicle_types: []
+      });
     } finally {
       setIsLoadingReferenceData(false);
     }
@@ -632,6 +666,8 @@ export default function ExcelUploadTable({
               isValidating={isValidating}
               referenceData={referenceData}
               isLoadingReferenceData={isLoadingReferenceData}
+              user={user}
+              userRole={userRole}
             />
           ))
         )}
@@ -776,6 +812,8 @@ interface RowItemProps {
   isValidating: boolean;
   referenceData: ReferenceData;
   isLoadingReferenceData: boolean;
+  user: any;
+  userRole: string;
 }
 
 function RowItem({
@@ -792,7 +830,9 @@ function RowItem({
   editingDataRef,
   isValidating,
   referenceData,
-  isLoadingReferenceData
+  isLoadingReferenceData,
+  user,
+  userRole
 }: RowItemProps) {
 
   const baseRowClass = clsx(
@@ -994,6 +1034,8 @@ function RowItem({
           isValidating={isValidating}
           referenceData={referenceData}
           isLoadingReferenceData={isLoadingReferenceData}
+          user={user}
+          userRole={userRole}
         />
       )}
     </div>
@@ -1012,6 +1054,8 @@ interface EditFormProps {
   isValidating: boolean;
   referenceData: ReferenceData;
   isLoadingReferenceData: boolean;
+  user: any;
+  userRole: string;
 }
 
 function EditForm({
@@ -1021,13 +1065,45 @@ function EditForm({
   onSaveEditing,
   isValidating,
   referenceData,
-  isLoadingReferenceData
+  isLoadingReferenceData,
+  user,
+  userRole
 }: EditFormProps) {
 
   const row = editingDataRef.current[rowNumber];
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    if (userRole === 'customer' && user?.customer_id) {
+      const currentCustomer = row?.customer_id || row?.customer;
+      if (currentCustomer !== user.customer_id) {
+        handleCustomerChange({ target: { value: user.customer_id.toString() } } as React.ChangeEvent<HTMLSelectElement>);
+      }
+    }
+  }, [userRole, user?.customer_id]);
+
   if (!row) return null;
+
+  // Filter reference data based on user role
+  const filteredCustomers = useMemo(() => {
+    if (userRole === 'customer' && user?.customer_id) {
+      // For customer role, show only the logged-in user's customer
+      return referenceData.customers.filter(c => c.id === user.customer_id);
+    }
+    return referenceData.customers;
+  }, [userRole, user, referenceData.customers]);
+
+  const filteredContractors = useMemo(() => {
+    let agInternal = referenceData.contractors.find(c => 
+      ['ag', 'ag (internal)'].includes(c.name.toLowerCase())
+    );
+    if (!agInternal) {
+      agInternal = referenceData.contractors.find(c => 
+        c.name.toLowerCase().includes('ag')
+      );
+    }
+    return agInternal ? [agInternal] : [];
+  }, [referenceData.contractors]);
 
   const validateField = useCallback((field: string, value: any) => {
     const errors: Record<string, string> = { ...validationErrors };
@@ -1050,7 +1126,7 @@ function EditForm({
         break;
       case 'vehicle_id':
       case 'vehicle':
-        if (!value) {
+        if (userRole !== 'customer' && !value) {
           errors.vehicle = 'Vehicle is required';
         } else {
           delete errors.vehicle;
@@ -1058,7 +1134,7 @@ function EditForm({
         break;
       case 'driver_id':
       case 'driver':
-        if (!value) {
+        if (userRole !== 'customer' && !value) {
           errors.driver = 'Driver is required';
         } else {
           delete errors.driver;
@@ -1202,9 +1278,10 @@ function EditForm({
                   onChange={handleCustomerChange}
                   className={clsx(selectClassName, validationErrors.customer && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
                   required
+                  disabled={userRole === 'customer'}
                 >
                   <option value="">Select Customer</option>
-                  {referenceData.customers.map(customer => (
+                  {filteredCustomers.map(customer => (
                     <option key={customer.id} value={customer.id}>
                       {customer.name}
                     </option>
@@ -1279,7 +1356,7 @@ function EditForm({
           {/* Vehicle Dropdown */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">
-              Vehicle *
+              Vehicle (Disabled)
             </label>
             {isLoadingReferenceData ? (
               <div className="w-full px-3 py-2 border border-border-color rounded-md">
@@ -1288,21 +1365,19 @@ function EditForm({
             ) : (
               <>
                 <select
-                  defaultValue={row.vehicle_id || ""}
+                  value={userRole === 'customer' ? '' : (row.vehicle_id || '')}
                   onChange={(e) => {
                     handleVehicleChange(e);
                   }}
                   className={clsx(selectClassName, validationErrors.vehicle && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
-                  required
+                  disabled={true}
                 >
                   <option value="">Select Vehicle</option>
-                  {referenceData?.vehicles?.map((vehicle, index) => {
-                    return (
-                      <option key={vehicle.id} value={vehicle.id}>
-                        {vehicle.number}
-                      </option>
-                    );
-                  })}
+                  {Array.isArray(referenceData?.vehicles) && referenceData.vehicles.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.number}
+                    </option>
+                  ))}
                 </select>
                 {validationErrors.vehicle && (
                   <p className="text-xs text-red-500 mt-1">{validationErrors.vehicle}</p>
@@ -1313,7 +1388,7 @@ function EditForm({
           {/* Driver Dropdown */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">
-              Driver *
+              Driver (Disabled)
             </label>
             {isLoadingReferenceData ? (
               <div className="w-full px-3 py-2 border border-border-color rounded-md">
@@ -1322,13 +1397,13 @@ function EditForm({
             ) : (
               <>
                 <select
-                  defaultValue={row.driver_id || ''}
+                  value={userRole === 'customer' ? '' : (row.driver_id || '')}
                   onChange={handleDriverChange}
                   className={clsx(selectClassName, validationErrors.driver && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
-                  required
+                  disabled={true}
                 >
                   <option value="">Select Driver</option>
-                  {referenceData.drivers.map(driver => (
+                  {Array.isArray(referenceData?.drivers) && referenceData.drivers.map(driver => (
                     <option key={driver.id} value={driver.id}>
                       {driver.name}
                     </option>
@@ -1379,16 +1454,17 @@ function EditForm({
                 <select
                   key={`contractor-${row.contractor_id || row.contractor || 'none'}`}
                   defaultValue={row.contractor_id || (() => {
-                    const foundContractor = referenceData.contractors.find(
+                    const foundContractor = filteredContractors.find(
                       c => c.name.toLowerCase() === (row.contractor || '').toLowerCase()
                     );
                     return foundContractor?.id || '';
                   })()}
                   onChange={handleContractorChange}
                   className={selectClassName}
+                  disabled={filteredContractors.length === 1}
                 >
                   <option value="">Select Contractor</option>
-                  {referenceData.contractors.map(contractor => (
+                  {filteredContractors.map(contractor => (
                     <option key={contractor.id} value={contractor.id}>
                       {contractor.name}
                     </option>
