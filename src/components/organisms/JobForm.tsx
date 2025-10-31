@@ -301,7 +301,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   
   // AI Suggested 
   const [isAiLoading, setIsAiLoading] = useState(false);
-  let aiToastId = useRef<string | null>(null);
+  const aiToastId = useRef<string | null>(null);
   const AI_MAX_RETRIES = 3;
   const AI_RETRY_DELAY_MS = 5000;
 
@@ -315,6 +315,8 @@ useEffect(() => {
     }
   };
 }, []);
+
+
 
 const handleAISuggestDriver = async (retryCount = 0) => {
   try {
@@ -374,12 +376,20 @@ return }
       }
 
       if (retryCount < AI_MAX_RETRIES) {
-        console.log(`AI retry #${retryCount + 1}`);
-        setTimeout(() => handleAISuggestDriver(retryCount + 1), AI_RETRY_DELAY_MS);
-      } else {
-        toast.error("AI still processing. Please try again later.");
-        aiToastId.current = null;
-      }
+    console.log(`AI retry #${retryCount + 1}`);
+    
+    // 🔧 ADD THESE THREE LINES HERE:
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+    }
+    retryTimeoutRef.current = setTimeout(
+      () => handleAISuggestDriver(retryCount + 1),
+      AI_RETRY_DELAY_MS
+    );
+  } else {
+    toast.error("AI still processing. Please try again later.");
+    aiToastId.current = null;
+  }
       return;
     }
 
@@ -388,6 +398,7 @@ return }
     toast.error(`AI failed: ${data.message || "Unknown error"}`);
   } catch (err) {
     console.error("AI Suggest error:", err);
+    
     if (aiToastId.current) toast.dismiss(aiToastId.current);
     toast.error("Could not connect to AI backend.");
   } finally {
