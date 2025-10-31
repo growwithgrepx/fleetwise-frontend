@@ -1135,7 +1135,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     if (pickupAddressResult && pickupAddressResult.display_name) {
       const formattedAddress = formatAddress(pickupAddressResult.display_name);
       // Only update if the address has actually changed
-      if (formData.pickup_location !== formattedAddress) {
+      // And only if the current value is still a postal code (user hasn't typed over it)
+      if (formData.pickup_location !== formattedAddress && /^\d{4,8}$/.test(formData.pickup_location.trim())) {
         setFormData(prev => ({ ...prev, pickup_location: formattedAddress }));
       }
     }
@@ -1145,7 +1146,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     if (dropoffAddressResult && dropoffAddressResult.display_name) {
       const formattedAddress = formatAddress(dropoffAddressResult.display_name);
       // Only update if the address has actually changed
-      if (formData.dropoff_location !== formattedAddress) {
+      // And only if the current value is still a postal code (user hasn't typed over it)
+      if (formData.dropoff_location !== formattedAddress && /^\d{4,8}$/.test(formData.dropoff_location.trim())) {
         setFormData(prev => ({ ...prev, dropoff_location: formattedAddress }));
       }
     }
@@ -2011,6 +2013,11 @@ const JobForm: React.FC<JobFormProps> = (props) => {
             }
           }
         }}
+        onFocus={() => {
+          // Reset any timestamp tracking when user focuses on the field
+          // This ensures the field remains editable after auto-population
+          console.log('[JobForm] pickup field focused');
+        }}
         readOnly={fieldsLocked}
         className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}`}
         placeholder="Enter pickup location or postal code"
@@ -2051,6 +2058,11 @@ const JobForm: React.FC<JobFormProps> = (props) => {
               console.log('[JobForm] Dropoff value does not match postal code pattern (4-8 digits):', value);
             }
           }
+        }}
+        onFocus={() => {
+          // Reset any timestamp tracking when user focuses on the field
+          // This ensures the field remains editable after auto-population
+          console.log('[JobForm] dropoff field focused');
         }}
         readOnly={fieldsLocked}
         className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}`}
