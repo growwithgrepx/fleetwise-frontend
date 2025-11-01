@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { Service } from '@/lib/types';
+import { ServiceResponse } from '@/lib/apiTypes';
 
 export interface ServiceWithAllPricingFormData {
   name: string;
@@ -14,10 +15,24 @@ export interface ServiceWithAllPricingFormData {
   pricing: Record<string, number>; // vehicle_type_id -> price
 }
 
-export const createServiceWithAllPricing = async (data: ServiceWithAllPricingFormData): Promise<Service> => {
+export const createServiceWithAllPricing = async (data: ServiceWithAllPricingFormData): Promise<ServiceResponse> => {
   try {
     const response = await api.post('/api/services/create-with-all-pricing', data);
-    return response.data;
+    // Check if response has the new format with data and message
+    if (response.data && typeof response.data === 'object') {
+      if ('data' in response.data && 'message' in response.data) {
+        return {
+          service: response.data.data,
+          message: response.data.message
+        };
+      }
+      // Backward compatibility: response.data is the service directly
+      return {
+        service: response.data,
+        message: response.data.message
+      };
+    }
+    throw new Error('Invalid response format from server');
   } catch (error: any) {
     console.error('Error creating service with all pricing:', error);
     // The axios interceptor already extracts the error message

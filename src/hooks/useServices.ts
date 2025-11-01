@@ -2,6 +2,7 @@ import { createCrudHooks } from './useCrud';
 import { getServices, getServiceById, createService, updateService, deleteService } from '@/services/api';
 import type { Service } from '@/lib/types';
 import type { ServiceResponse } from '@/lib/apiTypes';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 const serviceApi = {
   queryKey: ['services'],
@@ -26,14 +27,15 @@ export const {
 
 // Custom hook that returns both the service and message
 export const useCreateService = () => {
-  const mutation = useCreateServiceBase();
-  
-  return {
-    ...mutation,
-    mutateAsync: async (data: Omit<Service, 'id'>): Promise<ServiceResponse> => {
-      const response = await createService(data);
-      mutation.mutate(response.service as any); // Update the cache
-      return response;
+  const queryClient = useQueryClient();
+
+  return useMutation<ServiceResponse, Error, Omit<Service, 'id'>>({
+    mutationFn: async (data: Omit<Service, 'id'>) => {
+      return await createService(data);
+    },
+    onSuccess: () => {
+      // Invalidate services list to trigger refetch
+      queryClient.invalidateQueries({ queryKey: ['services'] });
     }
-  };
+  });
 };

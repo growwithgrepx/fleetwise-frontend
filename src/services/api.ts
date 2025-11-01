@@ -84,26 +84,31 @@ export async function createService(data: Omit<Service, 'id'>): Promise<ServiceR
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  
+
   const responseData = await res.json();
-  
+
   if (!res.ok) {
     // Handle error response
     throw new Error(responseData.error || 'Failed to create service');
   }
-  
-  if (responseData.data) {
-    return {
-      service: responseData.data,
-      message: responseData.message
-    };
+
+  // Validate response structure
+  let service: Service;
+  let message: string | undefined;
+
+  if (responseData.data && typeof responseData.data === 'object' && 'id' in responseData.data) {
+    // New format: {data: Service, message: string}
+    service = responseData.data;
+    message = responseData.message;
+  } else if (typeof responseData === 'object' && 'id' in responseData) {
+    // Backward compatibility: response is Service directly
+    service = responseData;
+    message = responseData.message;
+  } else {
+    throw new Error('Invalid service response structure from server');
   }
-  
-  // For backward compatibility
-  return {
-    service: responseData,
-    message: responseData.message
-  };
+
+  return { service, message };
 }
 export async function updateService(id: number, data: Partial<Service>): Promise<Service> {
   const res = await fetch(`/api/services/${id}`, {

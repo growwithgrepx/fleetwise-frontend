@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import ServiceForm from "@/components/organisms/ServiceForm";
 import { useCreateService } from "@/hooks/useServices";
 import toast from 'react-hot-toast';
+import { withLoadingToast, extractErrorMessage } from '@/utils/toastHelpers';
 
 export default function NewServicePage() {
   const router = useRouter();
@@ -27,44 +28,22 @@ export default function NewServicePage() {
         ds_midnight_surcharge: data.ds_midnight_surcharge?.toString() || "0.00",
       };
 
-      // Create service and sync pricing (handled by backend)
-      const loadingToast = toast.loading('Creating service...');
-      
-      try {
-        const serviceResult = await createServiceMutation.mutateAsync(payload);
-
-        // Dismiss loading toast
-        toast.dismiss(loadingToast);
-
-        // Small delay to ensure loading toast is dismissed before showing success
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // The backend now sends a message that includes sync status
-        if (serviceResult.message) {
-          toast.success(serviceResult.message, { duration: 3000 });
-        } else {
-          toast.success('Service created successfully!', { duration: 3000 });
-        }
-
-        // Delay navigation to allow toast to be visible (increased from 500ms to 1500ms)
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        router.push("/services");
-
-        return { success: true };
-      } catch (error) {
-        toast.dismiss(loadingToast);
-        throw error;
-      }
+      // Create service using the shared toast helper
+      await withLoadingToast(
+        () => createServiceMutation.mutateAsync(payload),
+        {
+          loading: 'Creating service...',
+          getSuccess: (result) => result.message || 'Service created successfully!'
+        },
+        () => router.push("/services")
+      );
     } catch (err: any) {
       console.error("Error while creating service:", err);
-      const errorMessage = err?.response?.data
-        ? typeof err.response.data === "string"
-          ? err.response.data
-          : JSON.stringify(err.response.data)
-        : err?.message || "Failed to create service. Please check all fields and try again.";
-      
+      const errorMessage = extractErrorMessage(
+        err,
+        "Failed to create service. Please check all fields and try again."
+      );
       toast.error(errorMessage);
-      return { success: false, message: errorMessage };
     }
   };
 
