@@ -46,6 +46,7 @@ interface ExcelRow {
   contractor?: string;
   contractor_id?: number;
   job_id?: string;
+  _originalData?: Omit<ExcelRow, '_originalData'>; // Store original data for change detection during editing
 }
 
 // Reference data interfaces (adjust based on your API response)
@@ -179,20 +180,38 @@ export default function ExcelUploadTable({
         }
       };
 
-      const [customersRes, servicesRes, vehiclesRes, driversRes, contractorsRes, vehicleTypesRes] = await Promise.all([
+      // For customer users, skip fetching vehicles and drivers (but still fetch vehicle types)
+      const isCustomerUser = userRole === 'customer';
+
+      const fetchPromises = [
         fetchWithLogging('/api/customers', 'customers'),
         fetchWithLogging('/api/services', 'services'),
-        fetchWithLogging('/api/vehicles', 'vehicles'),
-        fetchWithLogging('/api/drivers', 'drivers'),
+        !isCustomerUser ? fetchWithLogging('/api/vehicles', 'vehicles') : Promise.resolve([]),
+        !isCustomerUser ? fetchWithLogging('/api/drivers', 'drivers') : Promise.resolve([]),
         fetchWithLogging('/api/contractors', 'contractors'),
-        fetchWithLogging('/api/vehicle-types', 'vehicle types')
-      ]);
+        fetchWithLogging('/api/vehicle-types', 'vehicle types') // Always fetch for all users
+      ];
+
+      const [customersRes, servicesRes, vehiclesRes, driversRes, contractorsRes, vehicleTypesRes] = await Promise.all(fetchPromises);
+
+      // Validate critical reference data loaded successfully
+      if (!customersRes || !servicesRes || !contractorsRes || !vehicleTypesRes) {
+        toast.error('Failed to load reference data. Please refresh and try again.');
+        setIsLoadingReferenceData(false);
+        return;
+      }
+
+      if (!isCustomerUser && (!vehiclesRes || !driversRes)) {
+        toast.error('Failed to load vehicle/driver data. Please refresh and try again.');
+        setIsLoadingReferenceData(false);
+        return;
+      }
 
       console.log('✅ Reference data fetched:', {
         customers: customersRes,
         services: servicesRes,
-        vehicles: vehiclesRes,
-        drivers: driversRes,
+        vehicles: isCustomerUser ? 'skipped for customer user' : vehiclesRes,
+        drivers: isCustomerUser ? 'skipped for customer user' : driversRes,
         contractors: contractorsRes,
         vehicle_types: vehicleTypesRes
       });
@@ -302,42 +321,152 @@ export default function ExcelUploadTable({
 
     setIsValidating(true);
     const currentEditData = editingDataRef.current[editingRow];
+    const originalData = currentEditData._originalData;
 
     try {
+      // Guard: Prevent validation when reference data is incomplete
+      if (!referenceData.customers.length || !referenceData.services.length) {
+        toast.error('Reference data not loaded. Please wait and try again.');
+        setIsValidating(false);
+        return;
+      }
+
+      if (userRole !== 'customer' && (!referenceData.vehicles.length || !referenceData.drivers.length)) {
+        toast.error('Vehicle/Driver data not loaded. Please wait and try again.');
+        setIsValidating(false);
+        return;
+      }
+
+      // Helper function to check if a value is empty (null, undefined, empty string, or whitespace)
+      const isEmpty = (value: any): boolean => {
+        if (value === null || value === undefined) return true;
+        if (typeof value === 'string') return value.trim() === '';
+        return false;
+      };
+
+      // Check if any changes were made to the row
+      const hasChanges = !originalData ||
+        currentEditData.customer_id !== originalData.customer_id ||
+        currentEditData.customer !== originalData.customer ||
+        currentEditData.service !== originalData.service ||
+        currentEditData.vehicle_id !== originalData.vehicle_id ||
+        currentEditData.vehicle !== originalData.vehicle ||
+        currentEditData.driver_id !== originalData.driver_id ||
+        currentEditData.driver !== originalData.driver ||
+        currentEditData.pickup_date !== originalData.pickup_date ||
+        currentEditData.pickup_time !== originalData.pickup_time ||
+        currentEditData.pickup_location !== originalData.pickup_location ||
+        currentEditData.dropoff_location !== originalData.dropoff_location ||
+        currentEditData.passenger_name !== originalData.passenger_name ||
+        currentEditData.remarks !== originalData.remarks;
+
+      // If no changes were made to an invalid row, reject the save
+      if (!hasChanges && originalData && !originalData.is_valid) {
+        toast.error('Please make changes to fix the validation errors before saving.');
+        setIsValidating(false);
+        return;
+      }
+
       // Validate required fields
       const errors: string[] = [];
 
-      // Normalize optional fields to null
-      currentEditData.vehicle_id = currentEditData.vehicle_id ?? null;
-      currentEditData.driver_id = currentEditData.driver_id ?? null;
-      currentEditData.vehicle = currentEditData.vehicle ?? null;
-      currentEditData.driver = currentEditData.driver ?? null;
+      // Normalize optional fields to null (create a copy to avoid mutation)
+      const dataToValidate = {
+        ...currentEditData,
+        vehicle_id: currentEditData.vehicle_id ?? null,
+        driver_id: currentEditData.driver_id ?? null,
+        vehicle: currentEditData.vehicle ?? null,
+        driver: currentEditData.driver ?? null,
+      };
 
-      // Validate required fields
-      if (!currentEditData.customer_id || !currentEditData.customer) {
+      // Validate required fields with stricter empty checks
+      if (isEmpty(dataToValidate.customer_id) || isEmpty(dataToValidate.customer)) {
         errors.push('Customer is required');
+      } else {
+        // Validate that customer_id exists in reference data
+        const customerExists = referenceData.customers.some(c => c.id === dataToValidate.customer_id);
+        if (!customerExists) {
+          errors.push('Invalid customer selected');
+        }
       }
-      if (!currentEditData.service) {
+
+      if (isEmpty(dataToValidate.service)) {
         errors.push('Service is required');
+      } else {
+        // Validate that service exists in reference data
+        const serviceExists = referenceData.services.some(s => s.name === dataToValidate.service);
+        if (!serviceExists) {
+          errors.push('Invalid service - please select a valid service from the dropdown');
+        }
       }
-      // Driver and vehicle are optional for bulk upload
-      if (!currentEditData.pickup_date) {
+
+      // Validate contractor if provided (optional field)
+      if (!isEmpty(dataToValidate.contractor)) {
+        const contractorExists = referenceData.contractors.some(c => c.name === dataToValidate.contractor);
+        if (!contractorExists) {
+          errors.push('Invalid contractor - please select a valid contractor from the dropdown');
+        } else if (userRole === 'customer') {
+          // Enforce AG-only rule for customer users in validation
+          const contractor = referenceData.contractors.find(c => c.name === dataToValidate.contractor);
+          const isAG = contractor && ['ag', 'ag (internal)'].includes(contractor.name.toLowerCase());
+          if (!isAG) {
+            errors.push('Customer users can only select AG (Internal) contractor');
+          }
+        }
+      }
+
+      // Validate vehicle type if provided (optional field)
+      if (!isEmpty(dataToValidate.vehicle_type)) {
+        const vehicleTypeExists = referenceData.vehicle_types.some(vt => vt.name === dataToValidate.vehicle_type);
+        if (!vehicleTypeExists) {
+          errors.push('Invalid vehicle type - please select a valid vehicle type from the dropdown');
+        }
+      }
+
+      // Vehicle and Driver validation based on user role
+      // For admin users, vehicle and driver are required
+      // For customer users, vehicle and driver are optional
+      if (userRole !== 'customer') {
+        if (isEmpty(dataToValidate.vehicle_id) || isEmpty(dataToValidate.vehicle)) {
+          errors.push('Vehicle is required');
+        } else {
+          // Validate that vehicle_id exists in reference data
+          const vehicleExists = referenceData.vehicles.some(v => v.id === dataToValidate.vehicle_id);
+          if (!vehicleExists) {
+            errors.push('Invalid vehicle selected');
+          }
+        }
+
+        if (isEmpty(dataToValidate.driver_id) || isEmpty(dataToValidate.driver)) {
+          errors.push('Driver is required');
+        } else {
+          // Validate that driver_id exists in reference data
+          const driverExists = referenceData.drivers.some(d => d.id === dataToValidate.driver_id);
+          if (!driverExists) {
+            errors.push('Invalid driver selected');
+          }
+        }
+      }
+
+      if (isEmpty(dataToValidate.pickup_date)) {
         errors.push('Pickup date is required');
       }
-      if (!currentEditData.pickup_time) {
+      if (isEmpty(dataToValidate.pickup_time)) {
         errors.push('Pickup time is required');
       }
-      if (!currentEditData.pickup_location) {
+      if (isEmpty(dataToValidate.pickup_location)) {
         errors.push('Pickup location is required');
       }
-      if (!currentEditData.dropoff_location) {
+      if (isEmpty(dataToValidate.dropoff_location)) {
         errors.push('Dropoff location is required');
       }
 
       // If there are validation errors, show them and don't save
       if (errors.length > 0) {
+        const { _originalData, ...cleanData } = currentEditData;
         const updatedRow = {
-          ...currentEditData,
+          ...cleanData,
+          ...dataToValidate,
           is_valid: false,
           error_message: errors.join(', ')
         };
@@ -349,8 +478,10 @@ export default function ExcelUploadTable({
       }
 
       // All validations passed - mark as valid
+      const { _originalData, ...cleanData } = currentEditData;
       const updatedRow = {
-        ...currentEditData,
+        ...cleanData,
+        ...dataToValidate,
         is_valid: true,
         error_message: ''
       };
@@ -366,7 +497,7 @@ export default function ExcelUploadTable({
     } finally {
       setIsValidating(false);
     }
-  }, [editingRow, onUpdateRow]);
+  }, [editingRow, onUpdateRow, referenceData, userRole]);
 
   const handleSort = useCallback((key: keyof ExcelRow) => {
     setSortConfig(prevConfig => {
@@ -461,8 +592,11 @@ export default function ExcelUploadTable({
       setCurrentPage(targetPage);
     }
 
-    // Store the original data for this row
-    editingDataRef.current[row.row_number] = { ...row };
+    // Store the original data for this row along with its original validation state
+    editingDataRef.current[row.row_number] = {
+      ...row,
+      _originalData: { ...row } // Store a copy for comparison
+    };
 
     // Set editing row
     setEditingRow(row.row_number);
@@ -960,14 +1094,20 @@ function RowItem({
               <span className="font-medium text-text-secondary">Service:</span>
               <span className="ml-2 text-text-main">{row.service}</span>
             </div>
-            <div>
-              <span className="font-medium text-text-secondary">Vehicle:</span>
-              <span className="ml-2 text-text-main">{row.vehicle}</span>
-            </div>
-            <div>
-              <span className="font-medium text-text-secondary">Driver:</span>
-              <span className="ml-2 text-text-main">{row.driver}</span>
-            </div>
+            {/* Hide Vehicle and Driver fields for customer users */}
+            {userRole !== 'customer' && (
+              <>
+                <div>
+                  <span className="font-medium text-text-secondary">Vehicle:</span>
+                  <span className="ml-2 text-text-main">{row.vehicle}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-text-secondary">Driver:</span>
+                  <span className="ml-2 text-text-main">{row.driver}</span>
+                </div>
+              </>
+            )}
+            {/* Vehicle Type - visible for all users */}
             {row.vehicle_type && (
               <div>
                 <span className="font-medium text-text-secondary">Vehicle Type:</span>
@@ -1094,16 +1234,21 @@ function EditForm({
   }, [userRole, user, referenceData.customers]);
 
   const filteredContractors = useMemo(() => {
-    let agInternal = referenceData.contractors.find(c => 
-      ['ag', 'ag (internal)'].includes(c.name.toLowerCase())
-    );
-    if (!agInternal) {
-      agInternal = referenceData.contractors.find(c => 
-        c.name.toLowerCase().includes('ag')
+    // For customer users, only show AG (Internal)
+    if (userRole === 'customer') {
+      let agInternal = referenceData.contractors.find(c =>
+        ['ag', 'ag (internal)'].includes(c.name.toLowerCase())
       );
+      if (!agInternal) {
+        agInternal = referenceData.contractors.find(c =>
+          c.name.toLowerCase().includes('ag')
+        );
+      }
+      return agInternal ? [agInternal] : [];
     }
-    return agInternal ? [agInternal] : [];
-  }, [referenceData.contractors]);
+    // For admin users, show all contractors
+    return referenceData.contractors;
+  }, [referenceData.contractors, userRole]);
 
   const validateField = useCallback((field: string, value: any) => {
     const errors: Record<string, string> = { ...validationErrors };
@@ -1353,68 +1498,71 @@ function EditForm({
             )}
           </div>
 
-          {/* Vehicle Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Vehicle (Disabled)
-            </label>
-            {isLoadingReferenceData ? (
-              <div className="w-full px-3 py-2 border border-border-color rounded-md">
-                <span className="text-text-secondary">Loading...</span>
-              </div>
-            ) : (
-              <>
-                <select
-                  value={userRole === 'customer' ? '' : (row.vehicle_id || '')}
-                  onChange={(e) => {
-                    handleVehicleChange(e);
-                  }}
-                  className={clsx(selectClassName, validationErrors.vehicle && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
-                  disabled={true}
-                >
-                  <option value="">Select Vehicle</option>
-                  {Array.isArray(referenceData?.vehicles) && referenceData.vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.number}
-                    </option>
-                  ))}
-                </select>
-                {validationErrors.vehicle && (
-                  <p className="text-xs text-red-500 mt-1">{validationErrors.vehicle}</p>
-                )}
-              </>
-            )}
-          </div>
-          {/* Driver Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Driver (Disabled)
-            </label>
-            {isLoadingReferenceData ? (
-              <div className="w-full px-3 py-2 border border-border-color rounded-md">
-                <span className="text-text-secondary">Loading...</span>
-              </div>
-            ) : (
-              <>
-                <select
-                  value={userRole === 'customer' ? '' : (row.driver_id || '')}
-                  onChange={handleDriverChange}
-                  className={clsx(selectClassName, validationErrors.driver && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
-                  disabled={true}
-                >
-                  <option value="">Select Driver</option>
-                  {Array.isArray(referenceData?.drivers) && referenceData.drivers.map(driver => (
-                    <option key={driver.id} value={driver.id}>
-                      {driver.name}
-                    </option>
-                  ))}
-                </select>
-                {validationErrors.driver && (
-                  <p className="text-xs text-red-500 mt-1">{validationErrors.driver}</p>
-                )}
-              </>
-            )}
-          </div>
+          {/* Vehicle Dropdown - Hidden for customer users */}
+          {userRole !== 'customer' && (
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Vehicle <span className="text-red-500">*</span>
+              </label>
+              {isLoadingReferenceData ? (
+                <div className="w-full px-3 py-2 border border-border-color rounded-md">
+                  <span className="text-text-secondary">Loading...</span>
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={row.vehicle_id || ''}
+                    onChange={(e) => {
+                      handleVehicleChange(e);
+                    }}
+                    className={clsx(selectClassName, validationErrors.vehicle && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
+                  >
+                    <option value="">Select Vehicle</option>
+                    {Array.isArray(referenceData?.vehicles) && referenceData.vehicles.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>
+                        {vehicle.number}
+                      </option>
+                    ))}
+                  </select>
+                  {validationErrors.vehicle && (
+                    <p className="text-xs text-red-500 mt-1">{validationErrors.vehicle}</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Driver Dropdown - Hidden for customer users */}
+          {userRole !== 'customer' && (
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Driver <span className="text-red-500">*</span>
+              </label>
+              {isLoadingReferenceData ? (
+                <div className="w-full px-3 py-2 border border-border-color rounded-md">
+                  <span className="text-text-secondary">Loading...</span>
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={row.driver_id || ''}
+                    onChange={handleDriverChange}
+                    className={clsx(selectClassName, validationErrors.driver && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
+                  >
+                    <option value="">Select Driver</option>
+                    {Array.isArray(referenceData?.drivers) && referenceData.drivers.map(driver => (
+                      <option key={driver.id} value={driver.id}>
+                        {driver.name}
+                      </option>
+                    ))}
+                  </select>
+                  {validationErrors.driver && (
+                    <p className="text-xs text-red-500 mt-1">{validationErrors.driver}</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {/* Contractor Dropdown */}
           <div>
@@ -1461,7 +1609,7 @@ function EditForm({
                   })()}
                   onChange={handleContractorChange}
                   className={selectClassName}
-                  disabled={filteredContractors.length === 1}
+                  disabled={userRole === 'customer' && filteredContractors.length === 1}
                 >
                   <option value="">Select Contractor</option>
                   {filteredContractors.map(contractor => (
