@@ -194,6 +194,19 @@ export default function ExcelUploadTable({
 
       const [customersRes, servicesRes, vehiclesRes, driversRes, contractorsRes, vehicleTypesRes] = await Promise.all(fetchPromises);
 
+      // Validate critical reference data loaded successfully
+      if (!customersRes || !servicesRes || !contractorsRes || !vehicleTypesRes) {
+        toast.error('Failed to load reference data. Please refresh and try again.');
+        setIsLoadingReferenceData(false);
+        return;
+      }
+
+      if (!isCustomerUser && (!vehiclesRes || !driversRes)) {
+        toast.error('Failed to load vehicle/driver data. Please refresh and try again.');
+        setIsLoadingReferenceData(false);
+        return;
+      }
+
       console.log('✅ Reference data fetched:', {
         customers: customersRes,
         services: servicesRes,
@@ -311,6 +324,19 @@ export default function ExcelUploadTable({
     const originalData = currentEditData._originalData;
 
     try {
+      // Guard: Prevent validation when reference data is incomplete
+      if (!referenceData.customers.length || !referenceData.services.length) {
+        toast.error('Reference data not loaded. Please wait and try again.');
+        setIsValidating(false);
+        return;
+      }
+
+      if (userRole !== 'customer' && (!referenceData.vehicles.length || !referenceData.drivers.length)) {
+        toast.error('Vehicle/Driver data not loaded. Please wait and try again.');
+        setIsValidating(false);
+        return;
+      }
+
       // Helper function to check if a value is empty (null, undefined, empty string, or whitespace)
       const isEmpty = (value: any): boolean => {
         if (value === null || value === undefined) return true;
@@ -371,6 +397,29 @@ export default function ExcelUploadTable({
         const serviceExists = referenceData.services.some(s => s.name === dataToValidate.service);
         if (!serviceExists) {
           errors.push('Invalid service - please select a valid service from the dropdown');
+        }
+      }
+
+      // Validate contractor if provided (optional field)
+      if (!isEmpty(dataToValidate.contractor)) {
+        const contractorExists = referenceData.contractors.some(c => c.name === dataToValidate.contractor);
+        if (!contractorExists) {
+          errors.push('Invalid contractor - please select a valid contractor from the dropdown');
+        } else if (userRole === 'customer') {
+          // Enforce AG-only rule for customer users in validation
+          const contractor = referenceData.contractors.find(c => c.name === dataToValidate.contractor);
+          const isAG = contractor && ['ag', 'ag (internal)'].includes(contractor.name.toLowerCase());
+          if (!isAG) {
+            errors.push('Customer users can only select AG (Internal) contractor');
+          }
+        }
+      }
+
+      // Validate vehicle type if provided (optional field)
+      if (!isEmpty(dataToValidate.vehicle_type)) {
+        const vehicleTypeExists = referenceData.vehicle_types.some(vt => vt.name === dataToValidate.vehicle_type);
+        if (!vehicleTypeExists) {
+          errors.push('Invalid vehicle type - please select a valid vehicle type from the dropdown');
         }
       }
 
