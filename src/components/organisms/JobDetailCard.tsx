@@ -102,9 +102,9 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
           </DetailSection>
 
           <DetailSection title="Assignment & Other">
-              <DetailItem label="Vehicle" value={normalized.vehicleType || 'Not Assigned'} />
+              <DetailItem label="Vehicle" value={normalized.vehicle || 'Not Assigned'} />
               <DetailItem label="Driver" value={normalized.driverName || 'Not Assigned'} />
-              <DetailItem label="Invoice #" value={normalized.invoiceId || 'Not Assigned'} />
+              <DetailItem label="Vehicle Type" value={normalized.vehicleType || 'Not Assigned'} />
               <DetailItem label="Passenger" value={normalized.passengerName} />
           </DetailSection>
         </div>
