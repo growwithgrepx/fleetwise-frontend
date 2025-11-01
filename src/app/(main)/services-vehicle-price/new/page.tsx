@@ -1,16 +1,15 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
 import ServiceWithAllPricingForm from "@/components/organisms/ServiceWithAllPricingForm";
 import { useCreateServiceWithAllPricing } from "@/hooks/useServicesWithAllPricing";
+import toast from 'react-hot-toast';
 
 export default function NewServiceWithAllPricingPage() {
   const router = useRouter();
   const createServiceMutation = useCreateServiceWithAllPricing();
-  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (data: any) => {
-    setError(null);
 
     // Build service payload
     const payload = {
@@ -26,25 +25,47 @@ export default function NewServiceWithAllPricingPage() {
       pricing: data.pricing
     };
 
+    // Show loading toast
+    const loadingToast = toast.loading('Creating service...');
+
     try {
       await createServiceMutation.mutateAsync(payload);
+
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+
+      // Small delay to ensure loading toast is dismissed
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Show success toast with contractor sync message
+      toast.success('Service created successfully and synced to contractor pricing lists!', { duration: 3000 });
+
+      // Delay navigation to allow toast to be visible
+      await new Promise(resolve => setTimeout(resolve, 1500));
       router.push("/services-vehicle-price");
     } catch (err: any) {
       console.error("Error while creating service with pricing:", err);
-      // Handle specific error messages
-      if (err?.response?.data) {
+
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+
+      // Extract error message
+      let errorMessage = "Failed to create service with pricing. Please check all fields and try again.";
+
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (err?.response?.data) {
         if (typeof err.response.data === "string") {
-          setError(err.response.data);
+          errorMessage = err.response.data;
         } else if (err.response.data.error) {
-          setError(err.response.data.error);
+          errorMessage = err.response.data.error;
         } else {
-          setError(JSON.stringify(err.response.data));
+          errorMessage = JSON.stringify(err.response.data);
         }
-      } else if (err?.message) {
-        setError(err.message);
-      } else {
-        setError("Failed to create service with pricing. Please check all fields and try again.");
       }
+
+      // Show error toast
+      toast.error(errorMessage, { duration: 4000 });
     }
   };
 
@@ -54,7 +75,6 @@ export default function NewServiceWithAllPricingPage() {
 
   return (
     <div>
-      {error && <div className="mb-4 text-red-500 bg-red-100 rounded p-2">{error}</div>}
       <ServiceWithAllPricingForm
         onSubmit={handleSubmit}
         onClose={handleClose}

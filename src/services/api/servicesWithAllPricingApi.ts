@@ -20,14 +20,12 @@ export const createServiceWithAllPricing = async (data: ServiceWithAllPricingFor
     return response.data;
   } catch (error: any) {
     console.error('Error creating service with all pricing:', error);
-    // Handle different types of errors
-    if (error.response?.data?.error) {
-      throw new Error(error.response.data.error);
-    } else if (error.response?.data?.message) {
-      throw new Error(error.response.data.message);
-    } else {
-      throw new Error('Could not create service with pricing. Please try again later.');
+    // The axios interceptor already extracts the error message
+    // Just re-throw it if it has a message, otherwise use fallback
+    if (error.message) {
+      throw error;
     }
+    throw new Error('Could not create service with pricing. Please try again later.');
   }
 };
 
@@ -37,13 +35,11 @@ export const updateServiceWithAllPricing = async (serviceId: number, data: Servi
     return response.data;
   } catch (error: any) {
     console.error('Error updating service with all pricing:', error);
-    // Handle different types of errors
-    if (error.response?.data?.error) {
-      throw new Error(error.response.data.error);
-    } else if (error.response?.data?.message) {
-      throw new Error(error.response.data.message);
-    } else {
-      throw new Error('Could not update service with pricing. Please try again later.');
+    // The axios interceptor already extracts the error message
+    // Just re-throw it if it has a message, otherwise use fallback
+    if (error.message) {
+      throw error;
     }
+    throw new Error('Could not update service with pricing. Please try again later.');
   }
 };

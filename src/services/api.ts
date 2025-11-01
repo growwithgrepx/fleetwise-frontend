@@ -24,6 +24,7 @@ export * from './api/servicesWithAllPricingApi';
 // TODO: Modularize and re-export other domain APIs (drivers, etc.) here 
 //export { createCustomerServicePricing } from "./api/customerServicePricingApi";
 import type { Driver, Service, Vehicle, VehicleType } from '@/lib/types';
+import type { ServiceResponse } from '@/lib/apiTypes';
 
 // DRIVERS
 export async function getDrivers(): Promise<Driver[]> {
@@ -77,14 +78,32 @@ export async function getServiceById(id: number): Promise<Service> {
   if (!res.ok) throw new Error('Failed to fetch service');
   return res.json();
 }
-export async function createService(data: Omit<Service, 'id'>): Promise<Service> {
+export async function createService(data: Omit<Service, 'id'>): Promise<ServiceResponse> {
   const res = await fetch('/api/services', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Failed to create service');
-  return res.json();
+  
+  const responseData = await res.json();
+  
+  if (!res.ok) {
+    // Handle error response
+    throw new Error(responseData.error || 'Failed to create service');
+  }
+  
+  if (responseData.data) {
+    return {
+      service: responseData.data,
+      message: responseData.message
+    };
+  }
+  
+  // For backward compatibility
+  return {
+    service: responseData,
+    message: responseData.message
+  };
 }
 export async function updateService(id: number, data: Partial<Service>): Promise<Service> {
   const res = await fetch(`/api/services/${id}`, {

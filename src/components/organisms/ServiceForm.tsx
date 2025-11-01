@@ -14,9 +14,11 @@ type ServiceFormValues = {
   midnight_surcharge?: number;
 };
 
+import { toast } from 'react-hot-toast';
+
 type ServiceFormProps = {
   initialData?: Partial<ServiceFormValues>;
-  onSubmit: (data: ServiceFormValues) => void;
+  onSubmit: (data: ServiceFormValues) => Promise<{ success: boolean; message?: string }>;
   onCancel?: () => void;
   onClose?: () => void;
   isSubmitting: boolean;
@@ -38,7 +40,7 @@ export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, 
     },
   });
 
-  const handleFormSubmit = (data: ServiceFormValues) => {
+  const handleFormSubmit = async (data: ServiceFormValues) => {
     // Ensure all numeric fields have values
     const processedData = {
       ...data,
@@ -48,7 +50,17 @@ export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, 
       midnight_surcharge: data.midnight_surcharge || 0,
     };
     console.log('Form submission data:', processedData);
-    onSubmit(processedData as ServiceFormValues);
+    
+    try {
+      const response = await onSubmit(processedData as ServiceFormValues);
+      if (response.success && response.message) {
+        // Show success message about contractor sync
+        toast.success(response.message);
+      }
+    } catch (error) {
+      // Show error message
+      toast.error((error as Error).message || 'Failed to create service');
+    }
   };
 
   return (
