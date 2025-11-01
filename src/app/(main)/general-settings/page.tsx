@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTheme } from '@/context/ThemeContext';
+import { useRouter } from 'next/navigation';
 import {
   getUserSettings,
   saveUserSettings,
@@ -53,9 +54,17 @@ const stageOptions = [
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
   // Modal state for image preview
   const [previewImageUrl, setPreviewImageUrl] = useState<string>("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  // Redirect logic for deep links to security section
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash === '#security') {
+      router.push('/user-settings?tab=security');
+    }
+  }, [router]);
 
   const openImagePreview = (url: string) => {
     setPreviewImageUrl(url);

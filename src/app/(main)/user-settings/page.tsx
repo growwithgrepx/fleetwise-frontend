@@ -7,7 +7,7 @@ import { CheckCircleIcon, UserIcon, KeyIcon } from "@heroicons/react/24/outline"
 import ChangePasswordForm from '@/components/ChangePasswordForm';
 
 export default function UserSettingsPage() {
-  const { user, updateUser } = useUser();
+  const { user, updateUser, isLoading } = useUser();
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -19,25 +19,42 @@ export default function UserSettingsPage() {
   // Initialize form with current user data
   useEffect(() => {
     if (user) {
-      setName(user.name || user.username || user.email || "");
+      setName(user.name || user.email || "");
       setEmail(user.email || "");
     }
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName && name.length > 0) {
+      setSaveError("Name cannot be empty or contain only spaces");
+      return;
+    }
     setIsSaving(true);
     setSaveError("");
     setSaveSuccess(false);
 
     try {
+      // Get CSRF token from meta tag if available
+      const csrfToken = typeof document !== 'undefined' 
+        ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') 
+        : null;
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      // Add CSRF token to headers if available
+      if (csrfToken) {
+        headers["X-CSRF-Token"] = csrfToken;
+      }
+
       const response = await fetch("/api/auth/me", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         credentials: "include",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name: trimmedName || null }),
       });
 
       if (!response.ok) {
@@ -48,7 +65,6 @@ export default function UserSettingsPage() {
       const userData = await response.json();
       updateUser(userData);
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error: any) {
       setSaveError(error.message || "An error occurred while saving");
     } finally {
@@ -56,8 +72,18 @@ export default function UserSettingsPage() {
     }
   };
 
+  if (isLoading) {
+    return <div className="container mx-auto px-4 py-8">Loading user settings...</div>;
+  }
+  
   if (!user) {
-    return <div className="container mx-auto px-4 py-8">Loading...</div>;
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-red-600">
+          Unable to load user information. Please try refreshing the page or logging in again.
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -111,12 +137,15 @@ export default function UserSettingsPage() {
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                maxLength={255}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-700 dark:text-white"
                 placeholder="Enter your full name"
               />
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                This name will be displayed in the application
-              </p>
+              <div className="flex justify-between mt-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  This name will be displayed in the application ({name.length}/255 characters)
+                </p>
+              </div>
             </div>
 
             <div>
@@ -142,6 +171,12 @@ export default function UserSettingsPage() {
                   <div className="flex items-center text-green-600 dark:text-green-400">
                     <CheckCircleIcon className="w-5 h-5 mr-1" />
                     <span>Profile updated successfully!</span>
+                    <button 
+                      onClick={() => setSaveSuccess(false)}
+                      className="ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                    >
+                      ×
+                    </button>
                   </div>
                 )}
                 {saveError && (
