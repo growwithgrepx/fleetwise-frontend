@@ -39,7 +39,8 @@ export function normalizeJobForDisplay(apiJob: ApiJob): NormalizedJobDisplay {
 
     // Service information - check for null explicitly, then fallback to flat properties
     // The API returns service as null when not set, and uses service_type/type_of_service instead
-    serviceName: (apiJob.service && apiJob.service.name) ? apiJob.service.name : (apiJob.service_type ?? apiJob.type_of_service ?? ''),
+    // Use safeStringValue to safely extract string from service object or use flat properties
+    serviceName: safeStringValue(apiJob.service) || safeStringValue(apiJob.service_type) || safeStringValue(apiJob.type_of_service) || '',
 
     // Customer information - prefer nested object, fallback to flat properties
     customerName: apiJob.customer?.name ?? apiJob.customer_name ?? '',
@@ -48,18 +49,20 @@ export function normalizeJobForDisplay(apiJob: ApiJob): NormalizedJobDisplay {
     companyName: apiJob.customer?.company_name ?? apiJob.company_name ?? '',
 
     // Driver information - prefer nested object, fallback to "Not Assigned"
-    driverName: apiJob.driver?.name ?? 'Not Assigned',
+    driverName: apiJob.driver?.name ? `${safeStringValue(apiJob.driver.name)}${apiJob.driver.mobile ? ` (${apiJob.driver.mobile})` : ''}` : 'Not Assigned',
 
     // Invoice information - prefer nested object, fallback to flat property
     invoiceId: apiJob.invoice?.id?.toString() ?? apiJob.invoice_id?.toString() ?? 'Not Assigned',
-
+    vehicleType: apiJob.vehicle_type ? safeStringValue(apiJob.vehicle_type) : '',
     // Job details - prefer nested vehicle object type, fallback to flat vehicle_type
-    vehicleType: apiJob.vehicle?.type ?? apiJob.vehicle_type ?? 'Not Assigned',
+    // Use safeStringValue to handle cases where vehicle.type is an object with a 'name' property
+    //vehicle: safeStringValue(apiJob.vehicle?.name) || 'Not Assigned',
+    vehicle: apiJob.vehicle?.name ? `${safeStringValue(apiJob.vehicle.name)}${apiJob.vehicle.number ? ` (${apiJob.vehicle.number})` : ''}` : 'Not Assigned',
     pickupLocation: apiJob.pickup_location ?? '',
     dropoffLocation: apiJob.dropoff_location ?? '',
     pickupDate: apiJob.pickup_date ?? '',
     pickupTime: apiJob.pickup_time ?? '',
-    passengerName: apiJob.passenger_name ?? '',
+    passengerName: apiJob.passenger_name ? `${apiJob.passenger_name}${apiJob.passenger_mobile ? ` (${apiJob.passenger_mobile})` : ''}`: '',
 
     // Pricing
     basePrice: apiJob.base_price ?? 0,

@@ -187,14 +187,17 @@ export interface NormalizedJobDisplay {
   customerMobile: string;
   companyName: string;
 
-  // Driver information
-  driverName: string;
+  // Vehicle information
+  vehicleType: string;
 
+  // Driver and booked vehicle information
+  driverName: string;
+  vehicle: string;
+  
   // Invoice information
   invoiceId: string;
 
   // Job details
-  vehicleType: string;
   pickupLocation: string;
   dropoffLocation: string;
   pickupDate: string;
