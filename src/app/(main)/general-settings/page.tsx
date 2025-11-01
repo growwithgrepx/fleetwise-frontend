@@ -38,7 +38,6 @@ const settingsCategories = [
   { name: "General", icon: Cog6ToothIcon },
   { name: "Driver App", icon: DevicePhoneMobileIcon },
   { name: "Billing", icon: CreditCardIcon },
-  { name: "Security", icon: KeyIcon },
   { name: "User Management", icon: UserIcon },
   { name: "Export Database", icon: ArrowPathIcon }, // Updated name
 ];

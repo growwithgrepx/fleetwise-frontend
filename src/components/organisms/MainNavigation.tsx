@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import {
   HomeIcon,
@@ -22,7 +22,8 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   DocumentDuplicateIcon,
-  WalletIcon
+  WalletIcon,
+  UserIcon
 } from '@heroicons/react/24/outline';
 import { useMediaQuery } from 'react-responsive';
 import { useTheme } from '@/context/ThemeContext';
@@ -101,7 +102,8 @@ const navSections: NavSection[] = [
   {
     title: "Settings",
     items: [
-      { label: "General", href: "/general-settings", icon: <Cog6ToothIcon className="w-5 h-5" />, description: "Fleet management" }
+      { label: "General", href: "/general-settings", icon: <Cog6ToothIcon className="w-5 h-5" />, description: "System settings" }
+      // Removed User Profile from Settings menu
     ]
   }
 ];
@@ -110,6 +112,7 @@ export default function MainNavigation({
   onSidebarStateChange
 }: { onSidebarStateChange?: (state: { isCollapsed: boolean; isMobileOpen: boolean }) => void }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false); // Default to expanded
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
@@ -614,12 +617,18 @@ const toggleMenu = (key: string) => {
             
             return (
               <>
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+                <div 
+                  className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center cursor-pointer"
+                  onClick={() => router.push('/user-settings')}
+                >
                   <span className="text-white font-medium text-sm">
                     {userName.charAt(0).toUpperCase() || 'U'}
                   </span>
                 </div>
-                <div className="ml-3 overflow-hidden">
+                <div 
+                  className="ml-3 overflow-hidden cursor-pointer"
+                  onClick={() => router.push('/user-settings')}
+                >
                   <p className="text-sm font-medium text-text-main truncate">
                     {userName}
                   </p>
@@ -634,10 +643,16 @@ const toggleMenu = (key: string) => {
             // Fallback to static display if there's an error
             return (
               <>
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+                <div 
+                  className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center cursor-pointer"
+                  onClick={() => router.push('/user-settings')}
+                >
                   <span className="text-white font-medium text-sm">U</span>
                 </div>
-                <div className="ml-3 overflow-hidden">
+                <div 
+                  className="ml-3 overflow-hidden cursor-pointer"
+                  onClick={() => router.push('/user-settings')}
+                >
                   <p className="text-sm font-medium text-text-main truncate">
                     User
                   </p>
