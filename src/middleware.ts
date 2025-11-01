@@ -19,7 +19,9 @@ export async function middleware(req: NextRequest) {
 
   let role = "guest";
   try {
-    const backendUrl = process.env.AUTH_BACKEND_URL || req.nextUrl.origin;
+    // Use HTTP for server-side requests to backend (nginx handles HTTPS externally)
+    // Fallback to localhost:5000 if AUTH_BACKEND_URL is not set
+    const backendUrl = process.env.AUTH_BACKEND_URL || "http://127.0.0.1:5000";
     const res = await fetch(`${backendUrl}/api/auth/me`, {
       credentials: "include", // ensures HttpOnly cookie is sent
       headers: {
@@ -45,22 +47,19 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
   } catch (err: any) {
-
-  const isProd = process.env.NODE_ENV === "production";
-
-  if (!isProd) {
+    const isProd = process.env.NODE_ENV === "production";
+    
+    // Log error with details even in production for debugging
     console.error("[AUTH_MIDDLEWARE_ERROR]", {
       message: err?.message,
       name: err?.name,
+      cause: err?.cause?.message,
+      backendUrl: process.env.AUTH_BACKEND_URL || "http://127.0.0.1:5000",
     });
+    
+    // Default to guest role when auth check fails
+    role = "guest";
   }
-
-  if (isProd) {
-    console.warn("[AUTH_MIDDLEWARE_ERROR]");
-  }
-
-  role = "guest";
-}
   const path = req.nextUrl.pathname;
   if (isBlocked(role, path)) {
     const url = req.nextUrl.clone();
