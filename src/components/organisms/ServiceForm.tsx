@@ -16,7 +16,7 @@ type ServiceFormValues = {
 
 type ServiceFormProps = {
   initialData?: Partial<ServiceFormValues>;
-  onSubmit: (data: ServiceFormValues) => void;
+  onSubmit: (data: ServiceFormValues) => Promise<void>;
   onCancel?: () => void;
   onClose?: () => void;
   isSubmitting: boolean;
@@ -38,7 +38,7 @@ export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, 
     },
   });
 
-  const handleFormSubmit = (data: ServiceFormValues) => {
+  const handleFormSubmit = async (data: ServiceFormValues) => {
     // Ensure all numeric fields have values
     const processedData = {
       ...data,
@@ -48,7 +48,8 @@ export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, 
       midnight_surcharge: data.midnight_surcharge || 0,
     };
     console.log('Form submission data:', processedData);
-    onSubmit(processedData as ServiceFormValues);
+    // Parent handles all success/error toasts - just await and let errors bubble
+    await onSubmit(processedData as ServiceFormValues);
   };
 
   return (
