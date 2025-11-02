@@ -185,10 +185,47 @@ export function useAddressLookup(defaultCountryCode = 'sg') {
     
   }, [performLookup, cleanup]);
 
+  // Method to clear cache for a specific postal code
+  const clearCache = useCallback((postalcode: string) => {
+    const cc = 'sg'; // Always use Singapore
+    const cacheKey = `${cc}:${postalcode}`;
+    addressCache.delete(cacheKey);
+    console.log('[useAddressLookup] Cache cleared for', cacheKey);
+  }, [addressCache]);
+
+  // Method to force refresh (bypass cache)
+  const forceRefresh = useCallback(async (postalcode: string) => {
+    console.log('[useAddressLookup] Force refresh requested for:', postalcode);
+    
+    // Reset state
+    setError(null);
+    setResult(null);
+    
+    // Validate postal code
+    if (!postalcode) {
+      console.log('[useAddressLookup] Empty postal code provided for force refresh');
+      return;
+    }
+    
+    // Improved postal code validation - Singapore postal codes are 4-8 digits only
+    if (!/^\d{4,8}$/.test(postalcode)) {
+      setError('Postal code must be 4-8 digits only');
+      console.log('[useAddressLookup] Invalid postal code format for force refresh:', postalcode);
+      return;
+    }
+    
+    // Clear cache for this postal code
+    clearCache(postalcode);
+    
+    // Perform lookup without checking cache
+    setLoading(true);
+    await performLookup(postalcode.trim());
+  }, [performLookup, clearCache]);
+
   // Cleanup on unmount
   React.useEffect(() => {
     return cleanup;
   }, [cleanup]);
 
-  return { loading, error, result, lookup, lastLookupTimestamp };
+  return { loading, error, result, lookup, forceRefresh, clearCache, lastLookupTimestamp };
 }

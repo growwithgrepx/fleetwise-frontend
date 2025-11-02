@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -299,8 +299,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   const { data: allContractors = [] } = useGetAllContractors();
   
   // Address lookup hooks
-  const { lookup: pickupLookup, result: pickupAddressResult, loading: pickupAddressLoading, error: pickupAddressError } = useAddressLookup();
-  const { lookup: dropoffLookup, result: dropoffAddressResult, loading: dropoffAddressLoading, error: dropoffAddressError } = useAddressLookup();
+  const { lookup: pickupLookup, result: pickupAddressResult, loading: pickupAddressLoading, error: pickupAddressError, forceRefresh: pickupForceRefresh } = useAddressLookup();
+  const { lookup: dropoffLookup, result: dropoffAddressResult, loading: dropoffAddressLoading, error: dropoffAddressError, forceRefresh: dropoffForceRefresh } = useAddressLookup();
 
   // Pricing hooks
   const { data: customerServicePricing } = useCustomerServicePricing(
@@ -2004,100 +2004,146 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                 </div>
                 
                 {/* Primary Locations */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-  <div className="space-y-2">
-    <label className="block text-sm font-medium text-gray-300">
-      Pickup Location <span className="text-red-400">*</span>
-    </label>
-    <div className="relative">
-      <input
-        type="text"
-        value={formData.pickup_location || ""}
-        onChange={(e) => {
-          // Only allow changes if fields are not locked
-          if (!fieldsLocked) {
-            handleInputChange("pickup_location", e.target.value);
-          }
-        }}
-        onBlur={(e) => {
-          // Only allow lookup if fields are not locked
-          if (!fieldsLocked) {
-            const value = e.target.value.trim();
-            console.log('[JobForm] pickup onBlur triggered with value:', value);
-            // Log only if value is all digits and length 4-8 (postal code)
-            if (/^\d{4,8}$/.test(value)) {
-              console.log('[JobForm] Pickup postal code pattern matched, calling pickupLookup:', value);
-              pickupLookup(value);
-            } else {
-              console.log('[JobForm] Pickup value does not match postal code pattern (4-8 digits):', value);
-            }
-          }
-        }}
-        onFocus={() => {
-          // Reset timestamp tracking when user focuses on the field
-          // This ensures user inputs take priority over automated updates
-          userLocationTimestamps.current.pickup = Date.now();
-        }}
-        readOnly={fieldsLocked}
-        className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}`}
-        placeholder="Enter pickup location or postal code"
-      />
-      {pickupAddressLoading && (
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
-        </div>
-      )}
-    </div>
-    {errors.pickup_location && <p className="text-sm text-red-400">{errors.pickup_location}</p>}
-    {pickupAddressError && <p className="text-sm text-yellow-400">{pickupAddressError}</p>}
-  </div>
-  <div className="space-y-2">
-    <label className="block text-sm font-medium text-gray-300">
-      Drop-off Location <span className="text-red-400">*</span>
-    </label>
-    <div className="relative">
-      <input
-        type="text"
-        value={formData.dropoff_location || ""}
-        onChange={(e) => {
-          // Only allow changes if fields are not locked
-          if (!fieldsLocked) {
-            handleInputChange("dropoff_location", e.target.value);
-          }
-        }}
-        onBlur={(e) => {
-          // Only allow lookup if fields are not locked
-          if (!fieldsLocked) {
-            const value = e.target.value.trim();
-            console.log('[JobForm] dropoff onBlur triggered with value:', value);
-            // Log only if value is all digits and length 4-8 (postal code)
-            if (/^\d{4,8}$/.test(value)) {
-              console.log('[JobForm] Dropoff postal code pattern matched, calling dropoffLookup:', value);
-              dropoffLookup(value);
-            } else {
-              console.log('[JobForm] Dropoff value does not match postal code pattern (4-8 digits):', value);
-            }
-          }
-        }}
-        onFocus={() => {
-          // Reset timestamp tracking when user focuses on the field
-          // This ensures user inputs take priority over automated updates
-          userLocationTimestamps.current.dropoff = Date.now();
-        }}
-        readOnly={fieldsLocked}
-        className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}`}
-        placeholder="Enter drop-off location or postal code"
-      />
-      {dropoffAddressLoading && (
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
-        </div>
-      )}
-    </div>
-    {errors.dropoff_location && <p className="text-sm text-red-400">{errors.dropoff_location}</p>}
-    {dropoffAddressError && <p className="text-sm text-yellow-400">{dropoffAddressError}</p>}
-  </div>
-</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-300">
+                      Pickup Location <span className="text-red-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formData.pickup_location || ""}
+                        onChange={(e) => {
+                          // Only allow changes if fields are not locked
+                          if (!fieldsLocked) {
+                            handleInputChange("pickup_location", e.target.value);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Only allow lookup if fields are not locked
+                          if (!fieldsLocked) {
+                            const value = e.target.value.trim();
+                            console.log('[JobForm] pickup onBlur triggered with value:', value);
+                            // Log only if value is all digits and length 4-8 (postal code)
+                            if (/^\d{4,8}$/.test(value)) {
+                              console.log('[JobForm] Pickup postal code pattern matched, calling pickupLookup:', value);
+                              pickupLookup(value);
+                            } else {
+                              console.log('[JobForm] Pickup value does not match postal code pattern (4-8 digits):', value);
+                            }
+                          }
+                        }}
+                        onFocus={() => {
+                          // Reset timestamp tracking when user focuses on the field
+                          // This ensures user inputs take priority over automated updates
+                          userLocationTimestamps.current.pickup = Date.now();
+                        }}
+                        readOnly={fieldsLocked}
+                        className={`w-full px-4 py-3 pr-12 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}`}
+                        placeholder="Enter pickup location or postal code"
+                      />
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex space-x-1">
+                        {pickupAddressLoading && (
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                        )}
+                        {formData.pickup_location && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // Clear the field
+                              handleInputChange("pickup_location", "");
+                              // Reset timestamp tracking
+                              userLocationTimestamps.current.pickup = Date.now();
+                              // Force refresh to clear cache and get fresh data
+                              if (formData.pickup_location) {
+                                pickupForceRefresh(formData.pickup_location);
+                              }
+                            }}
+                            className="text-gray-400 hover:text-white focus:outline-none"
+                            title="Clear field and refresh"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {errors.pickup_location && <p className="text-sm text-red-400">{errors.pickup_location}</p>}
+                    {pickupAddressError && <p className="text-sm text-yellow-400">{pickupAddressError}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-300">
+                      Drop-off Location <span className="text-red-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={formData.dropoff_location || ""}
+                        onChange={(e) => {
+                          // Only allow changes if fields are not locked
+                          if (!fieldsLocked) {
+                            handleInputChange("dropoff_location", e.target.value);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Only allow lookup if fields are not locked
+                          if (!fieldsLocked) {
+                            const value = e.target.value.trim();
+                            console.log('[JobForm] dropoff onBlur triggered with value:', value);
+                            // Log only if value is all digits and length 4-8 (postal code)
+                            if (/^\d{4,8}$/.test(value)) {
+                              console.log('[JobForm] Dropoff postal code pattern matched, calling dropoffLookup:', value);
+                              dropoffLookup(value);
+                            } else {
+                              console.log('[JobForm] Dropoff value does not match postal code pattern (4-8 digits):', value);
+                            }
+                          }
+                        }}
+                        onFocus={() => {
+                          // Reset timestamp tracking when user focuses on the field
+                          // This ensures user inputs take priority over automated updates
+                          userLocationTimestamps.current.dropoff = Date.now();
+                        }}
+                        readOnly={fieldsLocked}
+                        className={`w-full px-4 py-3 pr-12 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}`}
+                        placeholder="Enter pickup location or postal code"
+                      />
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex space-x-1">
+                        {dropoffAddressLoading && (
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                        )}
+                        {formData.dropoff_location && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // Clear the field
+                              handleInputChange("dropoff_location", "");
+                              // Reset timestamp tracking
+                              userLocationTimestamps.current.dropoff = Date.now();
+                              // Force refresh to clear cache and get fresh data
+                              if (formData.dropoff_location) {
+                                dropoffForceRefresh(formData.dropoff_location);
+                              }
+                            }}
+                            className="text-gray-400 hover:text-white focus:outline-none"
+                            title="Clear field and refresh"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {errors.dropoff_location && <p className="text-sm text-red-400">{errors.dropoff_location}</p>}
+                    {dropoffAddressError && <p className="text-sm text-yellow-400">{dropoffAddressError}</p>}
+                  </div>
+                </div>
 
                 {/* Additional Pickup Locations */}
                 <div className="mb-6">
