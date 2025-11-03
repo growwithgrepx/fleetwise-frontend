@@ -98,6 +98,24 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
 
           <DetailSection title="Pricing">
               <DetailItem label="Base Price" value={normalized.basePrice !== undefined ? `S$ ${normalized.basePrice.toFixed(2)}` : 'N/A'} />
+              {job.ancillary_charges && job.ancillary_charges.length > 0 && (
+                <>
+                  <div className="mt-2 pt-2 border-t border-gray-700">
+                    <p className="text-sm font-medium text-gray-400 mb-2">Ancillary Charges:</p>
+                    {job.ancillary_charges.map((charge, index) => (
+                      <div key={index} className="ml-4 mb-1 flex justify-between">
+                        <span className="text-sm text-gray-300">
+                          {charge.name}
+                          {charge.quantity > 1 && (
+                            <span className="text-gray-500"> (x{charge.quantity})</span>
+                          )}
+                        </span>
+                        <span className="text-sm text-gray-300">S$ {charge.price.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
               <DetailItem label="Final Price" value={normalized.finalPrice !== undefined ? `S$ ${normalized.finalPrice.toFixed(2)}` : 'N/A'} />
           </DetailSection>
 

@@ -15,6 +15,10 @@ type ServiceFormValues = {
   midnight_surcharge?: number; // Made optional
   ds_hourly_charter?: number; // Made optional
   ds_midnight_surcharge?: number; // Made optional
+  is_ancillary?: boolean;
+  condition_type?: 'time_range' | 'additional_stops' | 'always' | null;
+  condition_config?: string;
+  is_per_occurrence?: boolean;
 };
 
 type ServiceWithAllPricingFormProps = {
@@ -41,16 +45,24 @@ export default function ServiceWithAllPricingForm({
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
     setError,
     reset,
   } = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema),
-    defaultValues: { 
+    defaultValues: {
       status: 'Active',
-      ...initialData 
+      is_ancillary: false,
+      condition_type: null,
+      condition_config: '',
+      is_per_occurrence: false,
+      ...initialData
     },
   });
+
+  const isAncillary = watch('is_ancillary');
+  const conditionType = watch('condition_type');
 
   // Reset form when initialData changes
   useEffect(() => {
@@ -141,6 +153,10 @@ export default function ServiceWithAllPricingForm({
       midnight_surcharge: data.midnight_surcharge || 0,
       ds_hourly_charter: data.ds_hourly_charter || 0,
       ds_midnight_surcharge: data.ds_midnight_surcharge || 0,
+      is_ancillary: data.is_ancillary || false,
+      condition_type: data.is_ancillary ? data.condition_type : null,
+      condition_config: data.is_ancillary && data.condition_config ? data.condition_config : '',
+      is_per_occurrence: data.is_ancillary ? (data.is_per_occurrence || false) : false,
       pricing
     };
     onSubmit(processedData);
@@ -211,6 +227,96 @@ export default function ServiceWithAllPricingForm({
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Ancillary Charge Section */}
+        <div className="space-y-4 border-t border-gray-700 pt-6">
+          <h3 className="text-lg font-semibold text-white">Ancillary Charge Settings</h3>
+
+          {/* Is Ancillary Checkbox */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              {...register("is_ancillary")}
+              id="is_ancillary"
+              className="w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="is_ancillary" className="text-gray-300">
+              This is an ancillary charge (auto-applied based on conditions, hidden from job service selection)
+            </label>
+          </div>
+
+          {/* Show condition fields only when is_ancillary is checked */}
+          {isAncillary && (
+            <div className="space-y-4 ml-6 p-4 bg-gray-800 rounded-lg">
+              {/* Condition Type */}
+              <div>
+                <label className="block text-gray-300 mb-1">Auto-Apply Condition</label>
+                <select
+                  {...register("condition_type")}
+                  className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                >
+                  <option value="">None (Manual Application)</option>
+                  <option value="time_range">Time Range (e.g., Midnight Surcharge)</option>
+                  <option value="additional_stops">Additional Stops</option>
+                  <option value="always">Always Apply</option>
+                </select>
+                {errors.condition_type && <span className="text-red-400 text-sm">{errors.condition_type.message}</span>}
+              </div>
+
+              {/* Condition Configuration */}
+              {conditionType === 'time_range' && (
+                <div>
+                  <label className="block text-gray-300 mb-1">
+                    Time Range Configuration
+                    <span className="text-gray-500 text-sm ml-2">(JSON format: {`{"start_time": "00:00", "end_time": "06:00"}`})</span>
+                  </label>
+                  <input
+                    {...register("condition_config")}
+                    placeholder='{"start_time": "00:00", "end_time": "06:00"}'
+                    className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 font-mono text-sm"
+                  />
+                  {errors.condition_config && <span className="text-red-400 text-sm">{errors.condition_config.message}</span>}
+                </div>
+              )}
+
+              {conditionType === 'additional_stops' && (
+                <>
+                  <div>
+                    <label className="block text-gray-300 mb-1">
+                      Additional Stops Configuration
+                      <span className="text-gray-500 text-sm ml-2">(JSON format: {`{"trigger_count": 1}`} - applies when dropoffs exceed this count)</span>
+                    </label>
+                    <input
+                      {...register("condition_config")}
+                      placeholder='{"trigger_count": 1}'
+                      className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 font-mono text-sm"
+                    />
+                    {errors.condition_config && <span className="text-red-400 text-sm">{errors.condition_config.message}</span>}
+                  </div>
+
+                  {/* Per Occurrence Checkbox */}
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      {...register("is_per_occurrence")}
+                      id="is_per_occurrence"
+                      className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="is_per_occurrence" className="text-gray-300 text-sm">
+                      Charge per occurrence (e.g., if 3 dropoffs and trigger=1, charge 2 times)
+                    </label>
+                  </div>
+                </>
+              )}
+
+              {conditionType === 'always' && (
+                <div className="text-gray-400 text-sm italic">
+                  This charge will be automatically applied to all jobs.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Status Field */}

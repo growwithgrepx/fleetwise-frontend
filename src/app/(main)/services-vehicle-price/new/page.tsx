@@ -23,6 +23,11 @@ export default function NewServiceWithAllPricingPage() {
         midnight_surcharge: (data.midnight_surcharge || 0).toString(),
         ds_hourly_charter: (data.ds_hourly_charter || 0).toString(),
         ds_midnight_surcharge: (data.ds_midnight_surcharge || 0).toString(),
+        // Ancillary charge fields
+        is_ancillary: data.is_ancillary || false,
+        condition_type: data.condition_type || null,
+        condition_config: data.condition_config || "",
+        is_per_occurrence: data.is_per_occurrence || false,
         pricing: data.pricing
       };
 
@@ -33,7 +38,9 @@ export default function NewServiceWithAllPricingPage() {
           loading: 'Creating service...',
           getSuccess: (result) => result?.message || 'Service created successfully and synced to contractor pricing lists!'
         },
-        () => router.push("/services-vehicle-price")
+        async () => {
+          router.push("/services-vehicle-price");
+        }
       );
     } catch (err: any) {
       console.error("Error while creating service with pricing:", err);

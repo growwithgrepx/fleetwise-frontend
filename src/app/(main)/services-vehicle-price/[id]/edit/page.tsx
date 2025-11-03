@@ -71,6 +71,11 @@ const EditServiceWithAllPricingPage = () => {
       additional_ps: (data.additional_ps || 0).toString(),
       distance_levy: (data.distance_levy || 0).toString(),
       midnight_surcharge: (data.midnight_surcharge || 0).toString(),
+      // Ancillary charge fields
+      is_ancillary: data.is_ancillary || false,
+      condition_type: data.condition_type || null,
+      condition_config: data.condition_config || "",
+      is_per_occurrence: data.is_per_occurrence || false,
       pricing: data.pricing
     };
 

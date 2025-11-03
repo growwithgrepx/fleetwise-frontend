@@ -24,6 +24,11 @@ export const serviceSchema = z.object({
   additional_ps: z.number().optional(),
   distance_levy: z.number().optional(),
   midnight_surcharge: z.number().optional(),
+  // Ancillary charge fields
+  is_ancillary: z.boolean().optional(),
+  condition_type: z.enum(['time_range', 'additional_stops', 'always']).nullable().optional(),
+  condition_config: z.string().optional(),
+  is_per_occurrence: z.boolean().optional(),
 });
 
 export const servicesVehicleTypePriceSchema = z.object({

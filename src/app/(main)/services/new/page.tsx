@@ -26,6 +26,11 @@ export default function NewServicePage() {
         midnight_surcharge: data.midnight_surcharge?.toString() || "0.00",
         ds_hourly_charter: data.ds_hourly_charter?.toString() || "0.00",
         ds_midnight_surcharge: data.ds_midnight_surcharge?.toString() || "0.00",
+        // Ancillary charge fields
+        is_ancillary: data.is_ancillary || false,
+        condition_type: data.condition_type || null,
+        condition_config: data.condition_config || "",
+        is_per_occurrence: data.is_per_occurrence || false,
       };
 
       // Create service using the shared toast helper
@@ -35,7 +40,9 @@ export default function NewServicePage() {
           loading: 'Creating service...',
           getSuccess: (result) => result.message || 'Service created successfully!'
         },
-        () => router.push("/services")
+        async () => {
+          router.push("/services");
+        }
       );
     } catch (err: any) {
       console.error("Error while creating service:", err);

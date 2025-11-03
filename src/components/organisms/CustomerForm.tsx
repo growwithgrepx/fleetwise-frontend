@@ -58,9 +58,9 @@ export const customerSchema = z.object({
     .nonnegative("Discount must be 0 or more.")
     .default(0),
   status: z
-    .enum(["active", "inactive"])
-    .default("active")
-    .refine((val) => val === "active" || val === "inactive", {
+    .enum(["Active", "Inactive"])
+    .default("Active")
+    .refine((val) => val === "Active" || val === "Inactive", {
       message: "Please select status: Active or Inactive.",
     }),
   pricing: pricingSchema,
@@ -99,7 +99,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
       country: "Singapore",
       type: "regular",
       customer_discount_percent: 0,
-      status: "active",
+      status: "Active",
       pricing: {
       },
       ...initialData,
@@ -351,8 +351,8 @@ useEffect(() => {
               trigger("status");
             }}
           >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
           </select>
         )}
       />

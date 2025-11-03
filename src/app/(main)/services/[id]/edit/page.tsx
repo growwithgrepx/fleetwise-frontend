@@ -13,13 +13,18 @@ const EditServicePage = () => {
   const { data: service, isLoading, isError } = useGetServiceById(id);
   const { mutate, isPending: isSubmitting } = useUpdateService();
 
-  const handleSubmit = (data: Partial<Service>) => {
+  const handleSubmit = async (data: Partial<Service>) => {
     // Convert decimal fields to strings to preserve precision for backend Decimal conversion
     const payload = {
       ...data,
       additional_ps: data.additional_ps?.toString() || "0.00",
       distance_levy: data.distance_levy?.toString() || "0.00",
       midnight_surcharge: data.midnight_surcharge?.toString() || "0.00",
+      // Include ancillary charge fields
+      is_ancillary: data.is_ancillary || false,
+      condition_type: data.condition_type || null,
+      condition_config: data.condition_config || "",
+      is_per_occurrence: data.is_per_occurrence || false,
     };
     mutate({ id, ...payload });
     router.push('/services');
