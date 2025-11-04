@@ -35,7 +35,9 @@ export default function NewServicePage() {
           loading: 'Creating service...',
           getSuccess: (result) => result.message || 'Service created successfully!'
         },
-        () => router.push("/services")
+        async () => {
+          router.push("/services");
+        }
       );
     } catch (err: any) {
       console.error("Error while creating service:", err);

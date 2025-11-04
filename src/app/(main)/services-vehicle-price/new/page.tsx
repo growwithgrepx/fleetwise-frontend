@@ -33,7 +33,9 @@ export default function NewServiceWithAllPricingPage() {
           loading: 'Creating service...',
           getSuccess: (result) => result?.message || 'Service created successfully and synced to contractor pricing lists!'
         },
-        () => router.push("/services-vehicle-price")
+        async () => {
+          router.push("/services-vehicle-price");
+        }
       );
     } catch (err: any) {
       console.error("Error while creating service with pricing:", err);

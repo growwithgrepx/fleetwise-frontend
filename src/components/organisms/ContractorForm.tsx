@@ -5,11 +5,14 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useGetAllServices } from "@/hooks/useServices";
+import { useGetAllVehicleTypes } from "@/hooks/useVehicleTypes";
 import { bulkUpdateContractorPricing, getContractorPricing } from "@/services/api/contractorsApi";
 import { toast } from 'react-hot-toast';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Save } from 'lucide-react';
 import PhoneInput from '@/components/molecules/PhoneInput';
+import { ContractorPricingMatrixTable } from '@/components/organisms/ContractorPricingMatrixTable';
+import { ContractorPricingMatrixTableForCreation } from '@/components/organisms/ContractorPricingMatrixTableForCreation';
 
 // Define schema for form validation
 const contractorSchema = z.object({
@@ -58,11 +61,13 @@ export function ContractorForm({
   mode 
 }: ContractorFormProps) {
   const { data: services = [], isLoading: isServicesLoading } = useGetAllServices();
+  const { data: vehicleTypes = [], isLoading: isVehicleTypesLoading } = useGetAllVehicleTypes();
   const [currentStep, setCurrentStep] = useState(1); // 1 for details, 2 for pricing
   const [pricingData, setPricingData] = useState<Record<number, number>>({});
   const [displayValues, setDisplayValues] = useState<Record<number, string>>({}); // For tracking display values
   const [isLoadingPricing, setIsLoadingPricing] = useState(false);
-
+  const [pricingDataForCreation, setPricingDataForCreation] = useState<{ service_id: number; vehicle_type_id: number; cost: number }[]>([]);
+  
   const {
     register,
     handleSubmit,
@@ -186,12 +191,6 @@ export function ContractorForm({
     try {
       // For new contractors, include pricing data in the creation request
       if (mode === 'create') {
-        // Prepare pricing data for bulk update
-        const pricingDataForCreation = services.map(service => ({
-          service_id: service.id,
-          cost: pricingData[service.id] ?? 0
-        }));
-        
         // Validate that all costs are non-negative
         let hasError = false;
         for (const pricing of pricingDataForCreation) {
@@ -223,7 +222,7 @@ export function ContractorForm({
         const contractorId = initialData?.id;
         if (services.length > 0 && contractorId) {
           // Prepare pricing data for bulk update
-          const pricingToUpdate = services.map(service => ({
+          const pricingToUpdate = services.map((service) => ({
             service_id: service.id,
             cost: pricingData[service.id] ?? 0
           }));
@@ -248,14 +247,14 @@ export function ContractorForm({
           }
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       // Error handling should be done in the parent component
       throw err;
     }
   };
 
-  if (isServicesLoading || isLoadingPricing) {
-    return <div className="text-gray-400">Loading services and pricing data...</div>;
+  if (isServicesLoading || isVehicleTypesLoading || isLoadingPricing) {
+    return <div className="text-gray-400">Loading services, vehicle types and pricing data...</div>;
   }
 
   return (
@@ -381,44 +380,20 @@ export function ContractorForm({
           <div className="w-full">
             <h2 className="text-2xl font-bold mb-6 text-white">Service Costs</h2>
             
-            {services.length > 0 ? (
-              <div className="overflow-x-auto w-full">
-                <table className="min-w-full divide-y divide-gray-700">
-                  <thead className="bg-gray-800">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Service
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Cost ($)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-gray-900 divide-y divide-gray-700">
-                    {services.map((service) => (
-                      <tr key={service.id}>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
-                          {service.name}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={displayValues[service.id] ?? ''}
-                            onChange={(e) => handlePricingChange(service.id, e.target.value)}
-                            className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 w-24"
-                            placeholder="0.00"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {initialData?.id ? (
+              // For edit mode, use the matrix table
+              <ContractorPricingMatrixTable contractorId={initialData.id} />
             ) : (
-              <div className="text-center py-8 text-gray-400">
-                No services available. Please create services first.
+              // For create mode, use the matrix table for creation
+              <div className="space-y-4">
+                <p className="text-gray-300">
+                  Set the initial pricing for each service and vehicle type combination. You can modify these prices later.
+                </p>
+                <ContractorPricingMatrixTableForCreation 
+                  services={services} 
+                  vehicleTypes={vehicleTypes} 
+                  onPricingChange={setPricingDataForCreation}
+                />
               </div>
             )}
             

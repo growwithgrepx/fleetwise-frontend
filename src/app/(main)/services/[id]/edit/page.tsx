@@ -13,7 +13,7 @@ const EditServicePage = () => {
   const { data: service, isLoading, isError } = useGetServiceById(id);
   const { mutate, isPending: isSubmitting } = useUpdateService();
 
-  const handleSubmit = (data: Partial<Service>) => {
+  const handleSubmit = async (data: any) => {
     // Convert decimal fields to strings to preserve precision for backend Decimal conversion
     const payload = {
       ...data,
@@ -21,7 +21,7 @@ const EditServicePage = () => {
       distance_levy: data.distance_levy?.toString() || "0.00",
       midnight_surcharge: data.midnight_surcharge?.toString() || "0.00",
     };
-    mutate({ id, ...payload });
+    await mutate({ id, ...payload });
     router.push('/services');
   };
 
