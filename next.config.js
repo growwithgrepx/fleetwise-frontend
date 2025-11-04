@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 
-const backendPort = process.env.BACKEND_PORT || 5000;
 // Ensure we always have a valid absolute URL for API rewrites in dev
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || `http://localhost:${backendPort}`;
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || `http://localhost:5000`;
 
 const nextConfig = {
   // Allow builds to complete even with ESLint warnings
