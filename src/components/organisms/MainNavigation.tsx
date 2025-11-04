@@ -33,6 +33,7 @@ import { roleAccessRules } from "@/config/roleAccess";
 import { extractUserRole } from "@/utils/auth";
 
 interface NavItem {
+  key?: string,
   label: string;
   href: string;
   icon: React.ReactNode;
@@ -71,7 +72,8 @@ const navSections: NavSection[] = [
         ]
       },
       {
-        label: "Cost Summary",
+        key: "cost_summary",
+        label: "Jobs Claim",
         href: "", // Non-clickable
         icon: <WalletIcon className="w-5 h-5" />,
         description: "View cost summaries",
@@ -195,45 +197,6 @@ const visibleSections = navSections
   }))
   .filter((section) => section.items && section.items.length > 0);
 
-
-// const role = useMemo(() => extractUserRole(user), [user]);
-
-
-// const isBlocked = (href: string): boolean => {
-//   return blocked.some(pattern =>
-//     pattern.endsWith("/*")
-//       ? href.startsWith(pattern.replace("/*", ""))
-//       : href === pattern
-//   );
-// };
-
-// const blocked = roleAccessRules[role] || [];
-
-// // Filter function for sections + items
-// const filterSections = (sections: NavSection[]) => {
-//   return sections
-//     .map(section => ({
-//       ...section,
-//       items: section.items
-//         .map(item => ({
-//           ...item,
-//           children: item.children?.filter(child => !isBlocked(child.href))
-//         }))
-//         .filter(item =>
-//           !isBlocked(item.href) &&
-//           (item.children?.length > 0 || !item.children)
-//         )
-//     }))
-//     .filter(section => section.items.length > 0);
-// };
-
-
-// // Filtered nav data
-// const filteredNavSections = useMemo(
-//   () => filterSections(navSections),
-//   [role, pathname]
-// );
-
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
  // base expansion logic from pathname
 const computedMenus = useMemo(() => {
@@ -243,7 +206,7 @@ const computedMenus = useMemo(() => {
   if (pathname.startsWith("/jobs")) next["Jobs"] = true;
   if (pathname.startsWith("/billing") && !pathname.startsWith("/billing/contractor-billing") && !pathname.startsWith("/billing/driver-billing")) next["Billing"] = true;
   // Use the label as the key for Cost Summary
-  if (pathname.startsWith("/billing/contractor-billing") || pathname.startsWith("/billing/driver-billing")) next["Cost Summary"] = true;
+  if (pathname.startsWith("/billing/contractor-billing") || pathname.startsWith("/billing/driver-billing")) next["cost_summary"] = true;
 
   return next;
 }, [pathname]);
@@ -393,7 +356,7 @@ const toggleMenu = (key: string) => {
     
     const anyChildActive = item.children?.some((c) => pathname.startsWith(c.href));
     // For Cost Summary, we don't want to highlight the parent when children are active
-    const isCostSummaryActive = item.label === "Cost Summary" && parentActive; // Only highlight if directly on the parent (which is never since it's non-clickable)
+    const isCostSummaryActive = item.key === "cost_summary" && parentActive; // Only highlight if directly on the parent (which is never since it's non-clickable)
     const open = finalMenuState[item.label] ?? anyChildActive;
 
     // CASE 1: item with children (collapsible group)

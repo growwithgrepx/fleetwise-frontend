@@ -1,15 +1,9 @@
 export const roleAccessRules: Record<string, string[]> = {
   admin: [],
-  manager: ["/billing", "/general-settings", "/dashboard"],
+  manager: ["/general-settings", "/dashboard",],
   accountant: [
     "/dashboard",
     "/general-settings",
-    "/drivers",
-    "/customers",
-    "/contractors",
-    "/vehicles",
-    "/vehicle-types",
-    "/services-vehicle-price",
   ],
   customer: [
     "/dashboard",
@@ -22,6 +16,7 @@ export const roleAccessRules: Record<string, string[]> = {
     "/general-settings",
     "/services-vehicle-price",
     "/jobs/manage",
+    "/billing/*",
   ],
   driver: [
     "/dashboard",
@@ -36,6 +31,7 @@ export const roleAccessRules: Record<string, string[]> = {
     "/jobs/new",
     "/jobs/bulk-upload",
     "/jobs/manage",
+    "/billing/*",
   ],
   guest: [
     "/dashboard",
@@ -54,3 +50,25 @@ export const roleAccessRules: Record<string, string[]> = {
     "/jobs/*",
   ]
 };
+
+function matchesPattern(path: string, pattern: string): boolean {
+  const wildcardSuffix = "/*";
+  if (pattern.endsWith(wildcardSuffix)) {
+    const base = pattern.substring(0, pattern.length - wildcardSuffix.length);
+    // match /billing and /billing/... 
+    return path === base || path.startsWith(base + "/");
+  }
+  // exact match
+  return path === pattern;
+}
+
+// returns true when the route is BLOCKED for that role
+export function isBlocked(role: string, path: string): boolean {
+  const rules = roleAccessRules[role] ?? roleAccessRules["guest"];
+  return rules.some((pattern) => matchesPattern(path, pattern));
+}
+
+// returns true when the route is ALLOWED for that role
+export function checkRouteAccess(path: string, role: string): boolean {
+  return !isBlocked(role, path);
+}
