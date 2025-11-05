@@ -2,7 +2,6 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { serviceSchema } from "@/lib/validationSchemas";
-import type { z } from "zod";
 
 type ServiceFormValues = {
   name: string;
@@ -16,6 +15,11 @@ type ServiceFormValues = {
   condition_type?: 'time_range' | 'additional_stops' | 'always' | null;
   condition_config?: string;
   is_per_occurrence?: boolean;
+  // Helper fields for time_range (not stored in DB, just for UI)
+  time_range_start?: string;
+  time_range_end?: string;
+  // Helper field for additional_stops
+  additional_stops_trigger?: number;
 };
 
 type ServiceFormProps = {
@@ -27,6 +31,30 @@ type ServiceFormProps = {
 };
 
 export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, isSubmitting }: ServiceFormProps) {
+  // Parse condition_config JSON if it exists in initialData
+  const parseInitialConfig = (initialData?: Partial<ServiceFormValues>) => {
+    if (!initialData) return {};
+
+    const parsed: any = {};
+    if (initialData.condition_config && initialData.condition_type === 'time_range') {
+      try {
+        const config = JSON.parse(initialData.condition_config);
+        parsed.time_range_start = config.start_time || '';
+        parsed.time_range_end = config.end_time || '';
+      } catch {
+        // If parsing fails, leave empty
+      }
+    } else if (initialData.condition_config && initialData.condition_type === 'additional_stops') {
+      try {
+        const config = JSON.parse(initialData.condition_config);
+        parsed.additional_stops_trigger = config.trigger_count || 1;
+      } catch {
+        // If parsing fails, leave empty
+      }
+    }
+    return parsed;
+  };
+
   const {
     register,
     handleSubmit,
@@ -44,7 +72,11 @@ export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, 
       condition_type: null,
       condition_config: '',
       is_per_occurrence: false,
-      ...initialData
+      time_range_start: '',
+      time_range_end: '',
+      additional_stops_trigger: 1,
+      ...initialData,
+      ...parseInitialConfig(initialData)
     },
   });
 
@@ -53,6 +85,9 @@ export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, 
 
   const isAncillary = watch('is_ancillary');
   const conditionType = watch('condition_type');
+  const timeRangeStart = watch('time_range_start');
+  const timeRangeEnd = watch('time_range_end');
+  const additionalStopsTrigger = watch('additional_stops_trigger');
 
   // Real-time JSON validation for condition_config
   const handleConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,7 +124,58 @@ export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, 
     }
   };
 
+  // Helper function to generate JSON config from UI fields
+  const generateConditionConfig = (type: string | null | undefined, startTime?: string, endTime?: string, triggerCount?: number): string => {
+    if (!type) return '';
+
+    if (type === 'time_range') {
+      if (startTime && endTime) {
+        return JSON.stringify({ start_time: startTime, end_time: endTime });
+      }
+      return '';
+    } else if (type === 'additional_stops') {
+      if (triggerCount !== undefined && triggerCount >= 0) {
+        return JSON.stringify({ trigger_count: triggerCount });
+      }
+      return '';
+    }
+    return '';
+  };
+
   const handleFormSubmit = async (data: ServiceFormValues) => {
+    console.log('[ServiceForm] handleFormSubmit called with data:', data);
+    // Validate that time_range and additional_stops have required fields
+    if (data.is_ancillary && data.condition_type === 'time_range') {
+      if (!data.time_range_start || !data.time_range_end) {
+        setConfigError('Start Time and End Time are required for Time Range configuration');
+        return;
+      }
+    }
+    if (data.is_ancillary && data.condition_type === 'additional_stops') {
+      if (data.additional_stops_trigger === undefined || data.additional_stops_trigger === null) {
+        setConfigError('Trigger Count is required for Additional Stops configuration');
+        return;
+      }
+    }
+
+    // Generate condition_config JSON from UI fields
+    let conditionConfig = '';
+    if (data.is_ancillary && data.condition_type) {
+      conditionConfig = generateConditionConfig(
+        data.condition_type,
+        data.time_range_start,
+        data.time_range_end,
+        data.additional_stops_trigger
+      );
+      console.log('[Form Debug] Generating config:', {
+        condition_type: data.condition_type,
+        time_range_start: data.time_range_start,
+        time_range_end: data.time_range_end,
+        additional_stops_trigger: data.additional_stops_trigger,
+        generatedConditionConfig: conditionConfig
+      });
+    }
+
     // Ensure all numeric fields have values
     const processedData = {
       ...data,
@@ -99,8 +185,12 @@ export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, 
       midnight_surcharge: data.midnight_surcharge || 0,
       is_ancillary: data.is_ancillary || false,
       condition_type: data.is_ancillary ? data.condition_type : null,
-      condition_config: data.is_ancillary && data.condition_config ? data.condition_config : '',
+      condition_config: conditionConfig,
       is_per_occurrence: data.is_ancillary ? (data.is_per_occurrence || false) : false,
+      // Remove helper fields before submitting
+      time_range_start: undefined,
+      time_range_end: undefined,
+      additional_stops_trigger: undefined,
     };
     console.log('Form submission data:', processedData);
     // Parent handles all success/error toasts - just await and let errors bubble
@@ -225,43 +315,66 @@ export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, 
                 {errors.condition_type && <span className="text-red-400 text-sm">{errors.condition_type.message}</span>}
               </div>
 
-              {/* Condition Configuration */}
+              {/* Condition Configuration - Time Range */}
               {conditionType === 'time_range' && (
-                <div>
-                  <label className="block text-gray-300 mb-1">
-                    Time Range Configuration
-                    <span className="text-gray-500 text-sm ml-2">(JSON format: {`{"start_time": "00:00", "end_time": "06:00"}`})</span>
-                  </label>
-                  <input
-                    value={watch('condition_config') || ''}
-                    onChange={handleConfigChange}
-                    placeholder='{"start_time": "00:00", "end_time": "06:00"}'
-                    className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 font-mono text-sm"
-                  />
-                  {configError && <span className="text-yellow-400 text-sm">{configError}</span>}
+                <div className="space-y-3">
+                  <label className="block text-gray-300 mb-3 font-medium">Time Range Configuration</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-1">Start Time</label>
+                      <input
+                        type="time"
+                        {...register('time_range_start')}
+                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      />
+                      <p className="text-gray-500 text-xs mt-1">e.g., 23:00 (11 PM)</p>
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-1">End Time</label>
+                      <input
+                        type="time"
+                        {...register('time_range_end')}
+                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      />
+                      <p className="text-gray-500 text-xs mt-1">e.g., 06:00 (6 AM)</p>
+                    </div>
+                  </div>
+                  {(timeRangeStart || timeRangeEnd) && (
+                    <div className="p-2 bg-gray-700 rounded text-sm text-gray-300">
+                      Generated JSON: <code>{JSON.stringify({ start_time: timeRangeStart || '00:00', end_time: timeRangeEnd || '00:00' })}</code>
+                    </div>
+                  )}
                   {errors.condition_config && <span className="text-red-400 text-sm">{errors.condition_config.message}</span>}
                 </div>
               )}
 
               {conditionType === 'additional_stops' && (
                 <>
-                  <div>
-                    <label className="block text-gray-300 mb-1">
-                      Additional Stops Configuration
-                      <span className="text-gray-500 text-sm ml-2">(JSON format: {`{"trigger_count": 1}`} - applies when dropoffs exceed this count)</span>
-                    </label>
-                    <input
-                      value={watch('condition_config') || ''}
-                      onChange={handleConfigChange}
-                      placeholder='{"trigger_count": 1}'
-                      className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 font-mono text-sm"
-                    />
-                    {configError && <span className="text-yellow-400 text-sm">{configError}</span>}
+                  <div className="space-y-3">
+                    <label className="block text-gray-300 mb-3 font-medium">Additional Stops Configuration</label>
+                    <div>
+                      <label className="block text-gray-400 text-sm mb-2">Trigger Count</label>
+                      <input
+                        type="number"
+                        {...register('additional_stops_trigger', { valueAsNumber: true })}
+                        min="0"
+                        step="1"
+                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      />
+                      <p className="text-gray-500 text-xs mt-1">
+                        Number of stops that triggers this charge. For example: set to 1 to charge when there are 2 or more dropoff locations.
+                      </p>
+                    </div>
+                    {additionalStopsTrigger !== undefined && additionalStopsTrigger >= 0 && (
+                      <div className="p-2 bg-gray-700 rounded text-sm text-gray-300">
+                        Generated JSON: <code>{JSON.stringify({ trigger_count: additionalStopsTrigger })}</code>
+                      </div>
+                    )}
                     {errors.condition_config && <span className="text-red-400 text-sm">{errors.condition_config.message}</span>}
                   </div>
 
                   {/* Per Occurrence Checkbox */}
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 mt-4">
                     <input
                       type="checkbox"
                       {...register("is_per_occurrence")}

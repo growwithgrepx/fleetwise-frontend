@@ -187,7 +187,8 @@ const calculateMidnightSurcharge = (
   pickupTime: string,
   customerMidnightSurchargePricing: any,
   ancillaryServicesVehicleTypePricing: any[] = [],
-  vehicleTypeId?: number
+  vehicleTypeId?: number,
+  conditionConfig?: string  // Add condition_config parameter from ancillary service
 ): number | null => {  // Return null for invalid states
   // Pricing priority:
   // 1. Customer-specific midnight surcharge pricing (from customer_service_pricing)
@@ -234,12 +235,50 @@ const calculateMidnightSurcharge = (
       return null;
     }
 
-    // Midnight period: 23:00 (1380 minutes) to 06:59 (419 minutes)
-    // This crosses midnight, so we need to check:
-    // 1. From 23:00 to 23:59 (1380-1439 minutes)
-    // 2. From 00:00 to 06:59 (0-419 minutes)
-    const isMidnightPeriod = (totalMinutes >= 1380 && totalMinutes <= 1439) || // 23:00-23:59
-                            (totalMinutes >= 0 && totalMinutes <= 419);      // 00:00-06:59
+    // Check if condition_config defines the time range dynamically
+    let isMidnightPeriod = false;
+
+    if (conditionConfig) {
+      try {
+        const config = JSON.parse(conditionConfig);
+        console.log('[Midnight Surcharge] Using dynamic time range from condition_config:', config);
+
+        if (config.start_time && config.end_time) {
+          // Parse start and end times from condition_config
+          const startMinutes = parseTimeToMinutes(config.start_time);
+          const endMinutes = parseTimeToMinutes(config.end_time);
+
+          if (startMinutes !== null && endMinutes !== null) {
+            // Check if the range crosses midnight
+            if (startMinutes <= endMinutes) {
+              // Normal range (e.g., 09:00-17:00)
+              isMidnightPeriod = totalMinutes >= startMinutes && totalMinutes <= endMinutes;
+            } else {
+              // Range crosses midnight (e.g., 23:00-06:00)
+              isMidnightPeriod = totalMinutes >= startMinutes || totalMinutes <= endMinutes;
+            }
+            console.log('[Midnight Surcharge] Time check:', { totalMinutes, startMinutes, endMinutes, isMidnightPeriod });
+          } else {
+            console.warn('[Midnight Surcharge] Failed to parse start_time or end_time from condition_config');
+            isMidnightPeriod = false;
+          }
+        }
+      } catch (e) {
+        console.warn('[Midnight Surcharge] Failed to parse condition_config, falling back to default:', e);
+        // Fall back to hardcoded midnight period if parsing fails
+        isMidnightPeriod = (totalMinutes >= 1380 && totalMinutes <= 1439) || // 23:00-23:59
+                           (totalMinutes >= 0 && totalMinutes <= 419);      // 00:00-06:59
+      }
+    } else {
+      // Fall back to hardcoded midnight period if no condition_config provided
+      // Midnight period: 23:00 (1380 minutes) to 06:59 (419 minutes)
+      // This crosses midnight, so we need to check:
+      // 1. From 23:00 to 23:59 (1380-1439 minutes)
+      // 2. From 00:00 to 06:59 (0-419 minutes)
+      isMidnightPeriod = (totalMinutes >= 1380 && totalMinutes <= 1439) || // 23:00-23:59
+                        (totalMinutes >= 0 && totalMinutes <= 419);      // 00:00-06:59
+      console.log('[Midnight Surcharge] Using default hardcoded time range (23:00-06:59)');
+    }
 
     // Apply surcharge only during midnight period
     return isMidnightPeriod ? surchargeValue : 0;
@@ -1531,7 +1570,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
           formData.pickup_time,
           customerMidnightSurchargePricing,
           midnightSurchargePricing,
-          formData.vehicle_type_id
+          formData.vehicle_type_id,
+          midnightSurchargeService?.condition_config
         );
 
         // Only update if calculation succeeded (not null) and value changed
@@ -1563,7 +1603,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
           formData.pickup_time,
           customerMidnightSurchargePricing,
           midnightSurchargePricing,
-          formData.vehicle_type_id
+          formData.vehicle_type_id,
+          midnightSurchargeService?.condition_config
         );
         const basePriceValue = customerServicePricing.price || 0;
         // Only update if values have actually changed to prevent infinite loops
@@ -1584,7 +1625,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
           formData.pickup_time,
           customerMidnightSurchargePricing,
           midnightSurchargePricing,
-          formData.vehicle_type_id
+          formData.vehicle_type_id,
+          midnightSurchargeService?.condition_config
         );
         // Only update if values have actually changed to prevent infinite loops
         const updates: any = {};
@@ -2073,11 +2115,13 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
 
   // Initialize UI location states based on form data
+  // NOTE: This effect is careful not to override user edits by checking if UI and formData are already in sync
   useEffect(() => {
     // Update pickup locations UI
     // Include locations that have either:
     // 1. A non-empty address, OR
-    // 2. A non-zero price (indicating user recently added it, even if they haven't entered address yet)
+    // 2. A price > 0 (indicating user recently added it)
+    // Use the formData price directly if location has an address, otherwise use calculated surcharge as default
     const pickupLocations = [
       { location: formData.pickup_loc1 || '', price: safeNumber(formData.pickup_loc1_price) },
       { location: formData.pickup_loc2 || '', price: safeNumber(formData.pickup_loc2_price) },
@@ -2089,7 +2133,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     // Update dropoff locations UI
     // Include locations that have either:
     // 1. A non-empty address, OR
-    // 2. A non-zero price (indicating user recently added it, even if they haven't entered address yet)
+    // 2. A price > 0 (indicating user recently added it)
     const dropoffLocations = [
       { location: formData.dropoff_loc1 || '', price: safeNumber(formData.dropoff_loc1_price) },
       { location: formData.dropoff_loc2 || '', price: safeNumber(formData.dropoff_loc2_price) },
@@ -2102,8 +2146,15 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     const currentPickupLocations = uiAdditionalPickupLocations;
     const currentDropoffLocations = uiAdditionalDropoffLocations;
 
-    const pickupLocationsChanged = JSON.stringify(pickupLocations) !== JSON.stringify(currentPickupLocations);
-    const dropoffLocationsChanged = JSON.stringify(dropoffLocations) !== JSON.stringify(currentDropoffLocations);
+    // Check if UI and formData are in sync - if they are, don't force an update
+    // This prevents flickering when user is actively editing locations
+    const uiPickupLocationsString = JSON.stringify(currentPickupLocations);
+    const formPickupLocationsString = JSON.stringify(pickupLocations);
+    const pickupLocationsChanged = formPickupLocationsString !== uiPickupLocationsString;
+
+    const uiDropoffLocationsString = JSON.stringify(currentDropoffLocations);
+    const formDropoffLocationsString = JSON.stringify(dropoffLocations);
+    const dropoffLocationsChanged = formDropoffLocationsString !== uiDropoffLocationsString;
 
     console.log('[Location Sync Effect]', {
       pickupLocationsChanged,
@@ -2116,14 +2167,40 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       dropoffData: dropoffLocations
     });
 
+    // Update UI if:
+    // 1. Location ADDRESSES changed (user added/removed locations)
+    // 2. Location PRICES changed (vehicle/customer/service change)
+    // Don't update if only empty locations with zero prices added
     if (pickupLocationsChanged) {
-      console.log('[Updating Pickup Locations UI] New count:', pickupLocations.length);
-      setUiAdditionalPickupLocations(pickupLocations);
+      const addressesChanged = JSON.stringify(pickupLocations.map(l => l.location)) !==
+                               JSON.stringify(currentPickupLocations.map(l => l.location));
+      const pricesChanged = JSON.stringify(pickupLocations.map(l => l.price)) !==
+                            JSON.stringify(currentPickupLocations.map(l => l.price));
+
+      if (addressesChanged || pricesChanged) {
+        console.log('[Updating Pickup Locations UI]', {
+          addressesChanged,
+          pricesChanged,
+          newCount: pickupLocations.length
+        });
+        setUiAdditionalPickupLocations(pickupLocations);
+      }
     }
 
     if (dropoffLocationsChanged) {
-      console.log('[Updating Dropoff Locations UI] New count:', dropoffLocations.length);
-      setUiAdditionalDropoffLocations(dropoffLocations);
+      const addressesChanged = JSON.stringify(dropoffLocations.map(l => l.location)) !==
+                               JSON.stringify(currentDropoffLocations.map(l => l.location));
+      const pricesChanged = JSON.stringify(dropoffLocations.map(l => l.price)) !==
+                            JSON.stringify(currentDropoffLocations.map(l => l.price));
+
+      if (addressesChanged || pricesChanged) {
+        console.log('[Updating Dropoff Locations UI]', {
+          addressesChanged,
+          pricesChanged,
+          newCount: dropoffLocations.length
+        });
+        setUiAdditionalDropoffLocations(dropoffLocations);
+      }
     }
   }, [
     formData.pickup_loc1, formData.pickup_loc2, formData.pickup_loc3, formData.pickup_loc4, formData.pickup_loc5, 
@@ -2927,7 +3004,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                           formData.pickup_time || '',
                           customerMidnightSurchargePricing,
                           midnightSurchargePricing,
-                          formData.vehicle_type_id
+                          formData.vehicle_type_id,
+                          midnightSurchargeService?.condition_config
                         ).toFixed(2)}
                       </p>
                     )}

@@ -12,6 +12,17 @@ export default function NewServicePage() {
 
   const handleSubmit = async (data: any) => {
     try {
+      console.log('[New Service] Save button clicked');
+      console.log('[New Service] Raw form data received:', data);
+
+      // Validate that condition_config is not empty for ancillary services
+      if (data.is_ancillary && data.condition_type && !data.condition_config) {
+        const errorMsg = 'Please provide configuration for the selected ancillary condition';
+        console.warn('[New Service] Validation failed:', errorMsg);
+        toast.error(errorMsg);
+        return;
+      }
+
       // Build service payload
       const payload = {
         name: data.name?.trim() || "",
@@ -33,25 +44,48 @@ export default function NewServicePage() {
         is_per_occurrence: data.is_per_occurrence || false,
       };
 
+      console.log('[New Service] Sending payload to backend:', payload);
+      console.log('[New Service] Ancillary config details:', {
+        is_ancillary: payload.is_ancillary,
+        condition_type: payload.condition_type,
+        condition_config: payload.condition_config,
+        is_per_occurrence: payload.is_per_occurrence,
+      });
+
       // Create service using the shared toast helper
       await withLoadingToast(
-        () => createServiceMutation.mutateAsync(payload),
+        () => {
+          console.log('[New Service] Starting mutation...');
+          return createServiceMutation.mutateAsync(payload);
+        },
         {
           loading: 'Creating service...',
-          getSuccess: (result) => result.message || 'Service created successfully!'
+          getSuccess: (result) => {
+            console.log('[New Service] Mutation successful, result:', result);
+            return result.message || 'Service created successfully!';
+          }
         },
         async () => {
           // Small delay to ensure cache invalidation and DB write propagates
+          console.log('[New Service] Waiting for cache invalidation...');
           await new Promise(resolve => setTimeout(resolve, 100));
+          console.log('[New Service] Redirecting to services list...');
           router.push("/services");
         }
       );
     } catch (err: any) {
-      console.error("Error while creating service:", err);
+      console.error("[New Service] Error during submission:", err);
+      console.error('[New Service] Error details:', {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        stack: err?.stack,
+      });
       const errorMessage = extractErrorMessage(
         err,
         "Failed to create service. Please check all fields and try again."
       );
+      console.warn('[New Service] Showing error toast:', errorMessage);
       toast.error(errorMessage);
     }
   };
