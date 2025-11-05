@@ -14,6 +14,7 @@ import { useGetAllServices } from '@/hooks/useServices';
 import { useGetAllVehicleTypes } from '@/hooks/useVehicleTypes';
 import { useGetAllContractors } from '@/hooks/useContractors';
 import { useContractorServicePricing } from '@/hooks/useContractorServicePricing';
+import { useGetAllServicesVehicleTypePrice } from '@/hooks/useServicesVehicleTypePrice';
 import toast from 'react-hot-toast';
 import { QuickAddModal } from '@/components/molecules/QuickAddModal';
 import { QuickAddButton } from '@/components/atoms/QuickAddButton';
@@ -182,36 +183,178 @@ const shouldLockField = (status: JobStatus, field: string): boolean => {
 };
 
 // Helper function to calculate midnight surcharge based on pickup time
-const calculateMidnightSurcharge = (customerServicePricing: any, pickupTime: string): number => {
-  // Default surcharge value is 15 when in midnight period
-  const surchargeValue = customerServicePricing?.midnight_surcharge || 15;
-  
-  // If no pickup time, return 0 (no surcharge)
-  if (!pickupTime) {
+const calculateMidnightSurcharge = (
+  pickupTime: string,
+  customerMidnightSurchargePricing: any,
+  ancillaryServicesVehicleTypePricing: any[] = [],
+  vehicleTypeId?: number,
+  conditionConfig?: string  // Add condition_config parameter from ancillary service
+): number | null => {  // Return null for invalid states
+  // Pricing priority:
+  // 1. Customer-specific midnight surcharge pricing (from customer_service_pricing)
+  // 2. Ancillary service vehicle type pricing (from services_vehicle_type_price)
+  // 3. If no pricing found, return 0 (no surcharge)
+
+  let surchargeValue = 0; // Default to 0 if no pricing found
+  let pricingFound = false;
+
+  // Check for ancillary service pricing for the current vehicle type
+  if (vehicleTypeId && ancillaryServicesVehicleTypePricing.length > 0) {
+    const midnightSurchargePricing = ancillaryServicesVehicleTypePricing.find(
+      pricing => pricing.vehicle_type_id === vehicleTypeId
+    );
+    if (midnightSurchargePricing) {
+      surchargeValue = midnightSurchargePricing.price;
+      pricingFound = true;
+    }
+  }
+
+  // Customer-specific pricing takes highest priority
+  if (customerMidnightSurchargePricing?.price !== undefined && customerMidnightSurchargePricing?.price !== null) {
+    surchargeValue = customerMidnightSurchargePricing.price;
+    pricingFound = true;
+  }
+
+  // If no pricing found at all, return 0
+  if (!pricingFound) {
     return 0;
+  }
+
+  // If no pickup time provided, return null (don't change existing value)
+  if (!pickupTime || pickupTime.trim() === '') {
+    return null;
   }
 
   try {
     // Parse time using the robust parser
     const totalMinutes = parseTimeToMinutes(pickupTime);
-    
+
     if (totalMinutes === null) {
-      throw new Error('Invalid time format');
+      // Invalid format - return null to preserve existing value
+      console.warn('Invalid pickup time format, preserving existing surcharge');
+      return null;
     }
-    
-    // Midnight period: 23:00 (1380 minutes) to 06:59 (419 minutes)
-    // This crosses midnight, so we need to check:
-    // 1. From 23:00 to 23:59 (1380-1439 minutes)
-    // 2. From 00:00 to 06:59 (0-419 minutes)
-    const isMidnightPeriod = (totalMinutes >= 1380 && totalMinutes <= 1439) || // 23:00-23:59
-                            (totalMinutes >= 0 && totalMinutes <= 419);      // 00:00-06:59
-    
-    // Apply surcharge of 15 only during midnight period
+
+    // Check if condition_config defines the time range dynamically
+    let isMidnightPeriod = false;
+
+    if (conditionConfig) {
+      try {
+        const config = JSON.parse(conditionConfig);
+        console.log('[Midnight Surcharge] Using dynamic time range from condition_config:', config);
+
+        if (config.start_time && config.end_time) {
+          // Parse start and end times from condition_config
+          const startMinutes = parseTimeToMinutes(config.start_time);
+          const endMinutes = parseTimeToMinutes(config.end_time);
+
+          if (startMinutes !== null && endMinutes !== null) {
+            // Check if the range crosses midnight
+            if (startMinutes <= endMinutes) {
+              // Normal range (e.g., 09:00-17:00)
+              isMidnightPeriod = totalMinutes >= startMinutes && totalMinutes <= endMinutes;
+            } else {
+              // Range crosses midnight (e.g., 23:00-06:00)
+              isMidnightPeriod = totalMinutes >= startMinutes || totalMinutes <= endMinutes;
+            }
+            console.log('[Midnight Surcharge] Time check:', { totalMinutes, startMinutes, endMinutes, isMidnightPeriod });
+          } else {
+            console.warn('[Midnight Surcharge] Failed to parse start_time or end_time from condition_config');
+            isMidnightPeriod = false;
+          }
+        }
+      } catch (e) {
+        console.warn('[Midnight Surcharge] Failed to parse condition_config, falling back to default:', e);
+        // Fall back to hardcoded midnight period if parsing fails
+        isMidnightPeriod = (totalMinutes >= 1380 && totalMinutes <= 1439) || // 23:00-23:59
+                           (totalMinutes >= 0 && totalMinutes <= 419);      // 00:00-06:59
+      }
+    } else {
+      // Fall back to hardcoded midnight period if no condition_config provided
+      // Midnight period: 23:00 (1380 minutes) to 06:59 (419 minutes)
+      // This crosses midnight, so we need to check:
+      // 1. From 23:00 to 23:59 (1380-1439 minutes)
+      // 2. From 00:00 to 06:59 (0-419 minutes)
+      isMidnightPeriod = (totalMinutes >= 1380 && totalMinutes <= 1439) || // 23:00-23:59
+                        (totalMinutes >= 0 && totalMinutes <= 419);      // 00:00-06:59
+      console.log('[Midnight Surcharge] Using default hardcoded time range (23:00-06:59)');
+    }
+
+    // Apply surcharge only during midnight period
     return isMidnightPeriod ? surchargeValue : 0;
   } catch (e) {
     console.warn('Error parsing pickup time for midnight surcharge calculation:', e);
-    // If we can't parse the time, don't apply surcharge
+    return null;  // Preserve existing value on error
+  }
+};
+
+// Helper function to calculate additional stops surcharge based on number of dropoff locations
+const calculateAdditionalStopsSurcharge = (
+  dropoffLocationsCount: number,
+  customerAdditionalStopsPricing: any,
+  ancillaryServicesVehicleTypePricing: any[] = [],
+  vehicleTypeId?: number,
+  conditionConfig?: string,
+  isPerOccurrence?: boolean
+): number => {
+  // Pricing priority:
+  // 1. Customer-specific additional stops pricing (from customer_service_pricing)
+  // 2. Ancillary service vehicle type pricing (from services_vehicle_type_price)
+  // 3. If no pricing found, return 0 (no surcharge)
+
+  let surchargeValue = 0; // Default to 0 if no pricing found
+  let pricingFound = false;
+  let triggerCount = 0; // Minimum dropoffs to trigger surcharge
+
+  // Parse condition_config to get trigger_count
+  if (conditionConfig) {
+    try {
+      const config = JSON.parse(conditionConfig);
+      triggerCount = config.trigger_count || 0;
+    } catch (e) {
+      console.warn('Error parsing additional stops condition_config:', e);
+    }
+  }
+
+  // Check for ancillary service pricing for the current vehicle type
+  if (vehicleTypeId && ancillaryServicesVehicleTypePricing.length > 0) {
+    const additionalStopsPricing = ancillaryServicesVehicleTypePricing.find(
+      pricing => pricing.vehicle_type_id === vehicleTypeId
+    );
+    if (additionalStopsPricing) {
+      surchargeValue = additionalStopsPricing.price;
+      pricingFound = true;
+    }
+  }
+
+  // Customer-specific pricing takes highest priority
+  if (customerAdditionalStopsPricing?.price !== undefined && customerAdditionalStopsPricing?.price !== null) {
+    surchargeValue = customerAdditionalStopsPricing.price;
+    pricingFound = true;
+  }
+
+  // If no pricing found at all, return 0
+  if (!pricingFound) {
     return 0;
+  }
+
+  // Check if dropoff count meets or exceeds trigger count
+  // trigger_count represents the MINIMUM number of additional stops needed to apply the charge
+  // For example: trigger_count=1 means charge applies when there's 1 or more additional stops
+  if (dropoffLocationsCount < triggerCount) {
+    return 0; // Not enough dropoffs to trigger surcharge
+  }
+
+  // Calculate how many times to apply the surcharge
+  if (isPerOccurrence) {
+    // Charge per occurrence
+    // If trigger_count=1 and we have 1 stop, charge for 1 occurrence
+    // If trigger_count=1 and we have 2 stops, charge for 2 occurrences
+    const occurrences = dropoffLocationsCount;
+    return surchargeValue * occurrences;
+  } else {
+    // Flat fee (charge once if threshold is met or exceeded)
+    return surchargeValue;
   }
 };
 
@@ -262,6 +405,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   const [userModifiedPricing, setUserModifiedPricing] = useState<boolean>(false);
   const [initialFormData, setInitialFormData] = useState<Partial<JobFormData> | null>(null);
   const [toastState, setToastState] = useState<string | null>(null);
+  const [userModifiedLocationPrices, setUserModifiedLocationPrices] = useState<Set<string>>(new Set());
 
   // Get current date and time for defaults
   const getCurrentDateTime = () => {
@@ -308,16 +452,115 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     formData.service_type,
     formData.vehicle_type
   );
-  
-  // Debug logging for pricing
+
+  // Fetch all service-vehicle type pricing for ancillary services
+  const { data: allServicesVehicleTypePricing = [], isLoading: isPricingLoading } = useGetAllServicesVehicleTypePrice();
+
+  // Filter ancillary services and get their pricing
+  const ancillaryServices = useMemo(() => {
+    return allServices.filter(service => service.is_ancillary);
+  }, [allServices]);
+
+  // Validation effect to detect data integrity issues with is_ancillary field
   useEffect(() => {
-    console.log('[JobForm] Customer service pricing params:', {
-      customerId: formData.customer_id,
-      serviceType: formData.service_type,
-      vehicleType: formData.vehicle_type
+    const servicesWithoutFlag = allServices.filter(
+      s => typeof s.is_ancillary === 'undefined'
+    );
+    if (servicesWithoutFlag.length > 0) {
+      console.warn(
+        'Services missing is_ancillary field detected:',
+        servicesWithoutFlag.map(s => s.name)
+      );
+    }
+  }, [allServices]);
+
+  // Find "Midnight Surcharge" ancillary service
+  const midnightSurchargeService = useMemo(() => {
+    return ancillaryServices.find(service =>
+      service.name.toLowerCase().includes('midnight') &&
+      service.name.toLowerCase().includes('surcharge')
+    );
+  }, [ancillaryServices]);
+
+  // Get midnight surcharge pricing from services_vehicle_type_price table
+  const midnightSurchargePricing = useMemo(() => {
+    if (!midnightSurchargeService) return [];
+    return allServicesVehicleTypePricing.filter(
+      pricing => pricing.service_id === midnightSurchargeService.id
+    );
+  }, [midnightSurchargeService, allServicesVehicleTypePricing]);
+
+  // Memoize the midnight surcharge pricing query parameters to prevent excessive API calls
+  const midnightPricingParams = useMemo(() => ({
+    customerId: formData.customer_id ?? 0,
+    serviceName: midnightSurchargeService?.name,
+    vehicleType: formData.vehicle_type
+  }), [formData.customer_id, midnightSurchargeService?.name, formData.vehicle_type]);
+
+  // Fetch customer-specific midnight surcharge pricing from customer_service_pricing table
+  const { data: customerMidnightSurchargePricing, isLoading: isMidnightPricingLoading } = useCustomerServicePricing(
+    midnightPricingParams.customerId,
+    midnightPricingParams.serviceName,
+    midnightPricingParams.vehicleType
+  );
+
+  // Find "Additional Stops" ancillary service
+  const additionalStopsService = useMemo(() => {
+    const service = ancillaryServices.find(service =>
+      service.condition_type === 'additional_stops'
+    );
+    if (service) {
+      console.log('[Additional Stops Service Found]', {
+        id: service.id,
+        name: service.name,
+        condition_type: service.condition_type,
+        condition_config: service.condition_config,
+        is_per_occurrence: service.is_per_occurrence
+      });
+    } else {
+      console.log('[Additional Stops Service] Not found in ancillaryServices');
+    }
+    return service;
+  }, [ancillaryServices]);
+
+  // Get additional stops pricing from services_vehicle_type_price table
+  const additionalStopsPricing = useMemo(() => {
+    if (!additionalStopsService) return [];
+    return allServicesVehicleTypePricing.filter(
+      pricing => pricing.service_id === additionalStopsService.id
+    );
+  }, [additionalStopsService, allServicesVehicleTypePricing]);
+
+  // Memoize the additional stops pricing query parameters to prevent excessive API calls
+  const additionalStopsPricingParams = useMemo(() => ({
+    customerId: formData.customer_id ?? 0,
+    serviceName: additionalStopsService?.name,
+    vehicleType: formData.vehicle_type
+  }), [formData.customer_id, additionalStopsService?.name, formData.vehicle_type]);
+
+  // Fetch customer-specific additional stops pricing from customer_service_pricing table
+  const { data: customerAdditionalStopsPricing, isLoading: isAdditionalStopsPricingLoading } = useCustomerServicePricing(
+    additionalStopsPricingParams.customerId,
+    additionalStopsPricingParams.serviceName,
+    additionalStopsPricingParams.vehicleType
+  );
+
+  // Debug: Log customer additional stops pricing
+  useEffect(() => {
+    console.log('[Customer Additional Stops Pricing Updated]', {
+      params: additionalStopsPricingParams,
+      data: customerAdditionalStopsPricing,
+      isLoading: isAdditionalStopsPricingLoading,
+      serviceName: additionalStopsService?.name,
+      vehicleTypeId: formData.vehicle_type_id,
+      customerId: formData.customer_id
     });
-    console.log('[JobForm] Customer service pricing data:', customerServicePricing);
-  }, [formData.customer_id, formData.service_type, formData.vehicle_type, customerServicePricing]);
+  }, [customerAdditionalStopsPricing, isAdditionalStopsPricingLoading, additionalStopsPricingParams, additionalStopsService, formData.vehicle_type_id, formData.customer_id]);
+
+  // Check if all pricing data is ready
+  const isPricingReady = useMemo(() => {
+    return !isPricingLoading && !isMidnightPricingLoading && !isAdditionalStopsPricingLoading;
+  }, [isPricingLoading, isMidnightPricingLoading, isAdditionalStopsPricingLoading]);
 
   // Contractor pricing (move after formData is initialized)
   const { data: contractorPricing = [], refetch: refetchPricing } = useContractorServicePricing(
@@ -958,12 +1201,60 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
     return () => clearTimeout(timeoutId);
   }, [formData.driver_id, formData.pickup_date, formData.pickup_time, job?.id]);
+
+  // Calculate additional stops surcharge for use as default price in location fields
+  const calculatedAdditionalStopsSurcharge = useMemo(() => {
+    // Count actual non-empty dropoff fields (backend counts only dropoffs for surcharge calculation)
+    const actualDropoffCount = [1, 2, 3, 4, 5].reduce((count, i) => {
+      return count + (formData[`dropoff_loc${i}` as keyof JobFormData] ? 1 : 0);
+    }, 0);
+
+    // Count actual non-empty pickup fields
+    const actualPickupCount = [1, 2, 3, 4, 5].reduce((count, i) => {
+      return count + (formData[`pickup_loc${i}` as keyof JobFormData] ? 1 : 0);
+    }, 0);
+
+    // Use the MAXIMUM of pickup and dropoff counts for surcharge calculation
+    // This ensures both types of locations get the same price based on total stops
+    const totalAdditionalStops = Math.max(actualDropoffCount, actualPickupCount);
+
+    const surcharge = calculateAdditionalStopsSurcharge(
+      totalAdditionalStops, // Use total stops (both pickup and dropoff)
+      customerAdditionalStopsPricing,
+      additionalStopsPricing,
+      formData.vehicle_type_id,
+      additionalStopsService?.condition_config,
+      additionalStopsService?.is_per_occurrence
+    );
+
+    console.log('[Calculated Additional Stops Surcharge]', {
+      dropoffCount: actualDropoffCount,
+      pickupCount: actualPickupCount,
+      totalStops: totalAdditionalStops,
+      vehicleTypeId: formData.vehicle_type_id,
+      customerPricing: customerAdditionalStopsPricing,
+      servicePricing: additionalStopsPricing,
+      conditionConfig: additionalStopsService?.condition_config,
+      isPerOccurrence: additionalStopsService?.is_per_occurrence,
+      calculatedSurcharge: surcharge
+    });
+
+    return surcharge;
+  }, [
+    formData.dropoff_loc1, formData.dropoff_loc2, formData.dropoff_loc3, formData.dropoff_loc4, formData.dropoff_loc5,
+    formData.pickup_loc1, formData.pickup_loc2, formData.pickup_loc3, formData.pickup_loc4, formData.pickup_loc5,
+    formData.vehicle_type_id,
+    customerAdditionalStopsPricing,
+    additionalStopsPricing,
+    additionalStopsService
+  ]);
+
   // Base price, additional discount, extra charges, penalty
   const basePrice = safeNumber(formData.base_price);
   const additionalDiscount = safeNumber(formData.additional_discount);
   const midnightSurcharge = safeNumber(formData.midnight_surcharge);
   const extraServicesTotal = formData.extra_services?.reduce((sum, svc) => sum + safeNumber(svc.price), 0) || 0;
-  
+
   // Primary dropoff location (dropoff_location field) - this doesn't have a price field
   // Additional dropoff locations (dropoff_loc1 through dropoff_loc5) with prices
   const dropoffLoc1Price = safeNumber(formData.dropoff_loc1_price);
@@ -992,6 +1283,12 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     // Set user modified pricing flag for specific fields
     if (['base_price', 'midnight_surcharge'].includes(field)) {
       setUserModifiedPricing(true);
+    }
+    
+    // Track user-modified location prices
+    if (field.endsWith('_price') && 
+        (field.startsWith('pickup_loc') || field.startsWith('dropoff_loc'))) {
+      setUserModifiedLocationPrices(prev => new Set(prev).add(field));
     }
     
     // Track user input timestamps for location fields
@@ -1026,7 +1323,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
         return;
       }
     }
-    
+
     // Auto-populate vehicle when driver is selected
     if (field === 'driver_id' && value) {
       const selectedDriverId = Number(value);
@@ -1077,23 +1374,55 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
   // Handle additional pickup locations change
   const handleAdditionalPickupLocationsChange = (locations: Location[]) => {
+    console.log('[PICKUP HANDLER] Called with locations:', locations);
     setUiAdditionalPickupLocations(locations);
     const updates: any = {};
-    
+
     // Clear all pickup fields first
     for (let i = 1; i <= 5; i++) {
       updates[`pickup_loc${i}`] = '';
-      updates[`pickup_loc${i}_price`] = 0;
+      // Always reset price to 0 - we'll rebuild from locations array
+      const priceKey = `pickup_loc${i}_price`;
+      updates[priceKey] = 0;
     }
-    
+
+    // Clear userModifiedLocationPrices for removed locations
+    // Keep track of which indices are being kept
+    const keptIndices = new Set(locations.map((_, i) => `pickup_loc${i + 1}_price`));
+    setUserModifiedLocationPrices(prev => {
+      const updated = new Set(prev);
+      // Remove entries for pickup locations that no longer exist
+      for (let i = 1; i <= 5; i++) {
+        const priceKey = `pickup_loc${i}_price`;
+        if (!keptIndices.has(priceKey)) {
+          updated.delete(priceKey);
+        }
+      }
+      return updated;
+    });
+
+    // Calculate additional stops surcharge if ancillary service is configured
+    const additionalStopsSurcharge = calculateAdditionalStopsSurcharge(
+      locations.length,
+      customerAdditionalStopsPricing,
+      additionalStopsPricing,
+      formData.vehicle_type_id,
+      additionalStopsService?.condition_config,
+      additionalStopsService?.is_per_occurrence
+    );
+
     // Update with new locations
     locations.forEach((loc, index) => {
       if (index < 5) {
         updates[`pickup_loc${index + 1}`] = loc.location;
-        updates[`pickup_loc${index + 1}_price`] = loc.price;
+        // Always use the price from DynamicLocationList, which should already have defaultPrice
+        const priceKey = `pickup_loc${index + 1}_price`;
+        const newPrice = loc.price !== undefined && loc.price > 0 ? loc.price : additionalStopsSurcharge;
+        updates[priceKey] = newPrice;
+        console.log(`[Pickup Location ${index + 1}] Setting price to:`, newPrice, 'from loc.price:', loc.price, 'surcharge:', additionalStopsSurcharge);
       }
     });
-    
+
     setFormData(prev => {
       const updated = { ...prev, ...updates };
       // Auto-update status based on form completion
@@ -1104,23 +1433,62 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
   // Handle additional dropoff locations change
   const handleAdditionalDropoffLocationsChange = (locations: Location[]) => {
+    console.log('[DROPOFF HANDLER] Called with locations:', locations);
     setUiAdditionalDropoffLocations(locations);
     const updates: any = {};
-    
+
     // Clear additional dropoff fields first
     for (let i = 1; i <= 5; i++) {
       updates[`dropoff_loc${i}`] = '';
-      updates[`dropoff_loc${i}_price`] = 0;
+      // Always reset price to 0 - we'll rebuild from locations array
+      const priceKey = `dropoff_loc${i}_price`;
+      updates[priceKey] = 0;
     }
-    
+
+    // Clear userModifiedLocationPrices for removed locations
+    // Keep track of which indices are being kept
+    const keptIndices = new Set(locations.map((_, i) => `dropoff_loc${i + 1}_price`));
+    setUserModifiedLocationPrices(prev => {
+      const updated = new Set(prev);
+      // Remove entries for dropoff locations that no longer exist
+      for (let i = 1; i <= 5; i++) {
+        const priceKey = `dropoff_loc${i}_price`;
+        if (!keptIndices.has(priceKey)) {
+          updated.delete(priceKey);
+        }
+      }
+      return updated;
+    });
+
+    // Calculate additional stops surcharge if ancillary service is configured
+    const additionalStopsSurcharge = calculateAdditionalStopsSurcharge(
+      locations.length,
+      customerAdditionalStopsPricing,
+      additionalStopsPricing,
+      formData.vehicle_type_id,
+      additionalStopsService?.condition_config,
+      additionalStopsService?.is_per_occurrence
+    );
+
     // Set the new values
     locations.forEach((loc, index) => {
       if (index < 5) {
         updates[`dropoff_loc${index + 1}`] = loc.location;
-        updates[`dropoff_loc${index + 1}_price`] = loc.price;
+        // Use the price from DynamicLocationList (which includes defaultPrice)
+        const priceKey = `dropoff_loc${index + 1}_price`;
+        // The price from DynamicLocationList is already the correct calculated surcharge
+        // Don't mark as user-modified - only mark as such if user manually edits it
+        updates[priceKey] = loc.price !== undefined ? loc.price : 0;
+
+        console.log(`[Dropoff Location ${index + 1}]`, {
+          location: loc.location,
+          locPrice: loc.price,
+          priceKey,
+          finalPrice: updates[priceKey]
+        });
       }
     });
-    
+
     setFormData(prev => {
       const updated = { ...prev, ...updates };
       // Auto-update status based on form completion
@@ -1176,9 +1544,17 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   // Apply customer service pricing
   // Always update base price and midnight surcharge when vehicle type or service type changes
   useEffect(() => {
+    // Guard: don't calculate until pricing data is loaded
+    if (!isPricingReady) {
+      console.log('Waiting for pricing data to load...');
+      return;
+    }
+
     if (userModifiedPricing) return;
 
-    // For existing jobs, only skip if no pricing-relevant fields changed
+    // For existing jobs, recalculate midnight surcharge if:
+    // 1. Pricing data becomes available (customerMidnightSurchargePricing or midnightSurchargePricing)
+    // 2. Any pricing-relevant field changed
     if (job && job.id && initialFormData) {
       if (safeNumber(formData.base_price) !== 0 && formData.base_price !== undefined) {
         // Check if any pricing-relevant field changed
@@ -1188,23 +1564,33 @@ const JobForm: React.FC<JobFormProps> = (props) => {
           formData.vehicle_type !== initialFormData.vehicle_type ||
           formData.customer_id !== initialFormData.customer_id;
 
-        // If nothing changed, keep stored prices
+        // Always recalculate midnight surcharge when pickup time is in midnight period
+        // This handles the case where job was created without midnight surcharge pricing
+        const calculatedMidnightSurchargeValue = calculateMidnightSurcharge(
+          formData.pickup_time,
+          customerMidnightSurchargePricing,
+          midnightSurchargePricing,
+          formData.vehicle_type_id,
+          midnightSurchargeService?.condition_config
+        );
+
+        // Only update if calculation succeeded (not null) and value changed
+        if (calculatedMidnightSurchargeValue !== null &&
+            formData.midnight_surcharge !== calculatedMidnightSurchargeValue) {
+          setFormData(prev => ({
+            ...prev,
+            midnight_surcharge: calculatedMidnightSurchargeValue
+          }));
+        }
+
+        // If nothing else changed, we're done
         if (!pricingFieldsChanged) return;
 
-        // If only pickup_time changed, update only midnight_surcharge
+        // If only pickup_time changed, we already updated midnight_surcharge above
         if (formData.pickup_time !== initialFormData.pickup_time &&
             formData.service_type === initialFormData.service_type &&
             formData.vehicle_type === initialFormData.vehicle_type &&
             formData.customer_id === initialFormData.customer_id) {
-          if (customerServicePricing) {
-            const calculatedMidnightSurchargeValue = calculateMidnightSurcharge(customerServicePricing, formData.pickup_time);
-            if (formData.midnight_surcharge !== calculatedMidnightSurchargeValue) {
-              setFormData(prev => ({
-                ...prev,
-                midnight_surcharge: calculatedMidnightSurchargeValue
-              }));
-            }
-          }
           return;
         }
       }
@@ -1213,29 +1599,160 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     // For new jobs or when pricing fields changed, update all pricing
     if (formData.customer_id && formData.service_type && formData.vehicle_type) {
       if (customerServicePricing) {
-        const calculatedMidnightSurchargeValue = calculateMidnightSurcharge(customerServicePricing, formData.pickup_time);
+        const calculatedMidnightSurchargeValue = calculateMidnightSurcharge(
+          formData.pickup_time,
+          customerMidnightSurchargePricing,
+          midnightSurchargePricing,
+          formData.vehicle_type_id,
+          midnightSurchargeService?.condition_config
+        );
         const basePriceValue = customerServicePricing.price || 0;
         // Only update if values have actually changed to prevent infinite loops
-        if (formData.base_price !== basePriceValue || formData.midnight_surcharge !== calculatedMidnightSurchargeValue) {
-          setFormData(prev => ({
-            ...prev,
-            base_price: basePriceValue,
-            midnight_surcharge: calculatedMidnightSurchargeValue
-          }));
+        // For midnight surcharge, only update if calculation succeeded (not null)
+        const updates: any = {};
+        if (formData.base_price !== basePriceValue) {
+          updates.base_price = basePriceValue;
+        }
+        if (calculatedMidnightSurchargeValue !== null &&
+            formData.midnight_surcharge !== calculatedMidnightSurchargeValue) {
+          updates.midnight_surcharge = calculatedMidnightSurchargeValue;
+        }
+        if (Object.keys(updates).length > 0) {
+          setFormData(prev => ({ ...prev, ...updates }));
         }
       } else {
-        const calculatedMidnightSurchargeValue = calculateMidnightSurcharge(null, formData.pickup_time);
+        const calculatedMidnightSurchargeValue = calculateMidnightSurcharge(
+          formData.pickup_time,
+          customerMidnightSurchargePricing,
+          midnightSurchargePricing,
+          formData.vehicle_type_id,
+          midnightSurchargeService?.condition_config
+        );
         // Only update if values have actually changed to prevent infinite loops
-        if (formData.base_price !== 0 || formData.midnight_surcharge !== calculatedMidnightSurchargeValue) {
-          setFormData(prev => ({
-            ...prev,
-            base_price: 0,
-            midnight_surcharge: calculatedMidnightSurchargeValue
-          }));
+        const updates: any = {};
+        if (formData.base_price !== 0) {
+          updates.base_price = 0;
+        }
+        if (calculatedMidnightSurchargeValue !== null &&
+            formData.midnight_surcharge !== calculatedMidnightSurchargeValue) {
+          updates.midnight_surcharge = calculatedMidnightSurchargeValue;
+        }
+        if (Object.keys(updates).length > 0) {
+          setFormData(prev => ({ ...prev, ...updates }));
         }
       }
     }
-  }, [customerServicePricing, formData.customer_id, formData.service_type, formData.vehicle_type, formData.pickup_time, userModifiedPricing, job, initialFormData, formData.base_price, formData.midnight_surcharge]);
+  }, [isPricingReady, customerServicePricing, formData.customer_id, formData.service_type, formData.vehicle_type, formData.pickup_time, userModifiedPricing, job, initialFormData, formData.base_price, formData.midnight_surcharge, midnightSurchargePricing, customerMidnightSurchargePricing, formData.vehicle_type_id]);
+
+  // Recalculate additional location prices when vehicle type, customer, or service changes
+  // NOTE: This effect is kept for backwards compatibility but should be refactored
+  // to use separate ancillary charge state instead of overwriting location prices
+  useEffect(() => {
+    // Count actual non-empty dropoff fields from form data (align with backend logic - only count dropoffs)
+    const actualDropoffCount = [1, 2, 3, 4, 5].reduce((count, i) => {
+      return count + (formData[`dropoff_loc${i}` as keyof JobFormData] ? 1 : 0);
+    }, 0);
+
+    // Count actual non-empty pickup fields
+    const actualPickupCount = [1, 2, 3, 4, 5].reduce((count, i) => {
+      return count + (formData[`pickup_loc${i}` as keyof JobFormData] ? 1 : 0);
+    }, 0);
+
+    // Recalculate if we have locations OR if pricing dependencies have changed
+    // This ensures prices update when customer/service/vehicle changes even with no locations
+    const hasLocations = actualDropoffCount > 0 || actualPickupCount > 0;
+    const hasPricingDependencies = formData.vehicle_type_id && formData.customer_id && formData.service_type;
+
+    console.log('[Location Prices Effect Check]', {
+      hasLocations,
+      hasPricingDependencies,
+      actualPickupCount,
+      actualDropoffCount,
+      isPricingReady,
+      isAdditionalStopsPricingLoading,
+      additionalStopsService: additionalStopsService?.name,
+      customerAdditionalStopsPricingExists: !!customerAdditionalStopsPricing,
+      additionalStopsPricingLength: additionalStopsPricing?.length
+    });
+
+    if ((hasLocations || hasPricingDependencies)) {
+      const additionalStopsSurcharge = calculateAdditionalStopsSurcharge(
+        Math.max(actualDropoffCount, actualPickupCount), // Count both pickup and dropoff locations
+        customerAdditionalStopsPricing,
+        additionalStopsPricing,
+        formData.vehicle_type_id,
+        additionalStopsService?.condition_config,
+        additionalStopsService?.is_per_occurrence
+      );
+
+      console.log('[Recalculate Location Prices useEffect triggered]', {
+        pickupCount: actualPickupCount,
+        dropoffCount: actualDropoffCount,
+        maxCount: Math.max(actualDropoffCount, actualPickupCount),
+        newSurcharge: additionalStopsSurcharge,
+        customerPricing: customerAdditionalStopsPricing,
+        vehicleTypeId: formData.vehicle_type_id,
+        customerId: formData.customer_id,
+        serviceType: formData.service_type,
+        additionalStopsService: additionalStopsService?.name,
+        additionalStopsPricing: additionalStopsPricing
+      });
+
+      const updates: any = {};
+
+      // Update pickup location prices
+      // Only update if not user-modified
+      for (let i = 1; i <= 5; i++) {
+        const locKey = `pickup_loc${i}` as keyof JobFormData;
+        const priceKey = `pickup_loc${i}_price` as keyof JobFormData;
+        // Update if location exists, price differs from calculated value, and not user-modified
+        if (formData[locKey]) {
+          if (formData[priceKey] !== additionalStopsSurcharge &&
+              !userModifiedLocationPrices.has(priceKey)) {
+            updates[priceKey] = additionalStopsSurcharge;
+            console.log(`[Update Pickup Price ${i}] ${formData[priceKey]} -> ${additionalStopsSurcharge}`);
+          }
+        }
+      }
+
+      // Update dropoff location prices
+      // Only update if not user-modified
+      for (let i = 1; i <= 5; i++) {
+        const locKey = `dropoff_loc${i}` as keyof JobFormData;
+        const priceKey = `dropoff_loc${i}_price` as keyof JobFormData;
+        // Update if location exists, price differs from calculated value, and not user-modified
+        if (formData[locKey]) {
+          if (formData[priceKey] !== additionalStopsSurcharge &&
+              !userModifiedLocationPrices.has(priceKey)) {
+            updates[priceKey] = additionalStopsSurcharge;
+            console.log(`[Update Dropoff Price ${i}] ${formData[priceKey]} -> ${additionalStopsSurcharge}`);
+          }
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        console.log('[Applying updates to formData]', updates);
+        setFormData(prev => ({ ...prev, ...updates }));
+      } else {
+        console.log('[No updates needed for location prices]', {
+          reason: 'Either no locations exist or prices are already correct'
+        });
+      }
+    }
+  }, [
+    formData.vehicle_type_id,
+    formData.customer_id,
+    formData.service_type,
+    // Add actual dropoff fields as dependencies
+    formData.dropoff_loc1, formData.dropoff_loc2, formData.dropoff_loc3,
+    formData.dropoff_loc4, formData.dropoff_loc5,
+    formData.pickup_loc1, formData.pickup_loc2, formData.pickup_loc3,
+    formData.pickup_loc4, formData.pickup_loc5,
+    customerAdditionalStopsPricing,
+    additionalStopsPricing,
+    additionalStopsService,
+    userModifiedLocationPrices // Don't include isPricingReady - it prevents re-runs when pricing deps change
+  ]);
 
   // Apply contractor pricing to populate job_cost when contractor and service are selected
   // Refetch pricing when editing and contractor_id becomes available to avoid race
@@ -1598,40 +2115,104 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
 
   // Initialize UI location states based on form data
+  // NOTE: This effect is careful not to override user edits by checking if UI and formData are already in sync
   useEffect(() => {
     // Update pickup locations UI
+    // Include locations that have either:
+    // 1. A non-empty address, OR
+    // 2. A price > 0 (indicating user recently added it)
+    // Use the formData price directly if location has an address, otherwise use calculated surcharge as default
     const pickupLocations = [
       { location: formData.pickup_loc1 || '', price: safeNumber(formData.pickup_loc1_price) },
       { location: formData.pickup_loc2 || '', price: safeNumber(formData.pickup_loc2_price) },
       { location: formData.pickup_loc3 || '', price: safeNumber(formData.pickup_loc3_price) },
       { location: formData.pickup_loc4 || '', price: safeNumber(formData.pickup_loc4_price) },
       { location: formData.pickup_loc5 || '', price: safeNumber(formData.pickup_loc5_price) },
-    ].filter(loc => loc.location.trim() !== '' || loc.price > 0);
-    
+    ].filter(loc => loc.location.trim() !== '' || loc.price > 0); // Include if has address OR price
+
     // Update dropoff locations UI
+    // Include locations that have either:
+    // 1. A non-empty address, OR
+    // 2. A price > 0 (indicating user recently added it)
     const dropoffLocations = [
       { location: formData.dropoff_loc1 || '', price: safeNumber(formData.dropoff_loc1_price) },
       { location: formData.dropoff_loc2 || '', price: safeNumber(formData.dropoff_loc2_price) },
       { location: formData.dropoff_loc3 || '', price: safeNumber(formData.dropoff_loc3_price) },
       { location: formData.dropoff_loc4 || '', price: safeNumber(formData.dropoff_loc4_price) },
       { location: formData.dropoff_loc5 || '', price: safeNumber(formData.dropoff_loc5_price) },
-    ].filter(loc => loc.location.trim() !== '' || loc.price > 0);
-    
+    ].filter(loc => loc.location.trim() !== '' || loc.price > 0); // Include if has address OR price
+
     // Only update if the locations have actually changed
     const currentPickupLocations = uiAdditionalPickupLocations;
     const currentDropoffLocations = uiAdditionalDropoffLocations;
-    
-    const pickupLocationsChanged = JSON.stringify(pickupLocations) !== JSON.stringify(currentPickupLocations);
-    const dropoffLocationsChanged = JSON.stringify(dropoffLocations) !== JSON.stringify(currentDropoffLocations);
-    
-    if (pickupLocationsChanged || dropoffLocationsChanged) {
-      setUiAdditionalPickupLocations(pickupLocations);
-      setUiAdditionalDropoffLocations(dropoffLocations);
+
+    // Check if UI and formData are in sync - if they are, don't force an update
+    // This prevents flickering when user is actively editing locations
+    const uiPickupLocationsString = JSON.stringify(currentPickupLocations);
+    const formPickupLocationsString = JSON.stringify(pickupLocations);
+    const pickupLocationsChanged = formPickupLocationsString !== uiPickupLocationsString;
+
+    const uiDropoffLocationsString = JSON.stringify(currentDropoffLocations);
+    const formDropoffLocationsString = JSON.stringify(dropoffLocations);
+    const dropoffLocationsChanged = formDropoffLocationsString !== uiDropoffLocationsString;
+
+    console.log('[Location Sync Effect]', {
+      pickupLocationsChanged,
+      dropoffLocationsChanged,
+      pickupCount: pickupLocations.length,
+      dropoffCount: dropoffLocations.length,
+      currentPickupCount: currentPickupLocations.length,
+      currentDropoffCount: currentDropoffLocations.length,
+      pickupData: pickupLocations,
+      dropoffData: dropoffLocations
+    });
+
+    // Update UI if:
+    // 1. Location ADDRESSES changed (user added/removed locations)
+    // 2. Location PRICES changed (vehicle/customer/service change)
+    // Don't update if only empty locations with zero prices added
+    if (pickupLocationsChanged) {
+      const addressesChanged = JSON.stringify(pickupLocations.map(l => l.location)) !==
+                               JSON.stringify(currentPickupLocations.map(l => l.location));
+      const pricesChanged = JSON.stringify(pickupLocations.map(l => l.price)) !==
+                            JSON.stringify(currentPickupLocations.map(l => l.price));
+
+      if (addressesChanged || pricesChanged) {
+        console.log('[Updating Pickup Locations UI]', {
+          addressesChanged,
+          pricesChanged,
+          newCount: pickupLocations.length
+        });
+        setUiAdditionalPickupLocations(pickupLocations);
+      }
     }
-  }, [formData.pickup_loc1, formData.pickup_loc2, formData.pickup_loc3, formData.pickup_loc4, formData.pickup_loc5, 
-      formData.pickup_loc1_price, formData.pickup_loc2_price, formData.pickup_loc3_price, formData.pickup_loc4_price, formData.pickup_loc5_price,
-      formData.dropoff_loc1, formData.dropoff_loc2, formData.dropoff_loc3, formData.dropoff_loc4, formData.dropoff_loc5,
-      formData.dropoff_loc1_price, formData.dropoff_loc2_price, formData.dropoff_loc3_price, formData.dropoff_loc4_price, formData.dropoff_loc5_price]);
+
+    if (dropoffLocationsChanged) {
+      const addressesChanged = JSON.stringify(dropoffLocations.map(l => l.location)) !==
+                               JSON.stringify(currentDropoffLocations.map(l => l.location));
+      const pricesChanged = JSON.stringify(dropoffLocations.map(l => l.price)) !==
+                            JSON.stringify(currentDropoffLocations.map(l => l.price));
+
+      if (addressesChanged || pricesChanged) {
+        console.log('[Updating Dropoff Locations UI]', {
+          addressesChanged,
+          pricesChanged,
+          newCount: dropoffLocations.length
+        });
+        setUiAdditionalDropoffLocations(dropoffLocations);
+      }
+    }
+  }, [
+    formData.pickup_loc1, formData.pickup_loc2, formData.pickup_loc3, formData.pickup_loc4, formData.pickup_loc5, 
+    formData.pickup_loc1_price, formData.pickup_loc2_price, formData.pickup_loc3_price, formData.pickup_loc4_price, formData.pickup_loc5_price,
+    formData.dropoff_loc1, formData.dropoff_loc2, formData.dropoff_loc3, formData.dropoff_loc4, formData.dropoff_loc5,
+    formData.dropoff_loc1_price, formData.dropoff_loc2_price, formData.dropoff_loc3_price, formData.dropoff_loc4_price, formData.dropoff_loc5_price,
+    // Add dependencies for customer, service, and vehicle type to update UI when these change
+    formData.customer_id, 
+    formData.service_type, 
+    formData.vehicle_type,
+    formData.vehicle_type_id
+  ]);
 
   // Reset userModifiedPricing flag when service_type or vehicle_type changes
   // This allows automatic pricing updates when these fields change
@@ -1847,9 +2428,9 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 		  <div className="space-y-2">
 		  </div>
                   {/* Service Field */}
-                  <SelectField 
-                    label="Service" 
-                    value={formData.service_type || ''} 
+                  <SelectField
+                    label="Service"
+                    value={formData.service_type || ''}
                     onChange={v => {
                       // Only allow changes if fields are not locked
                       if (!fieldsLocked) {
@@ -1859,21 +2440,23 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                         if (selectedService) {
                           // Set service_id for backend reference
                           handleInputChange('service_id', selectedService.id);
-                          
+
                           // Don't set any pricing when only service is selected
                           // Pricing should only be set when both customer AND service AND vehicle_type are selected
                           // This will be handled by the CustomerServicePricing useEffect
                         }
                       }
-                    }} 
-                    required 
+                    }}
+                    required
                     error={errors.service_type}
                     showQuickAdd={!fieldsLocked}
                     quickAddType="service"
                     options={[
                       { value: '', label: 'Select Service' },
-                      ...allServices.map(s => ({ value: s.name, label: s.name }))
-                    ]} 
+                      ...allServices
+                        .filter(s => s.is_ancillary === false) // Explicit false check to filter out ancillary services
+                        .map(s => ({ value: s.name, label: s.name }))
+                    ]}
                     className={fieldsLocked ? "opacity-75" : ""}
                     disabled={fieldsLocked}
                   />
@@ -2150,6 +2733,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                   <DynamicLocationList
                     value={uiAdditionalPickupLocations}
                     onChange={(locations) => {
+                      console.log('[PICKUP COMPONENT] onChange triggered with:', locations);
                       // Only allow changes if fields are not locked
                       if (!fieldsLocked) {
                         handleAdditionalPickupLocationsChange(locations);
@@ -2157,9 +2741,15 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                     }}
                     maxRows={5}
                     type="pickup"
-                    defaultPrice={10}
+                    defaultPrice={calculatedAdditionalStopsSurcharge}
                     disabled={fieldsLocked  || !formData.customer_id || !formData.service_type}
                   />
+                  {calculatedAdditionalStopsSurcharge > 0 && (
+                    <p className="text-xs text-blue-300 mt-2">
+                      Additional stop rate: S$ {calculatedAdditionalStopsSurcharge.toFixed(2)}
+                      {additionalStopsService?.is_per_occurrence ? ' per stop' : ' (flat fee)'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Additional Dropoff Locations */}
@@ -2167,6 +2757,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                   <DynamicLocationList
                     value={uiAdditionalDropoffLocations}
                     onChange={(locations) => {
+                      console.log('[DROPOFF COMPONENT] onChange triggered with:', locations);
                       // Only allow changes if fields are not locked
                       if (!fieldsLocked) {
                         handleAdditionalDropoffLocationsChange(locations);
@@ -2174,9 +2765,15 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                     }}
                     maxRows={5}
                     type="dropoff"
-                    defaultPrice={10}
+                    defaultPrice={calculatedAdditionalStopsSurcharge}
                     disabled={fieldsLocked || !formData.customer_id || !formData.service_type}
                   />
+                  {calculatedAdditionalStopsSurcharge > 0 && (
+                    <p className="text-xs text-blue-300 mt-2">
+                      Additional stop rate: S$ {calculatedAdditionalStopsSurcharge.toFixed(2)}
+                      {additionalStopsService?.is_per_occurrence ? ' per stop' : ' (flat fee)'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Vehicle and Driver Selection */}
@@ -2403,7 +3000,13 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                     {errors.midnight_surcharge && <p className="text-sm text-red-400">{errors.midnight_surcharge}</p>}
                     {customerServicePricing && (
                       <p className="text-xs text-blue-300">
-                        Customer rate: S$ {calculateMidnightSurcharge(customerServicePricing, formData.pickup_time || '').toFixed(2)}
+                        Customer rate: S$ {calculateMidnightSurcharge(
+                          formData.pickup_time || '',
+                          customerMidnightSurchargePricing,
+                          midnightSurchargePricing,
+                          formData.vehicle_type_id,
+                          midnightSurchargeService?.condition_config
+                        ).toFixed(2)}
                       </p>
                     )}
                     {formData.pickup_time && customerServicePricing && (

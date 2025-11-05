@@ -31,6 +31,11 @@ export interface Service {
   additional_ps?: number | string;
   distance_levy?: number | string;
   midnight_surcharge?: number | string;
+  // Ancillary charge fields
+  is_ancillary: boolean; // Required field with default false
+  condition_type?: 'time_range' | 'additional_stops' | 'always' | null;
+  condition_config?: string; // JSON string
+  is_per_occurrence?: boolean;
 }
 
 export interface Vehicle {

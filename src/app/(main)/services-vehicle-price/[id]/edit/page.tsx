@@ -62,6 +62,14 @@ const EditServiceWithAllPricingPage = () => {
   const handleSubmit = async (data: any) => {
     setError(null);
 
+    console.log('[Edit Service with Pricing] Form submitted with data:', data);
+
+    // Validate that condition_config is not empty for ancillary services
+    if (data.is_ancillary && data.condition_type && !data.condition_config) {
+      setError('Please provide configuration for the selected ancillary condition');
+      return;
+    }
+
     // Build service payload
     const payload = {
       name: data.name?.trim() || "",
@@ -71,11 +79,19 @@ const EditServiceWithAllPricingPage = () => {
       additional_ps: (data.additional_ps || 0).toString(),
       distance_levy: (data.distance_levy || 0).toString(),
       midnight_surcharge: (data.midnight_surcharge || 0).toString(),
+      // Ancillary charge fields
+      is_ancillary: data.is_ancillary || false,
+      condition_type: data.condition_type || null,
+      condition_config: data.condition_config || "",
+      is_per_occurrence: data.is_per_occurrence || false,
       pricing: data.pricing
     };
 
+    console.log('[Edit Service with Pricing] Sending payload to backend:', payload);
+
     try {
       await updateServiceMutation.mutateAsync({ serviceId: parseInt(id), data: payload });
+      console.log('[Edit Service with Pricing] Update successful, redirecting...');
       router.push("/services-vehicle-price");
     } catch (err: any) {
       console.error("Error while updating service with pricing:", err);
@@ -106,12 +122,17 @@ const EditServiceWithAllPricingPage = () => {
   // Convert service data to match form types
   const formData = {
     ...service,
-    additional_ps: typeof service.additional_ps === 'string' ? 
+    additional_ps: typeof service.additional_ps === 'string' ?
       (isNaN(parseFloat(service.additional_ps)) ? 0 : parseFloat(service.additional_ps)) : (service.additional_ps || 0),
-    distance_levy: typeof service.distance_levy === 'string' ? 
+    distance_levy: typeof service.distance_levy === 'string' ?
       (isNaN(parseFloat(service.distance_levy)) ? 0 : parseFloat(service.distance_levy)) : (service.distance_levy || 0),
-    midnight_surcharge: typeof service.midnight_surcharge === 'string' ? 
+    midnight_surcharge: typeof service.midnight_surcharge === 'string' ?
       (isNaN(parseFloat(service.midnight_surcharge)) ? 0 : parseFloat(service.midnight_surcharge)) : (service.midnight_surcharge || 0),
+    // Include ancillary charge fields
+    is_ancillary: service.is_ancillary || false,
+    condition_type: service.condition_type || null,
+    condition_config: service.condition_config || '',
+    is_per_occurrence: service.is_per_occurrence || false,
   };
 
   return (

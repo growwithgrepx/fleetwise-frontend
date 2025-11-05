@@ -93,6 +93,11 @@ export interface Service {
   base_price: number;
   jobs?: Job[];
   prices?: Price[];
+  // Ancillary charge fields
+  is_ancillary?: boolean;
+  condition_type?: 'time_range' | 'additional_stops' | 'always' | null;
+  condition_config?: string; // JSON string
+  is_per_occurrence?: boolean;
 }
 
 export interface Price {
@@ -632,7 +637,7 @@ export interface CustomerPayload {
   country?: string;
   type?: string;
   customer_discount_percent?: number;
-  status?: "active" | "inactive";
+  status?: "Active" | "Inactive";
   pricing: PricingMatrix;
 
 }

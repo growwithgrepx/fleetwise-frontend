@@ -70,6 +70,16 @@ export interface Job {
   // Extra services
   extra_services: Array<{ description: string; price: number }>;
 
+  // Ancillary charges (auto-applied)
+  ancillary_charges?: Array<{
+    service_id: number;
+    name: string;
+    price: number;
+    unit_price: number;
+    quantity: number;
+    condition_type: string;
+  }>;
+
   // Invoice information
   invoice_id?: number | null;
   invoice_number?: string;

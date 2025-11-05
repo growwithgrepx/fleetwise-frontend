@@ -98,6 +98,39 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
 
           <DetailSection title="Pricing">
               <DetailItem label="Base Price" value={normalized.basePrice !== undefined ? `S$ ${normalized.basePrice.toFixed(2)}` : 'N/A'} />
+              {Array.isArray(job.ancillary_charges) && job.ancillary_charges.length > 0 && (
+                <>
+                  <div className="mt-2 pt-2 border-t border-gray-700">
+                    <p className="text-sm font-medium text-gray-400 mb-2">Ancillary Charges:</p>
+                    {job.ancillary_charges
+                      .filter(charge => {
+                        // Validate charge structure
+                        if (!charge || typeof charge !== 'object') {
+                          console.warn('Invalid ancillary charge object:', charge);
+                          return false;
+                        }
+                        if (typeof charge.name !== 'string' || typeof charge.price !== 'number') {
+                          console.warn('Ancillary charge missing required fields:', charge);
+                          return false;
+                        }
+                        return true;
+                      })
+                      .map((charge, index) => (
+                        <div key={`charge-${charge.service_id || index}`} className="ml-4 mb-1 flex justify-between">
+                          <span className="text-sm text-gray-300">
+                            {charge.name}
+                            {typeof charge.quantity === 'number' && charge.quantity > 1 && (
+                              <span className="text-gray-500"> (x{charge.quantity})</span>
+                            )}
+                          </span>
+                          <span className="text-sm text-gray-300">
+                            S$ {(charge.price || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </>
+              )}
               <DetailItem label="Final Price" value={normalized.finalPrice !== undefined ? `S$ ${normalized.finalPrice.toFixed(2)}` : 'N/A'} />
           </DetailSection>
 

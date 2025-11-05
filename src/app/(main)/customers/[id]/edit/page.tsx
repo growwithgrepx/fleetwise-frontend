@@ -160,7 +160,7 @@ function mapCustomerToForm(c: Customer, m: CustomerMatrixResponse): CustomerForm
     country: c.country ?? "Singapore",
     type: c.type ?? "regular",
     customer_discount_percent: c.customer_discount_percent ?? 0,
-    status: (typeof c.status === "string" ? c.status.toLowerCase() : "active") as "active" | "inactive",
+    status: (typeof c.status === "string" && c.status.toLowerCase() === "active" ? "Active" : "Inactive") as "Active" | "Inactive",
     pricing: matrixToInitialPricing(m),
   };
 }

@@ -93,8 +93,11 @@ export const DynamicLocationList: React.FC<DynamicLocationListProps> = ({
   ]);
 
   const handleAdd = () => {
+    console.log(`[DynamicLocationList - ${type}] Add button clicked. Current length: ${value.length}, maxRows: ${maxRows}, type: ${type}`);
     if (value.length < maxRows) {
-      onChange([...value, { location: '', price: defaultPrice }]); // Use defaultPrice prop
+      const newValue = [...value, { location: '', price: defaultPrice }];
+      console.log(`[DynamicLocationList - ${type}] Calling onChange with:`, newValue);
+      onChange(newValue);
     }
   };
 
