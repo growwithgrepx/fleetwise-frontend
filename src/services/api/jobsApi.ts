@@ -354,11 +354,18 @@ export async function getJobAuditTrail(jobId: number): Promise<JobAuditTrailResp
   return response.data;
 }
 
-/** Update job status */
-export async function updateJobStatus(jobId: number, newStatus: string, remark?: string): Promise<any> {
+/**
+ * Update job status with optional remark and custom timestamp
+ * @param jobId - Job identifier
+ * @param newStatus - New status value
+ * @param remark - Optional remark explaining the status change
+ * @param changedAt - Optional ISO 8601 datetime string (YYYY-MM-DDTHH:mm) for backdating status change. If not provided, server uses current time.
+ */
+export async function updateJobStatus(jobId: number, newStatus: string, remark?: string, changedAt?: string): Promise<any> {
   const response = await api.post(`/api/jobs/update_status/${jobId}`, {
     new_status: newStatus,
-    remark: remark
+    remark: remark || undefined,
+    changed_at: changedAt || undefined
   });
   return response.data;
 }

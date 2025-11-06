@@ -275,6 +275,16 @@ const JobAuditTrailModal: React.FC<JobAuditTrailModalProps> = ({ jobId, isOpen, 
                             </div>
                           )}
                           
+                          {/* Show reason if available */}
+                          {record.reason && (
+                            <div className="mb-3 p-3 bg-indigo-900/50 rounded-lg border border-indigo-700">
+                              <div className="text-sm font-medium text-indigo-300 mb-1">Reason</div>
+                              <div className="text-gray-200">
+                                {record.reason.replace(/\(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2} (AM|PM)\)/g, '').trim() || record.reason}
+                              </div>
+                            </div>
+                          )}
+                          
                           {/* Show extra services if available */}
                           {record.extra_services && record.extra_services.length > 0 && (
                             <div className="mb-3 p-3 bg-purple-900/50 rounded-lg border border-purple-700">

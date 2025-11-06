@@ -98,6 +98,12 @@ export interface Job {
   
   // Sub customer name field
   sub_customer_name?: string;
+
+  // Status history for tracking status changes
+  status_history?: Array<{
+    timestamp: string;
+    status: JobStatus;
+  }>;
 }
 
 // API Response Types - nested objects returned by backend
