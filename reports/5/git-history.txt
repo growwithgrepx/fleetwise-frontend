@@ -1,0 +1,10 @@
+f52a042|growwithgrepx|Improve CI/CD workflow with coverage and metrics|2 minutes ago
+4bae917|growwithgrepx|Add permissions for write access to contents|24 minutes ago
+82095d6|growwithgrepx|Enhance CI/CD workflow with testing and reporting|41 minutes ago
+fc63924|growwithgrepx|Disable linting step in CI/CD workflow|65 minutes ago
+1b5530e|growwithgrepx|Add CI/CD workflow for testing and building|79 minutes ago
+23ab9a9|GrepX Support|Merged in GrepX-Support/bitbucketpipelinesyml-created-online-wit-1762441764837 (pull request #55)|2 hours ago
+53dddad|GrepX Support|bitbucket-pipelines.yml created online with Bitbucket|2 hours ago
+c27e80c|Arti Narayan Chaple|Merged in feature/GX1002-255-feat-implement-audit-trail (pull request #49)|3 hours ago
+fe4189c|GrepX Support|Merged main into feature/GX1002-255-feat-implement-audit-trail|4 hours ago
+a5eaa1f|Arti_chaple|added the chnages for  showing the status cycle correctly|5 hours ago

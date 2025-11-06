@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Build Report #5</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;background:#0a0a0a;color:#fff;padding:20px;min-height:100vh}
+  .container{max-width:1400px;margin:0 auto}
+  header{margin-bottom:40px;padding-bottom:30px;border-bottom:1px solid rgba(255,255,255,0.1)}
+  h1{font-size:52px;margin-bottom:12px;background:linear-gradient(135deg,#00f5ff,#0080ff,#00ff88);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:800;display:flex;align-items:center;gap:15px}
+  .meta{display:flex;gap:25px;flex-wrap:wrap;color:#888;font-size:14px;margin-top:15px}
+  .meta-item{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(255,255,255,0.05);border-radius:8px;border:1px solid rgba(255,255,255,0.1)}
+  .status{display:inline-block;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
+  .status.success{background:linear-gradient(135deg,#00ff88,#00cc70);color:#000}
+  .status.partial{background:linear-gradient(135deg,#ffa500,#ff8c00);color:#000}
+  .status.fail{background:linear-gradient(135deg,#ff4466,#cc0044);color:#fff}
+  
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:40px}
+  .card{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:32px;border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.08);position:relative;overflow:hidden;transition:transform 0.3s,box-shadow 0.3s}
+  .card:hover{transform:translateY(-5px);box-shadow:0 15px 50px rgba(0,245,255,0.2)}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#00f5ff,#0080ff,#00ff88)}
+  
+  .metric-value{font-size:64px;font-weight:800;margin-bottom:10px;line-height:1;background:linear-gradient(45deg,#00f5ff,#0080ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .metric-value.success{background:linear-gradient(45deg,#00ff88,#00cc70);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .metric-value.fail{background:linear-gradient(45deg,#ff4466,#cc0044);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .metric-value.warning{background:linear-gradient(45deg,#ffa500,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .metric-label{font-size:13px;color:#888;text-transform:uppercase;letter-spacing:2px;font-weight:700;margin-bottom:12px}
+  .metric-sublabel{font-size:16px;color:#aaa;margin-top:8px}
+  
+  .progress-bar{height:8px;background:rgba(255,255,255,0.1);border-radius:10px;overflow:hidden;margin-top:15px}
+  .progress-fill{height:100%;background:linear-gradient(90deg,#00ff88,#00cc70);border-radius:10px;transition:width 1s ease}
+  .progress-fill.medium{background:linear-gradient(90deg,#ffa500,#ff8c00)}
+  .progress-fill.low{background:linear-gradient(90deg,#ff4466,#cc0044)}
+  
+  .section{background:rgba(255,255,255,0.02);padding:35px;border-radius:20px;border:1px solid rgba(255,255,255,0.08);margin-bottom:30px}
+  .section h2{font-size:28px;margin-bottom:25px;color:#00f5ff;display:flex;align-items:center;gap:12px;font-weight:700}
+  
+  .table{width:100%;border-collapse:collapse;margin-top:20px}
+  .table th{text-align:left;padding:15px;background:rgba(0,245,255,0.1);color:#00f5ff;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid rgba(0,245,255,0.3)}
+  .table td{padding:15px;border-bottom:1px solid rgba(255,255,255,0.05);color:#ccc}
+  .table tr:hover{background:rgba(255,255,255,0.03)}
+  .table-tag{display:inline-block;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700}
+  .table-tag.pass{background:rgba(0,255,136,0.2);color:#00ff88}
+  .table-tag.fail{background:rgba(255,68,102,0.2);color:#ff4466}
+  
+  .chart-container{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px}
+  .chart-item{text-align:center;padding:20px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.05)}
+  .chart-circle{width:120px;height:120px;margin:0 auto 15px;position:relative}
+  .chart-circle svg{transform:rotate(-90deg)}
+  .chart-circle-value{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;font-weight:800}
+  .chart-label{color:#888;font-size:13px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+  
+  .commit-list{list-style:none}
+  .commit-item{padding:15px;background:rgba(255,255,255,0.03);border-radius:12px;margin-bottom:12px;border-left:3px solid #00f5ff;display:flex;justify-content:space-between;align-items:center;gap:15px}
+  .commit-hash{font-family:monospace;color:#00f5ff;font-weight:700;font-size:14px}
+  .commit-msg{flex:1;color:#ccc}
+  .commit-author{color:#888;font-size:13px}
+  .commit-time{color:#666;font-size:12px;white-space:nowrap}
+  
+  .collapsible{cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center}
+  .collapsible::after{content:'▼';transition:transform 0.3s;font-size:12px;opacity:0.6}
+  .collapsible.active::after{transform:rotate(180deg)}
+  .collapsible-content{max-height:0;overflow:hidden;transition:max-height 0.3s ease}
+  .collapsible-content.active{max-height:2000px}
+  
+  @media(max-width:768px){
+    h1{font-size:36px}
+    .grid{grid-template-columns:1fr}
+    .meta{flex-direction:column;gap:10px}
+  }
+</style>
+</head><body>
+<div class='container'>
+  <header>
+    <h1>🚀 Build Report <span class='status fail'>#5</span></h1>
+    <div class='meta'>
+      <div class='meta-item'>📅 11/6/2025, 5:13:36 PM</div>
+      <div class='meta-item'>🌿 main</div>
+      <div class='meta-item'>📝 f52a042</div>
+      <div class='meta-item'>👤 growwithgrepx</div>
+    </div>
+  </header>
+  
+  <div class='grid'>
+    <div class='card'>
+      <div class='metric-label'>Test Success Rate</div>
+      <div class='metric-value warning'>83.5%</div>
+      <div class='metric-sublabel'>167/200 passed</div>
+      <div class='progress-bar'>
+        <div class='progress-fill medium' style='width:83.5%'></div>
+      </div>
+    </div>
+    
+    <div class='card'>
+      <div class='metric-label'>Tests Passed</div>
+      <div class='metric-value success'>167</div>
+      <div class='metric-sublabel'>✓ All green</div>
+    </div>
+    
+    <div class='card'>
+      <div class='metric-label'>Tests Failed</div>
+      <div class='metric-value fail'>33</div>
+      <div class='metric-sublabel'>⚠ Needs attention</div>
+    </div>
+    
+    <div class='card'>
+      <div class='metric-label'>Build Time</div>
+      <div class='metric-value'>0.7<span style='font-size:28px'>min</span></div>
+      <div class='metric-sublabel'>44s total</div>
+    </div>
+    
+    <div class='card'>
+      <div class='metric-label'>Bundle Size</div>
+      <div class='metric-value'>0<span style='font-size:28px'>MB</span></div>
+      <div class='metric-sublabel'>0 files</div>
+    </div>
+    
+    <div class='card'>
+      <div class='metric-label'>Total Commits</div>
+      <div class='metric-value'>242</div>
+      <div class='metric-sublabel'>Repository history</div>
+    </div>
+  </div>
+  
+  <div class='section'>
+    <h2 class='collapsible' onclick='toggleSection(this)'>📊 Code Coverage</h2>
+    <div class='collapsible-content'>
+      <div class='chart-container'>
+        <div class='chart-item'>
+          <div class='chart-circle'>
+            <svg width='120' height='120'>
+              <circle cx='60' cy='60' r='54' fill='none' stroke='rgba(255,255,255,0.1)' stroke-width='12'/>
+              <circle cx='60' cy='60' r='54' fill='none' stroke='#00ff88' stroke-width='12' 
+                stroke-dasharray='14.107391999999999 339.12' stroke-linecap='round'/>
+            </svg>
+            <div class='chart-circle-value'>4%</div>
+          </div>
+          <div class='chart-label'>Lines</div>
+        </div>
+        <div class='chart-item'>
+          <div class='chart-circle'>
+            <svg width='120' height='120'>
+              <circle cx='60' cy='60' r='54' fill='none' stroke='rgba(255,255,255,0.1)' stroke-width='12'/>
+              <circle cx='60' cy='60' r='54' fill='none' stroke='#0080ff' stroke-width='12' 
+                stroke-dasharray='13.802184000000002 339.12' stroke-linecap='round'/>
+            </svg>
+            <div class='chart-circle-value'>4%</div>
+          </div>
+          <div class='chart-label'>Statements</div>
+        </div>
+        <div class='chart-item'>
+          <div class='chart-circle'>
+            <svg width='120' height='120'>
+              <circle cx='60' cy='60' r='54' fill='none' stroke='rgba(255,255,255,0.1)' stroke-width='12'/>
+              <circle cx='60' cy='60' r='54' fill='none' stroke='#00f5ff' stroke-width='12' 
+                stroke-dasharray='15.531696 339.12' stroke-linecap='round'/>
+            </svg>
+            <div class='chart-circle-value'>5%</div>
+          </div>
+          <div class='chart-label'>Functions</div>
+        </div>
+        <div class='chart-item'>
+          <div class='chart-circle'>
+            <svg width='120' height='120'>
+              <circle cx='60' cy='60' r='54' fill='none' stroke='rgba(255,255,255,0.1)' stroke-width='12'/>
+              <circle cx='60' cy='60' r='54' fill='none' stroke='#ffa500' stroke-width='12' 
+                stroke-dasharray='15.76908 339.12' stroke-linecap='round'/>
+            </svg>
+            <div class='chart-circle-value'>5%</div>
+          </div>
+          <div class='chart-label'>Branches</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  
+  <div class='section'>
+    <h2 class='collapsible' onclick='toggleSection(this)'>🧪 Test Suites Breakdown</h2>
+    <div class='collapsible-content'>
+      <table class='table'>
+        <thead>
+          <tr>
+            <th>Suite</th>
+            <th>Tests</th>
+            <th>Failures</th>
+            <th>Duration</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td>JobForm.test.tsx</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0.00s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>Label.test.tsx</td>
+              <td>34</td>
+              <td>0</td>
+              <td>1.67s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>Select.test.tsx</td>
+              <td>33</td>
+              <td>8</td>
+              <td>2.12s</td>
+              <td><span class='table-tag fail'>FAIL</span></td>
+            </tr>
+          
+            <tr>
+              <td>Badge.test.tsx</td>
+              <td>35</td>
+              <td>0</td>
+              <td>0.87s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>Input.test.tsx</td>
+              <td>30</td>
+              <td>3</td>
+              <td>0.82s</td>
+              <td><span class='table-tag fail'>FAIL</span></td>
+            </tr>
+          
+            <tr>
+              <td>useServices.test.ts</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0.00s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>useDrivers.test.ts</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0.00s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>Button.test.tsx</td>
+              <td>25</td>
+              <td>2</td>
+              <td>0.74s</td>
+              <td><span class='table-tag fail'>FAIL</span></td>
+            </tr>
+          
+            <tr>
+              <td>useVehicles.test.ts</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0.00s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>JobsTable.test.tsx</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0.00s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>roleAccess.test.tsx</td>
+              <td>14</td>
+              <td>0</td>
+              <td>0.34s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>MainNavigation.test.tsx</td>
+              <td>4</td>
+              <td>4</td>
+              <td>1.75s</td>
+              <td><span class='table-tag fail'>FAIL</span></td>
+            </tr>
+          
+            <tr>
+              <td>EntityTable.test.tsx</td>
+              <td>9</td>
+              <td>3</td>
+              <td>2.12s</td>
+              <td><span class='table-tag fail'>FAIL</span></td>
+            </tr>
+          
+            <tr>
+              <td>ServiceForm.test.tsx</td>
+              <td>4</td>
+              <td>3</td>
+              <td>1.03s</td>
+              <td><span class='table-tag fail'>FAIL</span></td>
+            </tr>
+          
+            <tr>
+              <td>DriverForm.test.tsx</td>
+              <td>4</td>
+              <td>4</td>
+              <td>2.37s</td>
+              <td><span class='table-tag fail'>FAIL</span></td>
+            </tr>
+          
+            <tr>
+              <td>TableSkeleton.test.tsx</td>
+              <td>2</td>
+              <td>0</td>
+              <td>0.23s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>JobDetailCard.test.tsx</td>
+              <td>1</td>
+              <td>1</td>
+              <td>0.54s</td>
+              <td><span class='table-tag fail'>FAIL</span></td>
+            </tr>
+          
+            <tr>
+              <td>VehicleForm.test.tsx</td>
+              <td>4</td>
+              <td>4</td>
+              <td>1.94s</td>
+              <td><span class='table-tag fail'>FAIL</span></td>
+            </tr>
+          
+            <tr>
+              <td>MainNavigation.test.tsx</td>
+              <td>1</td>
+              <td>1</td>
+              <td>0.38s</td>
+              <td><span class='table-tag fail'>FAIL</span></td>
+            </tr>
+          
+            <tr>
+              <td>useVehicles.test.tsx</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0.00s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>useServices.test.tsx</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0.00s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+            <tr>
+              <td>useDrivers.test.tsx</td>
+              <td>0</td>
+              <td>0</td>
+              <td>0.00s</td>
+              <td><span class='table-tag pass'>PASS</span></td>
+            </tr>
+          
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+  
+  
+  <div class='section'>
+    <h2 class='collapsible' onclick='toggleSection(this)'>📜 Recent Commits</h2>
+    <div class='collapsible-content'>
+      <ul class='commit-list'>
+        
+          <li class='commit-item'>
+            <span class='commit-hash'>f52a042</span>
+            <span class='commit-msg'>Improve CI/CD workflow with coverage and metrics</span>
+            <span class='commit-author'>growwithgrepx</span>
+            <span class='commit-time'>2 minutes ago</span>
+          </li>
+        
+          <li class='commit-item'>
+            <span class='commit-hash'>4bae917</span>
+            <span class='commit-msg'>Add permissions for write access to contents</span>
+            <span class='commit-author'>growwithgrepx</span>
+            <span class='commit-time'>24 minutes ago</span>
+          </li>
+        
+          <li class='commit-item'>
+            <span class='commit-hash'>82095d6</span>
+            <span class='commit-msg'>Enhance CI/CD workflow with testing and reporting</span>
+            <span class='commit-author'>growwithgrepx</span>
+            <span class='commit-time'>41 minutes ago</span>
+          </li>
+        
+          <li class='commit-item'>
+            <span class='commit-hash'>fc63924</span>
+            <span class='commit-msg'>Disable linting step in CI/CD workflow</span>
+            <span class='commit-author'>growwithgrepx</span>
+            <span class='commit-time'>65 minutes ago</span>
+          </li>
+        
+          <li class='commit-item'>
+            <span class='commit-hash'>1b5530e</span>
+            <span class='commit-msg'>Add CI/CD workflow for testing and building</span>
+            <span class='commit-author'>growwithgrepx</span>
+            <span class='commit-time'>79 minutes ago</span>
+          </li>
+        
+          <li class='commit-item'>
+            <span class='commit-hash'>23ab9a9</span>
+            <span class='commit-msg'>Merged in GrepX-Support/bitbucketpipelinesyml-created-online-wit-1762441764837 (pull request #55)</span>
+            <span class='commit-author'>GrepX Support</span>
+            <span class='commit-time'>2 hours ago</span>
+          </li>
+        
+          <li class='commit-item'>
+            <span class='commit-hash'>53dddad</span>
+            <span class='commit-msg'>bitbucket-pipelines.yml created online with Bitbucket</span>
+            <span class='commit-author'>GrepX Support</span>
+            <span class='commit-time'>2 hours ago</span>
+          </li>
+        
+          <li class='commit-item'>
+            <span class='commit-hash'>c27e80c</span>
+            <span class='commit-msg'>Merged in feature/GX1002-255-feat-implement-audit-trail (pull request #49)</span>
+            <span class='commit-author'>Arti Narayan Chaple</span>
+            <span class='commit-time'>3 hours ago</span>
+          </li>
+        
+          <li class='commit-item'>
+            <span class='commit-hash'>fe4189c</span>
+            <span class='commit-msg'>Merged main into feature/GX1002-255-feat-implement-audit-trail</span>
+            <span class='commit-author'>GrepX Support</span>
+            <span class='commit-time'>4 hours ago</span>
+          </li>
+        
+          <li class='commit-item'>
+            <span class='commit-hash'>a5eaa1f</span>
+            <span class='commit-msg'>added the chnages for  showing the status cycle correctly</span>
+            <span class='commit-author'>Arti_chaple</span>
+            <span class='commit-time'>5 hours ago</span>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+  
+</div>
+
+<script>
+  function toggleSection(el) {
+    el.classList.toggle('active');
+    const content = el.nextElementSibling;
+    content.classList.toggle('active');
+  }
+  
+  // Auto-expand all sections
+  document.querySelectorAll('.collapsible').forEach(el => {
+    el.click();
+  });
+  
+  // Animate progress bars on load
+  setTimeout(() => {
+    document.querySelectorAll('.progress-fill').forEach(bar => {
+      bar.style.width = bar.style.width;
+    });
+  }, 100);
+</script>
+</body></html>
