@@ -1,0 +1,12 @@
+#############################################
+# Frontend Repository-Specific Installation
+#############################################
+
+# Install PM2 globally
+sudo npm install -g pm2
+
+# Install Node.js dependencies
+npm install
+
+# Build the Next.js application
+npm run build

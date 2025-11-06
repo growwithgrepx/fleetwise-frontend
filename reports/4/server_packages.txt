@@ -1,0 +1,10 @@
+#############################################
+# Frontend Server-Level Packages
+#############################################
+nodejs
+build-essential
+nginx
+git
+curl
+wget
+rsync
