@@ -141,7 +141,9 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
                   value={
                     <div className="flex flex-col">
                       <span>S$ {normalized.jobCost.toFixed(2)}</span>
-                      <span className="text-xs text-blue-400">from contractor pricing</span>
+                      {normalized.job.contractor_id && (
+                        <span className="text-xs text-blue-400">from contractor pricing</span>
+                      )}
                     </div>
                   } 
                 />

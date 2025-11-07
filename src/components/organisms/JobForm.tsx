@@ -1793,30 +1793,58 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
   // Auto-calculate contractor claim based on service, vehicle type, and contractor
   useEffect(() => {
-    // Only auto-calculate if we have all required fields
-    if (!formData.service_id || !formData.vehicle_type_id || !formData.contractor_id) {
+    // Reset to undefined when no contractor (field becomes editable)
+    if (!formData.contractor_id) {
+      if (formData.job_cost !== undefined) {
+        setFormData(prev => ({ ...prev, job_cost: undefined }));
+      }
       return;
     }
-
+    // Reset to 0 when contractor selected but missing service/vehicle type
+    if (!formData.service_id || !formData.vehicle_type_id) {
+      if (formData.job_cost !== 0) {
+        setFormData(prev => ({ ...prev, job_cost: 0 }));
+      }
+      return;
+    }
+    // Check if pricing data is available
+    if (!contractorPricing || contractorPricing.length === 0) {
+      console.warn('[Contractor Claim Auto-Calculation] No pricing matrix loaded for contractor', {
+        contractorId: formData.contractor_id,
+        serviceId: formData.service_id,
+        vehicleTypeId: formData.vehicle_type_id
+      });
+      if (formData.job_cost !== 0) {
+        setFormData(prev => ({ ...prev, job_cost: 0 }));
+      }
+      return;
+    }
     // Find the matching pricing from contractorPricing array
-    const matchingPricing = (contractorPricing || []).find((pricing: any) => {
+    const matchingPricing = contractorPricing.find((pricing: any) => {
       return (
         Number(pricing.service_id) === Number(formData.service_id) &&
         Number(pricing.vehicle_type_id) === Number(formData.vehicle_type_id)
       );
     });
-
     // Calculate the claim amount
     const claimAmount = matchingPricing && matchingPricing.cost !== undefined 
       ? Number(matchingPricing.cost) 
       : 0;
-
-    // Update the job_cost field
-    setFormData(prev => ({
-      ...prev,
-      job_cost: claimAmount
-    }));
-
+    // Log when no matching pricing found (different from no data loaded)
+    if (!matchingPricing) {
+      console.info('[Contractor Claim Auto-Calculation] No pricing found for combination', {
+        serviceId: formData.service_id,
+        vehicleTypeId: formData.vehicle_type_id,
+        contractorId: formData.contractor_id
+      });
+    }
+    // Update the job_cost field only if it's different
+    if (formData.job_cost !== claimAmount) {
+      setFormData(prev => ({
+        ...prev,
+        job_cost: claimAmount
+      }));
+    }
     console.log('[Contractor Claim Auto-Calculation]', {
       serviceId: formData.service_id,
       vehicleTypeId: formData.vehicle_type_id,
@@ -1824,7 +1852,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       matchingPricing,
       claimAmount
     });
-  }, [formData.service_id, formData.vehicle_type_id, formData.contractor_id, contractorPricing]);
+  }, [formData.service_id, formData.vehicle_type_id, formData.contractor_id, contractorPricing, formData.job_cost]);
 
   // Validate form
   const validateForm = (): boolean => {
@@ -3208,14 +3236,15 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                     <div className="relative">
                       <input
                         type="number"
-                        value={safeNumber(formData.job_cost) || ''}
-                        onChange={(e) => {
-                          handleInputChange('job_cost', e.target.value);
+                        value={formData.job_cost !== undefined ? formData.job_cost : ''}
+                        onChange={formData.contractor_id ? undefined : (e) => {
+                          const value = e.target.value === '' ? undefined : Number(e.target.value);
+                          handleInputChange('job_cost', value);
                         }}
                         step="0.01"
                         min={0}
                         placeholder="0.00"
-                        readOnly={!!formData.contractor_id} // Read-only when contractor is selected
+                        readOnly={!!formData.contractor_id}
                         className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                           formData.contractor_id ? 'bg-gray-600 cursor-not-allowed' : ''
                         }`}
