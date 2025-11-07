@@ -423,28 +423,22 @@ export default function ExcelUploadTable({
         }
       }
 
-      // Vehicle and Driver validation based on user role
-      // For admin users, vehicle and driver are required
-      // For customer users, vehicle and driver are optional
-      if (userRole !== 'customer') {
-        if (isEmpty(dataToValidate.vehicle_id) || isEmpty(dataToValidate.vehicle)) {
-          errors.push('Vehicle is required');
-        } else {
-          // Validate that vehicle_id exists in reference data
-          const vehicleExists = referenceData.vehicles.some(v => v.id === dataToValidate.vehicle_id);
-          if (!vehicleExists) {
-            errors.push('Invalid vehicle selected');
-          }
+      // Vehicle and Driver validation
+      // For all users, vehicle and driver are optional
+      // If provided, validate that they exist in reference data
+      if (!isEmpty(dataToValidate.vehicle_id) || !isEmpty(dataToValidate.vehicle)) {
+        // Vehicle provided - validate it exists
+        const vehicleExists = referenceData.vehicles.some(v => v.id === dataToValidate.vehicle_id);
+        if (!vehicleExists) {
+          errors.push('Invalid vehicle selected');
         }
+      }
 
-        if (isEmpty(dataToValidate.driver_id) || isEmpty(dataToValidate.driver)) {
-          errors.push('Driver is required');
-        } else {
-          // Validate that driver_id exists in reference data
-          const driverExists = referenceData.drivers.some(d => d.id === dataToValidate.driver_id);
-          if (!driverExists) {
-            errors.push('Invalid driver selected');
-          }
+      if (!isEmpty(dataToValidate.driver_id) || !isEmpty(dataToValidate.driver)) {
+        // Driver provided - validate it exists
+        const driverExists = referenceData.drivers.some(d => d.id === dataToValidate.driver_id);
+        if (!driverExists) {
+          errors.push('Invalid driver selected');
         }
       }
 
@@ -1156,7 +1150,11 @@ function RowItem({
               <div className="col-span-2">
                 <div className="flex items-start space-x-2 text-red-600">
                   <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                  <span className="text-sm">{row.error_message}</span>
+                  <div className="text-sm">
+                    {row.error_message.split(';').map((error, idx) => (
+                      <div key={idx}>{error.trim()}</div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
