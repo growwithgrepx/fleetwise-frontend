@@ -223,6 +223,7 @@ export interface NormalizedJobDisplay {
   // Pricing
   basePrice: number;
   finalPrice?: number;
+  jobCost?: number;
 
   // Original job data for other fields
   job: Job;

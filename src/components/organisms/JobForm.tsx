@@ -1791,6 +1791,41 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     }
   }, [contractorPricing, formData.contractor_id, formData.service_type, formData.service_id, userModifiedPricing, job, refetchPricing]);
 
+  // Auto-calculate contractor claim based on service, vehicle type, and contractor
+  useEffect(() => {
+    // Only auto-calculate if we have all required fields
+    if (!formData.service_id || !formData.vehicle_type_id || !formData.contractor_id) {
+      return;
+    }
+
+    // Find the matching pricing from contractorPricing array
+    const matchingPricing = (contractorPricing || []).find((pricing: any) => {
+      return (
+        Number(pricing.service_id) === Number(formData.service_id) &&
+        Number(pricing.vehicle_type_id) === Number(formData.vehicle_type_id)
+      );
+    });
+
+    // Calculate the claim amount
+    const claimAmount = matchingPricing && matchingPricing.cost !== undefined 
+      ? Number(matchingPricing.cost) 
+      : 0;
+
+    // Update the job_cost field
+    setFormData(prev => ({
+      ...prev,
+      job_cost: claimAmount
+    }));
+
+    console.log('[Contractor Claim Auto-Calculation]', {
+      serviceId: formData.service_id,
+      vehicleTypeId: formData.vehicle_type_id,
+      contractorId: formData.contractor_id,
+      matchingPricing,
+      claimAmount
+    });
+  }, [formData.service_id, formData.vehicle_type_id, formData.contractor_id, contractorPricing]);
+
   // Validate form
   const validateForm = (): boolean => {
     console.log('[JobForm] Starting validation');
@@ -3165,26 +3200,63 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                 </h2>
                 
                 <div className="space-y-4">
-                  {/* Job Cost (Contractor's Claim) - Editable */}
+                  {/* Job Cost (Contractor's Claim) - Auto-calculated when contractor is selected */}
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-300">
                       Contractor/Driver&apos;s Claim
                     </label>
-                    <input
-                      type="number"
-                      value={safeNumber(formData.job_cost) || ''}
-                      onChange={(e) => {
-                        handleInputChange('job_cost', e.target.value);
-                      }}
-                      step="0.01"
-                      min={0}
-                      placeholder="0.00"
-                      className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    {formData.contractor_id && contractorPricing && contractorPricing.length > 0 && (
-                      <p className="text-xs text-blue-300">
-                        Auto-populated from contractor pricing
-                      </p>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={safeNumber(formData.job_cost) || ''}
+                        onChange={(e) => {
+                          handleInputChange('job_cost', e.target.value);
+                        }}
+                        step="0.01"
+                        min={0}
+                        placeholder="0.00"
+                        readOnly={!!formData.contractor_id} // Read-only when contractor is selected
+                        className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                          formData.contractor_id ? 'bg-gray-600 cursor-not-allowed' : ''
+                        }`}
+                      />
+                      {formData.contractor_id && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center">
+                          <svg 
+                            className="w-5 h-5 text-gray-400" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={2} 
+                              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" 
+                            />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    {formData.contractor_id && (
+                      <div className="flex items-center mt-1">
+                        <svg 
+                          className="w-4 h-4 text-blue-400 mr-1" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2} 
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                          />
+                        </svg>
+                        <p className="text-xs text-blue-300">
+                          Auto-calculated from contractor pricing
+                        </p>
+                      </div>
                     )}
                   </div>
                   
