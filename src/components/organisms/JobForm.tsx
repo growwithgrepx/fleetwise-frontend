@@ -1852,7 +1852,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       matchingPricing,
       claimAmount
     });
-  }, [formData.service_id, formData.vehicle_type_id, formData.contractor_id, contractorPricing, formData.job_cost]);
+  }, [formData.service_id, formData.vehicle_type_id, formData.contractor_id, contractorPricing]);
 
   // Validate form
   const validateForm = (): boolean => {
