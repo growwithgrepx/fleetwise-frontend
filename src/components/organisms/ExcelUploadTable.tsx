@@ -425,22 +425,34 @@ export default function ExcelUploadTable({
 
       // Vehicle and Driver validation
       // For all users, vehicle and driver are optional
-      // If provided, validate that they exist in reference data
-      if (!isEmpty(dataToValidate.vehicle_id) || !isEmpty(dataToValidate.vehicle)) {
-        // Vehicle provided - validate it exists
+      // If provided, both ID and name must be present (atomic validation)
+      const hasVehicleId = !isEmpty(dataToValidate.vehicle_id);
+      const hasVehicleName = !isEmpty(dataToValidate.vehicle);
+      if (hasVehicleId && hasVehicleName) {
+        // Both provided - validate vehicle_id exists in reference data
         const vehicleExists = referenceData.vehicles.some(v => v.id === dataToValidate.vehicle_id);
         if (!vehicleExists) {
           errors.push('Invalid vehicle selected');
         }
+      } else if (hasVehicleId || hasVehicleName) {
+        // Only one provided - incomplete vehicle information
+        errors.push('Vehicle information is incomplete. Please provide both vehicle name and ID.');
       }
+      // If both empty, it's optional - no error
 
-      if (!isEmpty(dataToValidate.driver_id) || !isEmpty(dataToValidate.driver)) {
-        // Driver provided - validate it exists
+      const hasDriverId = !isEmpty(dataToValidate.driver_id);
+      const hasDriverName = !isEmpty(dataToValidate.driver);
+      if (hasDriverId && hasDriverName) {
+        // Both provided - validate driver_id exists in reference data
         const driverExists = referenceData.drivers.some(d => d.id === dataToValidate.driver_id);
         if (!driverExists) {
           errors.push('Invalid driver selected');
         }
+      } else if (hasDriverId || hasDriverName) {
+        // Only one provided - incomplete driver information
+        errors.push('Driver information is incomplete. Please provide both driver name and ID.');
       }
+      // If both empty, it's optional - no error
 
       if (isEmpty(dataToValidate.pickup_date)) {
         errors.push('Pickup date is required');
@@ -1146,14 +1158,24 @@ function RowItem({
                 <span className="ml-2 text-text-main">{row.remarks}</span>
               </div>
             )}
-            {!row.is_valid && row.error_message && (
+            {!row.is_valid && (
               <div className="col-span-2">
                 <div className="flex items-start space-x-2 text-red-600">
                   <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
                   <div className="text-sm">
-                    {row.error_message.split(';').map((error, idx) => (
-                      <div key={idx}>{error.trim()}</div>
-                    ))}
+                    {row.error_message ? (
+                      row.error_message.includes(';') ? (
+                        // Multiple errors - split and render each on new line
+                        row.error_message.split(';').map((error, idx) => (
+                          <div key={idx}>{error.trim()}</div>
+                        ))
+                      ) : (
+                        // Single error - render directly without extra div
+                        <div>{row.error_message}</div>
+                      )
+                    ) : (
+                      <div>Unknown error</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1500,7 +1522,7 @@ function EditForm({
           {userRole !== 'customer' && (
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Vehicle <span className="text-red-500">*</span>
+                Vehicle
               </label>
               {isLoadingReferenceData ? (
                 <div className="w-full px-3 py-2 border border-border-color rounded-md">
@@ -1534,7 +1556,7 @@ function EditForm({
           {userRole !== 'customer' && (
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Driver <span className="text-red-500">*</span>
+                Driver
               </label>
               {isLoadingReferenceData ? (
                 <div className="w-full px-3 py-2 border border-border-color rounded-md">
