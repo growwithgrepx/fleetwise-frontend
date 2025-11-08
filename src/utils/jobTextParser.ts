@@ -28,12 +28,18 @@ export function parseJobText(text: string): ParseResult {
     // Define field mappings
     const fieldMappings: Record<string, keyof JobFormData> = {
       'customer account': 'customer_name',
+      'booking reference': 'booking_ref',
       'sixt booking reference': 'booking_ref',
       'type of vehicle': 'vehicle_type',
       'pick up location': 'pickup_location',
+      'pickup location': 'pickup_location',
       'drop off location': 'dropoff_location',
       'drop-off location': 'dropoff_location',
-      'service type': 'service_type'
+      'dropoff location': 'dropoff_location',
+      'service type': 'service_type',
+      'passenger email': 'passenger_email',
+      'customer email': 'customer_email',
+      'customer mobile': 'customer_mobile'
     };
 
     // Process each line
@@ -64,6 +70,21 @@ export function parseJobText(text: string): ParseResult {
         } else if (key.includes('contractor') || key.includes('assigned to')) {
           // Store contractor name for later mapping
           (parsedData as any).contractor_name = value;
+        } else if (key.includes('number of passengers')) {
+          // Parse number of passengers
+          const num = parseInt(value, 10);
+          if (!isNaN(num)) {
+            // Could be used for validation, stored for reference
+          }
+        } else if (key.includes('toddler seat') || key.includes('infant seat')) {
+          // Parse seat requirements into remarks
+          remarks.push(`${keyPart}: ${value}`);
+        } else if (key.includes('do address note') || key.includes('address note')) {
+          // Additional location notes
+          (parsedData as any).dropoff_note = value;
+        } else if (key.includes('special remarks')) {
+          // Special remarks
+          remarks.push(`Special Remarks: ${value}`);
         } else {
           // Handle standard field mappings
           const fieldKey = Object.keys(fieldMappings).find(k => key.includes(k));
@@ -91,9 +112,9 @@ export function parseJobText(text: string): ParseResult {
       remarks.unshift(`Flight Details: ${flightDetails}`);
     }
 
-    // Combine remarks into a single field
+    // Combine remarks into customer_remark field (used by backend)
     if (remarks.length > 0) {
-      parsedData.remarks = remarks.join('\n');
+      parsedData.customer_remark = remarks.join('\n');
     }
 
     console.log('[jobTextParser] Parsed data:', parsedData);

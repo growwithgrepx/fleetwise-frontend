@@ -127,31 +127,31 @@ export function ContractorPricingMatrixTable({ contractorId }: ContractorPricing
     // Default to 0 if not found
     return 0;
   };
-  
+
   // Handle saving all changes
   const handleSaveAll = async () => {
     setIsSaving(true);
-    
+
     try {
       // Collect all changes
       const changes: { serviceId: number; vehicleTypeId: number; cost: number }[] = [];
-      
+
       console.log('=== Starting save process ===');
       console.log('Current editedCosts:', editedCosts);
       console.log('Current pricingMatrix:', pricingMatrix);
-      
+
       pricingMatrix.forEach(row => {
         row.pricing.forEach(pricing => {
           const key = `${pricing.service_id}-${pricing.vehicle_type_id}`;
           const currentCostValue = editedCosts[key];
-          
+
           const currentCostNumber = currentCostValue !== undefined
             ? (typeof currentCostValue === 'number' ? currentCostValue : parseFloat(currentCostValue) || 0)
             : pricing.cost;
-          
+
           // Debug log
           console.log(`Comparing ${key}: currentCostNumber=${currentCostNumber}, pricing.cost=${pricing.cost}`);
-          
+
           // Only save if user edited AND value changed (with epsilon for float comparison)
           const hasChanged = Math.abs(currentCostNumber - pricing.cost) > 0.001;
           if (currentCostValue !== undefined && hasChanged) {
@@ -165,17 +165,17 @@ export function ContractorPricingMatrixTable({ contractorId }: ContractorPricing
           }
         });
       });
-      
+
       // Debug log
       console.log('Changes to save:', changes);
-      
+
       if (changes.length === 0) {
         console.log('No changes to save');
         toast.success('No changes to save');
         setIsSaving(false);
         return;
       }
-      
+
       // Apply all changes
       for (const change of changes) {
         console.log('Saving change:', change);
@@ -185,16 +185,16 @@ export function ContractorPricingMatrixTable({ contractorId }: ContractorPricing
           cost: change.cost
         });
       }
-      
+
       // Refresh the data to reflect the changes
       const { data: newData } = await refetch();
-      
+
       // Reset the initialization state so edited costs will be reinitialized with new data
       setIsInitialized(false);
-      
+
       // Also reset edited costs to force reinitialization
       setEditedCosts({});
-      
+
       toast.success('All pricing updated successfully');
       console.log('=== Save process completed ===');
     } catch (error: any) {
@@ -204,7 +204,7 @@ export function ContractorPricingMatrixTable({ contractorId }: ContractorPricing
       setIsSaving(false);
     }
   };
-  
+
   if (isLoading) {
     return <div>Loading pricing data...</div>;
   }
@@ -236,7 +236,7 @@ export function ContractorPricingMatrixTable({ contractorId }: ContractorPricing
           {isSaving || updatePricingMutation.isPending ? 'Saving...' : 'Save All'}
         </Button>
       </div>
-      
+
       <div className="overflow-x-auto w-full">
         <table className="min-w-full divide-y divide-gray-700">
           <thead className="bg-gray-800">

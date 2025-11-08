@@ -5,8 +5,13 @@ import type { ApiJob } from '@/types/job';
 type VehicleType = string | { name: string };
 
 // Add type guard helper functions
-function hasReference(job: Job | ApiJob): job is Job & { reference: string } {
-  return 'reference' in job && typeof job.reference === 'string' && job.reference.length > 0;
+function hasReference(job: Job | ApiJob): boolean {
+  const bookingRef = (job as any).booking_ref || (job as any).reference;
+  return typeof bookingRef === 'string' && bookingRef.length > 0;
+}
+
+function getBookingRef(job: Job | ApiJob): string | undefined {
+  return (job as any).booking_ref || (job as any).reference;
 }
 
 function getDriverNotes(job: Job | ApiJob): string | undefined {
@@ -27,6 +32,9 @@ function getDriverNotes(job: Job | ApiJob): string | undefined {
 export function generateJobSummary(job: Job | ApiJob): string {
   const lines: string[] = [];
 
+  // BOOKING DETAILS section header
+  lines.push('BOOKING DETAILS');
+
   // Customer Account
   if (job.customer?.name) {
     lines.push(`Customer Account: ${job.customer.name}`);
@@ -34,13 +42,21 @@ export function generateJobSummary(job: Job | ApiJob): string {
 
   // SIXT Booking Reference
   if (hasReference(job)) {
-    lines.push(`SIXT Booking Reference: ${job.reference}`);
+    const bookingRef = getBookingRef(job);
+    if (bookingRef) {
+      lines.push(`SIXT Booking Reference: ${bookingRef}`);
+    }
+  }
+
+  // Service Type
+  if ((job as any).service_type) {
+    lines.push(`Service Type: ${(job as any).service_type}`);
   }
 
   // Type of vehicle
   if (job.vehicle_type) {
-    const vehicleType = typeof job.vehicle_type === 'object' && (job.vehicle_type as { name: string }).name 
-      ? (job.vehicle_type as { name: string }).name 
+    const vehicleType = typeof job.vehicle_type === 'object' && (job.vehicle_type as { name: string }).name
+      ? (job.vehicle_type as { name: string }).name
       : job.vehicle_type as string;
     lines.push(`Type of vehicle: ${vehicleType}`);
   }
@@ -71,12 +87,12 @@ export function generateJobSummary(job: Job | ApiJob): string {
   if (job.passenger_mobile) {
     passengerDetails.push(job.passenger_mobile);
   }
-  
+
   if (passengerDetails.length > 0) {
     lines.push(`Passenger Details: ${passengerDetails.join(', ')}`);
   }
 
-  // Driver Notes
+  // Driver Notes (from customer_remark or remarks)
   const driverNotes = getDriverNotes(job);
   if (driverNotes) {
     lines.push(`Driver Notes: ${driverNotes}`);

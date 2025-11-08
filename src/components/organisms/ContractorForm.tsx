@@ -265,11 +265,12 @@ export function ContractorForm({
           type="button"
           variant="secondary"
           onClick={() => window.history.back()}
+          className="flex items-center"
         >
           <ArrowLeft className="h-4 w-4" />
           <span className="ml-2">Back</span>
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting} className="flex items-center">
           {isSubmitting ? (
             <>
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>

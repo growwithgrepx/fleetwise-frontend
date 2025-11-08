@@ -1260,6 +1260,9 @@ export default function SettingsPage() {
                               Role
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                              Linked To
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                               Status
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -1279,9 +1282,14 @@ export default function SettingsPage() {
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-gray-300">
+                                  {user.driver ? user.driver.name : user.customer ? user.customer.name : 'N/A'}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                  user.active 
-                                    ? 'bg-green-900 text-green-200' 
+                                  user.active
+                                    ? 'bg-green-900 text-green-200'
                                     : 'bg-red-900 text-red-200'
                                 }`}>
                                   {user.active ? 'Active' : 'Inactive'}
