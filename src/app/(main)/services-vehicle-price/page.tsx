@@ -24,7 +24,7 @@ interface GroupedServiceData {
   id: number; // service_id
   service_id: number;
   service_name: string;
-  vehicle_types_count: number;
+  status: string;
 }
 
 export default function ServicesVehiclePricePage() {
@@ -42,28 +42,16 @@ export default function ServicesVehiclePricePage() {
 
   // Group services vehicle type prices by service and include services without pricing
   const groupedServiceData = React.useMemo(() => {
-    // Create a map of service_id to unique vehicle_type_id entries
-    const pricingMap: Record<number, Set<number>> = {};
-    
-    servicesVehicleTypePrice.forEach(item => {
-      if (!pricingMap[item.service_id]) {
-        pricingMap[item.service_id] = new Set<number>();
-      }
-      // Add vehicle_type_id to the set to ensure uniqueness
-      pricingMap[item.service_id].add(item.vehicle_type_id);
-    });
-
     // Map all services to include those without pricing entries
     return services.map(service => {
-      const vehicleTypesForService = pricingMap[service.id] || new Set<number>();
       return {
         id: service.id,
         service_id: service.id,
         service_name: service.name,
-        vehicle_types_count: vehicleTypesForService.size
+        status: service.status
       };
     });
-  }, [servicesVehicleTypePrice, services]);
+  }, [services]);
 
   const handleDelete = (id: string | number) => {
     // For grouped data, we need to delete all pricing entries for this service
@@ -126,9 +114,17 @@ export default function ServicesVehiclePricePage() {
       render: (row: GroupedServiceData) => row.service_name
     },
     {
-      accessor: 'vehicle_types_count',
-      label: 'Vehicle Types Count',
-      render: (row: GroupedServiceData) => row.vehicle_types_count
+      accessor: 'status',
+      label: 'Status',
+      render: (row: GroupedServiceData) => (
+        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+          row.status === 'Active'
+            ? 'bg-green-900 text-green-200'
+            : 'bg-red-900 text-red-200'
+        }`}>
+          {row.status}
+        </span>
+      )
     }
   ];
 

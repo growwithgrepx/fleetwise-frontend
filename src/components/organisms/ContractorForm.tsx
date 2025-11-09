@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Save, ArrowLeft } from 'lucide-react';
 import PhoneInput from '@/components/molecules/PhoneInput';
 
-import { ContractorPricingMatrixTable } from '@/components/organisms/ContractorPricingMatrixTable';
+import { ContractorPricingMatrixTable, ContractorPricingMatrixTableHandle } from '@/components/organisms/ContractorPricingMatrixTable';
 import { ContractorPricingMatrixTableForCreation } from '@/components/organisms/ContractorPricingMatrixTableForCreation';
 import { FormSection } from '@/components/molecules/FormSection';
 import { FormField } from '@/components/molecules/FormField';
@@ -67,8 +67,9 @@ export function ContractorForm({
   const { data: services = [], isLoading: isServicesLoading } = useGetAllServices();
   const { data: vehicleTypes = [], isLoading: isVehicleTypesLoading } = useGetAllVehicleTypes();
   const [pricingDataForCreation, setPricingDataForCreation] = useState<{ service_id: number; vehicle_type_id: number; cost: number }[]>([]);
+  const pricingTableRef = useRef<ContractorPricingMatrixTableHandle>(null);
 
-  
+
   const {
     control,
     handleSubmit,
@@ -99,7 +100,7 @@ export function ContractorForm({
           toast.error(`Costs must be non-negative for: ${errors.join(', ')}`);
           return;
         }
-        
+
         // Create contractor with pricing data
         const contractorData = {
             name: data.name?.trim() || "",
@@ -109,19 +110,19 @@ export function ContractorForm({
             status: data.status || "Active",
             pricing_data: pricingDataForCreation
           };
-          
+
           await onSubmit(contractorData);
           toast.success("Contractor created successfully with pricing!");
       } else {
         // For existing contractors, update details first
         const result = await onSubmit(data);
-        
-        // Then handle pricing if we have a contractor ID and services
+
+        // Then save pricing changes if we have a contractor ID and services
         const contractorId = initialData?.id;
-        if (services.length > 0 && contractorId) {
-          // For edit mode, we're using the ContractorPricingMatrixTable component
-          // which handles its own state management, so we don't need to update pricing here
-          toast.success("Contractor details updated. Remember to save pricing changes separately.");
+        if (services.length > 0 && contractorId && pricingTableRef.current) {
+          // Call the pricing save function from the pricing table component
+          await pricingTableRef.current.saveAllPricing();
+          toast.success("Contractor and pricing updated successfully!");
         }
       }
     } catch (err) {
@@ -242,46 +243,37 @@ export function ContractorForm({
 
         <FormSection title="Service Pricing">
           <div className="space-y-4">
-            <p className="text-gray-300">
-              Set the initial pricing for each service and vehicle type combination. You can modify these prices later.
-            </p>
+            <div className="flex justify-between items-center">
+              <p className="text-gray-300">
+                Set the initial pricing for each service and vehicle type combination. You can modify these prices later.
+              </p>
+              <Button type="submit" disabled={isSubmitting} className="flex items-center">
+                {isSubmitting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                    <span className="ml-2">Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    <span className="ml-2">{submitButtonText}</span>
+                  </>
+                )}
+              </Button>
+            </div>
             {mode === 'create' ? (
-              <ContractorPricingMatrixTableForCreation 
-                services={services} 
-                vehicleTypes={vehicleTypes} 
+              <ContractorPricingMatrixTableForCreation
+                services={services}
+                vehicleTypes={vehicleTypes}
                 onPricingChange={setPricingDataForCreation}
               />
             ) : initialData?.id ? (
-              <ContractorPricingMatrixTable contractorId={initialData.id} />
+              <ContractorPricingMatrixTable ref={pricingTableRef} contractorId={initialData.id} />
             ) : (
               <div className="text-gray-400">Loading contractor pricing...</div>
             )}
           </div>
         </FormSection>
-      </div>
-
-      <div className="flex justify-end mt-8 gap-3">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => window.history.back()}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span className="ml-2">Back</span>
-        </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? (
-            <>
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-              <span className="ml-2">Saving...</span>
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4" />
-              <span className="ml-2">{submitButtonText}</span>
-            </>
-          )}
-        </Button>
       </div>
     </form>
   );

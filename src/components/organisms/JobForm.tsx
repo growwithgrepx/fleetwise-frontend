@@ -891,7 +891,14 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       setFormData(prev => ({ ...prev, customer_id: fuzzyMatchedCustomerId }));
     }
   }, [matchedCustomerId, fuzzyMatchedCustomerId, formData.customer_id]);
-  
+
+  // Reset mapping flag when initialData changes (new job is being parsed)
+  useEffect(() => {
+    if (props.initialData && !job?.id) {
+      mappingDoneRef.current = false;
+    }
+  }, [props.initialData, job?.id]);
+
   useEffect(() => {
     const isTextParsedJob = props.initialData && !job?.id && !mappingDoneRef.current;
     
@@ -1030,13 +1037,13 @@ const JobForm: React.FC<JobFormProps> = (props) => {
           .replace(/\s+/g, ' ') // Replace multiple spaces with single space
           .trim();
       };
-      
+
       const normalizedVehicleTypeName = normalizeName(formData.vehicle_type);
-      
-      const matchingVehicleType = allVehicleTypes.find(vt => 
+
+      const matchingVehicleType = allVehicleTypes.find(vt =>
         normalizeName(vt.name) === normalizedVehicleTypeName
       );
-      
+
       if (matchingVehicleType) {
         setFormData(prev => ({
           ...prev,
@@ -1044,10 +1051,90 @@ const JobForm: React.FC<JobFormProps> = (props) => {
         }));
       }
     }
-    
+
+    // Map driver name to driver ID
+    if ((props.initialData as any)?.driver_name && (!formData.driver_id || formData.driver_id === 0)) {
+      // Normalize driver names for comparison
+      const normalizeName = (name: string) => {
+        return name
+          .toLowerCase()
+          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+          .trim();
+      };
+
+      const normalizedDriverName = normalizeName((props.initialData as any)?.driver_name);
+      console.log('[JobForm] Attempting to map driver:', {
+        inputName: (props.initialData as any)?.driver_name,
+        normalizedInputName: normalizedDriverName,
+        availableDrivers: allDrivers?.map(d => ({ id: d.id, name: d.name, normalized: normalizeName(d.name || '') })) || [],
+        allDriversLength: allDrivers?.length || 0
+      });
+
+      // Check if we have drivers available
+      if (allDrivers && allDrivers.length > 0) {
+        const matchingDriver = allDrivers.find(d =>
+          normalizeName(d.name || '') === normalizedDriverName
+        );
+
+        if (matchingDriver) {
+          console.log('[JobForm] Found matching driver:', matchingDriver);
+          setFormData(prev => ({
+            ...prev,
+            driver_id: matchingDriver.id
+          }));
+        } else {
+          console.log('[JobForm] No matching driver found for:', (props.initialData as any)?.driver_name, {
+            looking_for: normalizedDriverName
+          });
+        }
+      } else {
+        console.log('[JobForm] No drivers available yet', { allDriversLength: allDrivers?.length });
+      }
+    }
+
+    // Map vehicle name to vehicle ID
+    if ((props.initialData as any)?.vehicle_name && (!formData.vehicle_id || formData.vehicle_id === 0)) {
+      // Normalize vehicle names for comparison
+      const normalizeName = (name: string) => {
+        return name
+          .toLowerCase()
+          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+          .trim();
+      };
+
+      const normalizedVehicleName = normalizeName((props.initialData as any)?.vehicle_name);
+      console.log('[JobForm] Attempting to map vehicle:', {
+        inputName: (props.initialData as any)?.vehicle_name,
+        normalizedInputName: normalizedVehicleName,
+        availableVehicles: allVehicles?.map(v => ({ id: v.id, name: v.name, normalized: normalizeName(v.name || '') })) || [],
+        allVehiclesLength: allVehicles?.length || 0
+      });
+
+      // Check if we have vehicles available
+      if (allVehicles && allVehicles.length > 0) {
+        const matchingVehicle = allVehicles.find(v =>
+          normalizeName(v.name || '') === normalizedVehicleName
+        );
+
+        if (matchingVehicle) {
+          console.log('[JobForm] Found matching vehicle:', matchingVehicle);
+          setFormData(prev => ({
+            ...prev,
+            vehicle_id: matchingVehicle.id
+          }));
+        } else {
+          console.log('[JobForm] No matching vehicle found for:', (props.initialData as any)?.vehicle_name, {
+            looking_for: normalizedVehicleName
+          });
+        }
+      } else {
+        console.log('[JobForm] No vehicles available yet', { allVehiclesLength: allVehicles?.length });
+      }
+    }
+
     // Mark mapping as done to prevent re-running
     mappingDoneRef.current = true;
-  }, [props.initialData, job?.id]); // Only essential deps
+  }, [props.initialData, job?.id, allDrivers, allVehicles]); // Include data arrays to re-run when they load
   
   // Reset toast state when component unmounts
   useEffect(() => {
