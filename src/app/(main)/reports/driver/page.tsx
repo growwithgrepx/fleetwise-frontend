@@ -161,21 +161,22 @@ export default function DriverJobHistoryReport() {
         jobsToExport = response.data.items;
       }
       
-      // Transform data for CSV
+      // Transform data for CSV to match the exact column structure
       const csvData = jobsToExport.map((job: any) => ({
-        "Job ID": job.id,
-        "Customer": job.customer_name,
-        "Contractor": job.contractor?.name || "",
+        "Date": job.pickup_date || "",
+        "Customer Ref. No.": job.booking_ref || "",
+        "Time Start": job.pickup_time || "",
+        "Time End": job.end_time || "",
+        "Description (Line 1)": job.pickup_location || "",
+        "Veh Type": job.vehicle_type_name || job.vehicle?.type || "",
+        "Veh No.": job.vehicle_number || job.vehicle?.number || "",
         "Driver": job.driver?.name || "",
-        "Pickup Date": job.pickup_date,
-        "Pickup Location": job.pickup_location,
-        "Dropoff Location": job.dropoff_location,
-        "Status": job.status,
-        "Final Price": job.final_price?.toFixed(2) || "0.00",
-        "Job Cost": job.job_cost?.toFixed(2) || "0.00",
-        "Passenger Name": job.passenger_name,
-        "Passenger Mobile": job.passenger_mobile,
-        "Booking Ref": job.booking_ref,
+        "Contact": job.driver?.mobile || "",
+        "Flt Land": job.status === 'otw' ? 'Yes' : 'No',
+        "OTS": job.status === 'ots' ? 'Yes' : 'No',
+        "POB": job.status === 'pob' ? 'Yes' : 'No',
+        "JC": job.status === 'jc' ? 'Yes' : 'No',
+        "Remark": job.customer_remark || ""
       }));
       
       // Generate and download CSV
@@ -298,14 +299,14 @@ export default function DriverJobHistoryReport() {
             <Button
               onClick={handleClearFilters}
               variant="outline"
-              className="border-gray-500 text-gray-300 hover:bg-gray-700"
+              className="bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-90 transition-all border-none"
             >
-              <XIcon className="w-4 h-4 mr-2" />
+              <XIcon className="w-4 h-4" />
               Clear All
             </Button>
             <Button
               onClick={handleApplyFilters}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-90 transition-all"
             >
               Apply Filters
             </Button>
