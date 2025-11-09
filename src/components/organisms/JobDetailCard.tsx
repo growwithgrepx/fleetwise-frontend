@@ -131,7 +131,23 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
                   </div>
                 </>
               )}
-              <DetailItem label="Final Price" value={normalized.finalPrice !== undefined ? `S$ ${normalized.finalPrice.toFixed(2)}` : 'N/A'} />
+              <DetailItem 
+                label="Final Price" 
+                value={normalized.finalPrice !== undefined ? `S$ ${normalized.finalPrice.toFixed(2)}` : 'N/A'} 
+              />
+              {normalized.jobCost !== undefined && normalized.jobCost > 0 && (
+                <DetailItem 
+                  label="Contractor/Driver's Claim" 
+                  value={
+                    <div className="flex flex-col">
+                      <span>S$ {normalized.jobCost.toFixed(2)}</span>
+                      {normalized.job.contractor_id && (
+                        <span className="text-xs text-blue-400">from contractor pricing</span>
+                      )}
+                    </div>
+                  } 
+                />
+              )}
           </DetailSection>
 
           <DetailSection title="Assignment & Other">

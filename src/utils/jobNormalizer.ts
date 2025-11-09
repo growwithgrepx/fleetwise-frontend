@@ -67,6 +67,7 @@ export function normalizeJobForDisplay(apiJob: ApiJob): NormalizedJobDisplay {
     // Pricing
     basePrice: apiJob.base_price ?? 0,
     finalPrice: apiJob.final_price,
+    jobCost: apiJob.job_cost !== null && apiJob.job_cost !== undefined ? apiJob.job_cost : undefined,
 
     // Keep reference to original job for other fields
     job: apiJob,
