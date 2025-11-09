@@ -172,10 +172,10 @@ export default function DriverJobHistoryReport() {
         "Veh No.": job.vehicle_number || job.vehicle?.number || "",
         "Driver": job.driver?.name || "",
         "Contact": job.driver?.mobile || "",
-        "Flt Land": job.status === 'otw' ? 'Yes' : 'No',
-        "OTS": job.status === 'ots' ? 'Yes' : 'No',
-        "POB": job.status === 'pob' ? 'Yes' : 'No',
-        "JC": job.status === 'jc' ? 'Yes' : 'No',
+        "Flt Land": job.flt_lan_time || "",
+        "OTS": job.ots_time || "",
+        "POB": job.pob_time || "",
+        "JC": job.jc_time || "",
         "Remark": job.customer_remark || ""
       }));
       
