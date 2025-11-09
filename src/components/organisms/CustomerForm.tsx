@@ -229,7 +229,7 @@ useEffect(() => {
 <FormSection title="Customer Information">
   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
     <FormField
-      label="Customer Name *"
+      label="Customer Company Name *"
       error={(touchedFields.name || isSubmitted) && errors.name?.message}
     >
       <Controller
@@ -250,7 +250,7 @@ useEffect(() => {
 
     {/* Contact Person uses company_name */}
     <FormField
-      label="Company Name *"
+      label="Contact Person *"
       error={touchedFields.company_name && errors.company_name?.message}
     >
       <Controller
