@@ -110,12 +110,22 @@ export default function DriverJobHistoryReport() {
     { 
       label: "Customer Name", 
       accessor: "customer_name",
-      filterable: true,
+      filterable: false,
       stringLabel: "Customer Name"
+    },
+    { 
+      label: "Contractor Name", 
+      accessor: "contractor_name",
+      render: (row: any) => row.contractor?.name || ""
+    },
+    { 
+      label: "Driver Name", 
+      accessor: "driver_name",
+      render: (row: any) => row.driver?.name || ""
     },
     { label: "Pickup Location", accessor: "pickup_location" },
     { label: "Drop-off Location", accessor: "dropoff_location" },
-    { label: "Pickup Date |", accessor: "pickup_date" },
+    { label: "Pickup Date ", accessor: "pickup_date" },
   ];
   
   // Generate CSV report
@@ -152,9 +162,11 @@ export default function DriverJobHistoryReport() {
       }
       
       // Transform data for CSV
-      const csvData = jobsToExport.map((job: Job) => ({
+      const csvData = jobsToExport.map((job: any) => ({
         "Job ID": job.id,
         "Customer": job.customer_name,
+        "Contractor": job.contractor?.name || "",
+        "Driver": job.driver?.name || "",
         "Pickup Date": job.pickup_date,
         "Pickup Location": job.pickup_location,
         "Dropoff Location": job.dropoff_location,
