@@ -10,8 +10,13 @@ type CrudApi<T> = {
 };
 
 export function createCrudHooks<T>(api: CrudApi<T>) {
-  const useGetAllEntities = () =>
-    useQuery({ queryKey: api.queryKey, queryFn: api.getAll });
+  const useGetAllEntities = (options?: { enabled?: boolean }) =>
+  useQuery({
+    queryKey: api.queryKey,
+    queryFn: api.getAll,
+    enabled: options?.enabled ?? true,  // <— ensures it doesn’t run when disabled
+  });
+
 
   const useGetEntityById = (id: string | number) =>
     useQuery({

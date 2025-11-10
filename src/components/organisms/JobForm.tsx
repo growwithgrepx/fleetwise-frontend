@@ -8,7 +8,7 @@ import ExtraServicesList from '@/components/molecules/ExtraServicesList';
 import { Job, JobFormData, JobStatus, Location } from '@/types/job';
 import { useGetCustomerById } from '@/hooks/useCustomers';
 import { useGetAllVehicles } from '@/hooks/useVehicles';
-import { useGetAllDrivers } from '@/hooks/useDrivers';
+import { useGetAllDrivers, useGetDriverById } from '@/hooks/useDrivers';
 import { useGetAllCustomers } from '@/hooks/useCustomers';
 import { useGetAllServices } from '@/hooks/useServices';
 import { useGetAllVehicleTypes } from '@/hooks/useVehicleTypes';
@@ -33,6 +33,7 @@ import { useAddressLookup } from '@/hooks/useAddressLookup';
 import PhoneInput from '@/components/molecules/PhoneInput';
 import { useUser } from '@/context/UserContext';
 import { getUserRole } from '@/utils/roleUtils';
+import { useGetVehicleById } from '@/hooks/useVehicles';
 
 import { 
   createJob, 
@@ -196,6 +197,17 @@ const shouldLockField = (
     // Customers can only edit remarks in confirmed/otw/ots/pob
     return !editableFields.includes(field);
   }
+   if (role === "customer" && field === "customer_id" && ["new", "pending"].includes(status)) {
+    return true;
+  }
+  if (
+  role === "customer" &&
+  ["new", "pending"].includes(status)
+) {
+  const editableFields = ["customer_id"];
+  return editableFields.includes(field);
+}
+
 
   // 🧩 For driver/admin roles etc.
   // In these statuses, only allow editing of specific fields
@@ -210,7 +222,7 @@ const shouldLockField = (
     return !editableFields.includes(field);
   }
 
-  // 🚫 In these statuses, lock all fields
+  //  In these statuses, lock all fields
   const lockedStatuses: JobStatus[] = ["jc", "sd", "canceled"];
   return lockedStatuses.includes(status);
 };
@@ -469,16 +481,34 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   const role = getUserRole(user);
 
   // only fetch drivers for allowed roles
-  const isRoleAllowed = ["admin", "manager", "accountant", "customer"].includes(role);
+  
+  const isRoleAllowed = ["admin", "manager", "accountant"].includes(role);
 
-  const { data: allDriversRaw = [] } = useGetAllDrivers();
-  const allDrivers = isRoleAllowed ? allDriversRaw : [];
+// Always call hook — conditionally enabled
+const { data: allDriversRaw = [] } = useGetAllDrivers({
+  enabled: isRoleAllowed,
+});
 
+  
+  const { data: singleDriver } = useGetDriverById(formData.driver_id || 0);
 
+  // Determine driver list based on role
+  const allDrivers = role === "customer"
+  ? (singleDriver ? [singleDriver] : [])
+  : allDriversRaw;
+
+  const { data: allVehiclesRaw = [] } = useGetAllVehicles();
+  const { data: singleVehicle } = useGetVehicleById(formData.vehicle_id || 0);
+
+  console.log("[JobForm] singleVehicle:", singleVehicle);
+ const allVehicles = role === "customer"
+  ? singleVehicle? [singleVehicle] : []
+  : allVehiclesRaw;
+
+ 
   // Data hooks
   const { subCustomers } = useSubCustomers(job?.customer_id ?? 0);
   const { data: customer } = useGetCustomerById(job?.customer_id ?? "");
-  const { data: allVehicles = [] } = useGetAllVehicles();
   // const { data: allDrivers = [] } = useGetAllDrivers();
   const { data: allCustomers = [] } = useGetAllCustomers();
   const { data: allServices = [] } = useGetAllServices();
@@ -2519,7 +2549,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                       ...(allCustomers || []).map((c) => ({ value: c.id, label: c.name })),
                     ]}
                     className={fieldsLocked ? "opacity-75" : ""}
-                    disabled={fieldsLocked}
+                    disabled={isFieldLocked("customer_id")}
                   />
 		  {/* Customer Reference ID */}
                   <div className="space-y-2">
