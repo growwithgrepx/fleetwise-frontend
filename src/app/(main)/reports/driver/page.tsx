@@ -124,7 +124,7 @@ export default function DriverJobHistoryReport() {
       render: (row: any) => row.driver?.name || ""
     },
     { label: "Pickup Location", accessor: "pickup_location" },
-    { label: "Drop-off Location", accessor: "dropoff_location" },
+    { label: "Pickup Time", accessor: "pickup_time" },
     { label: "Pickup Date ", accessor: "pickup_date" },
   ];
   
