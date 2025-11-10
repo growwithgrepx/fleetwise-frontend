@@ -5,8 +5,13 @@ import type { ApiJob } from '@/types/job';
 type VehicleType = string | { name: string };
 
 // Add type guard helper functions
-function hasReference(job: Job | ApiJob): job is Job & { reference: string } {
-  return 'reference' in job && typeof job.reference === 'string' && job.reference.length > 0;
+function hasReference(job: Job | ApiJob): boolean {
+  const bookingRef = (job as any).booking_ref || (job as any).reference;
+  return typeof bookingRef === 'string' && bookingRef.length > 0;
+}
+
+function getBookingRef(job: Job | ApiJob): string | undefined {
+  return (job as any).booking_ref || (job as any).reference;
 }
 
 function getDriverNotes(job: Job | ApiJob): string | undefined {
@@ -27,22 +32,40 @@ function getDriverNotes(job: Job | ApiJob): string | undefined {
 export function generateJobSummary(job: Job | ApiJob): string {
   const lines: string[] = [];
 
+  // BOOKING DETAILS section header
+  lines.push('BOOKING DETAILS');
+
   // Customer Account
   if (job.customer?.name) {
     lines.push(`Customer Account: ${job.customer.name}`);
   }
 
-  // SIXT Booking Reference
+  // Customer Reference
   if (hasReference(job)) {
-    lines.push(`SIXT Booking Reference: ${job.reference}`);
+    const bookingRef = getBookingRef(job);
+    if (bookingRef) {
+      lines.push(`Customer Reference: ${bookingRef}`);
+    }
+  }
+
+  // Service Type
+  if ((job as any).service_type) {
+    lines.push(`Service Type: ${(job as any).service_type}`);
   }
 
   // Type of vehicle
   if (job.vehicle_type) {
-    const vehicleType = typeof job.vehicle_type === 'object' && (job.vehicle_type as { name: string }).name 
-      ? (job.vehicle_type as { name: string }).name 
+    const vehicleType = typeof job.vehicle_type === 'object' && (job.vehicle_type as { name: string }).name
+      ? (job.vehicle_type as { name: string }).name
       : job.vehicle_type as string;
     lines.push(`Type of vehicle: ${vehicleType}`);
+  }
+
+  // Vehicle (assigned vehicle - if different from vehicle_type)
+  if ((job as any).vehicle && typeof (job as any).vehicle === 'object' && (job as any).vehicle.name) {
+    lines.push(`Vehicle: ${(job as any).vehicle.name}`);
+  } else if ((job as any).vehicle && typeof (job as any).vehicle === 'string') {
+    lines.push(`Vehicle: ${(job as any).vehicle}`);
   }
 
   // Pick up Date and Time
@@ -58,9 +81,19 @@ export function generateJobSummary(job: Job | ApiJob): string {
     lines.push(`Pick up Location: ${job.pickup_location}`);
   }
 
+  // Pick up Address Note
+  if ((job as any).pickup_note) {
+    lines.push(`PU Address Note: ${(job as any).pickup_note}`);
+  }
+
   // Drop Off Location
   if (job.dropoff_location) {
     lines.push(`Drop Off Location: ${job.dropoff_location}`);
+  }
+
+  // Drop Off Address Note
+  if ((job as any).dropoff_note) {
+    lines.push(`DO Address Note: ${(job as any).dropoff_note}`);
   }
 
   // Passenger Details
@@ -71,15 +104,37 @@ export function generateJobSummary(job: Job | ApiJob): string {
   if (job.passenger_mobile) {
     passengerDetails.push(job.passenger_mobile);
   }
-  
+  if ((job as any).passenger_email) {
+    passengerDetails.push((job as any).passenger_email);
+  }
+
   if (passengerDetails.length > 0) {
     lines.push(`Passenger Details: ${passengerDetails.join(', ')}`);
   }
 
-  // Driver Notes
+  // Driver Name (assigned driver)
+  if ((job as any).driver?.name) {
+    lines.push(`Driver: ${(job as any).driver.name}`);
+  }
+
+  // Driver Notes (from customer_remark or remarks)
   const driverNotes = getDriverNotes(job);
   if (driverNotes) {
     lines.push(`Driver Notes: ${driverNotes}`);
+  }
+
+  // Extra Services
+  if ((job as any).extra_services && Array.isArray((job as any).extra_services) && (job as any).extra_services.length > 0) {
+    const serviceNames = (job as any).extra_services
+      .map((service: any) => {
+        if (typeof service === 'string') return service;
+        // Check for both 'name' and 'description' properties
+        return service.name || service.description;
+      })
+      .filter(Boolean);
+    if (serviceNames.length > 0) {
+      lines.push(`Extra Services: ${serviceNames.join(', ')}`);
+    }
   }
 
   return lines.join('\n');

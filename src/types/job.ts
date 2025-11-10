@@ -223,12 +223,6 @@ export interface NormalizedJobDisplay {
   // Pricing
   basePrice: number;
   finalPrice?: number;
-  /**
-   * Contractor's claim amount from pricing matrix.
-   * - undefined: No contractor assigned or cost not applicable
-   * - 0: Explicit zero cost or no pricing found for service+vehicle combination
-   * - >0: Calculated cost from contractor pricing matrix
-   */
   jobCost?: number;
 
   // Original job data for other fields

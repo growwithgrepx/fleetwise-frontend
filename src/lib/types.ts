@@ -88,4 +88,9 @@ export interface User {
   customer_id?: number;
   driver_id?: number;
   driver?: Driver;
+  customer?: {
+    id: number;
+    name: string;
+    email?: string;
+  };
 }

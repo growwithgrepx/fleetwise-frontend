@@ -19,9 +19,15 @@ interface PricingMatrixRow {
 
 interface ContractorPricingMatrixTableProps {
   contractorId: number;
+  ref?: React.Ref<ContractorPricingMatrixTableHandle>;
 }
 
-export function ContractorPricingMatrixTable({ contractorId }: ContractorPricingMatrixTableProps) {
+export interface ContractorPricingMatrixTableHandle {
+  saveAllPricing: () => Promise<void>;
+}
+
+export const ContractorPricingMatrixTable = React.forwardRef<ContractorPricingMatrixTableHandle, ContractorPricingMatrixTableProps>(
+  function ContractorPricingMatrixTableComponent({ contractorId }, ref) {
   console.log('ContractorPricingMatrixTable received contractorId:', contractorId); // Debug log
   const { vehicleTypes, services, pricingMatrix, isLoading, refetch } = useContractorPricingMatrix(contractorId);
   console.log('Hook returned data:', { vehicleTypes, services, pricingMatrix, isLoading }); // Debug log
@@ -127,31 +133,31 @@ export function ContractorPricingMatrixTable({ contractorId }: ContractorPricing
     // Default to 0 if not found
     return 0;
   };
-  
+
   // Handle saving all changes
   const handleSaveAll = async () => {
     setIsSaving(true);
-    
+
     try {
       // Collect all changes
       const changes: { serviceId: number; vehicleTypeId: number; cost: number }[] = [];
-      
+
       console.log('=== Starting save process ===');
       console.log('Current editedCosts:', editedCosts);
       console.log('Current pricingMatrix:', pricingMatrix);
-      
+
       pricingMatrix.forEach(row => {
         row.pricing.forEach(pricing => {
           const key = `${pricing.service_id}-${pricing.vehicle_type_id}`;
           const currentCostValue = editedCosts[key];
-          
+
           const currentCostNumber = currentCostValue !== undefined
             ? (typeof currentCostValue === 'number' ? currentCostValue : parseFloat(currentCostValue) || 0)
             : pricing.cost;
-          
+
           // Debug log
           console.log(`Comparing ${key}: currentCostNumber=${currentCostNumber}, pricing.cost=${pricing.cost}`);
-          
+
           // Only save if user edited AND value changed (with epsilon for float comparison)
           const hasChanged = Math.abs(currentCostNumber - pricing.cost) > 0.001;
           if (currentCostValue !== undefined && hasChanged) {
@@ -165,17 +171,16 @@ export function ContractorPricingMatrixTable({ contractorId }: ContractorPricing
           }
         });
       });
-      
+
       // Debug log
       console.log('Changes to save:', changes);
-      
+
       if (changes.length === 0) {
         console.log('No changes to save');
-        toast.success('No changes to save');
         setIsSaving(false);
         return;
       }
-      
+
       // Apply all changes
       for (const change of changes) {
         console.log('Saving change:', change);
@@ -185,26 +190,32 @@ export function ContractorPricingMatrixTable({ contractorId }: ContractorPricing
           cost: change.cost
         });
       }
-      
+
       // Refresh the data to reflect the changes
       const { data: newData } = await refetch();
-      
+
       // Reset the initialization state so edited costs will be reinitialized with new data
       setIsInitialized(false);
-      
+
       // Also reset edited costs to force reinitialization
       setEditedCosts({});
-      
+
       toast.success('All pricing updated successfully');
       console.log('=== Save process completed ===');
     } catch (error: any) {
       console.error('Error saving pricing:', error);
       toast.error(error?.message || 'Failed to update pricing');
+      throw error;
     } finally {
       setIsSaving(false);
     }
   };
-  
+
+  // Expose saveAllPricing via ref
+  React.useImperativeHandle(ref, () => ({
+    saveAllPricing: handleSaveAll
+  }));
+
   if (isLoading) {
     return <div>Loading pricing data...</div>;
   }
@@ -227,16 +238,6 @@ export function ContractorPricingMatrixTable({ contractorId }: ContractorPricing
   
   return (
     <div className="space-y-4 w-full">
-      <div className="flex justify-end">
-        <Button
-          onClick={handleSaveAll}
-          disabled={isSaving || updatePricingMutation.isPending}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg"
-        >
-          {isSaving || updatePricingMutation.isPending ? 'Saving...' : 'Save All'}
-        </Button>
-      </div>
-      
       <div className="overflow-x-auto w-full">
         <table className="min-w-full divide-y divide-gray-700">
           <thead className="bg-gray-800">
@@ -289,4 +290,5 @@ export function ContractorPricingMatrixTable({ contractorId }: ContractorPricing
       )}
     </div>
   );
-}
+  }
+);

@@ -102,6 +102,12 @@ const navSections: NavSection[] = [
     ]
   },
   {
+    title: "Reports",
+    items: [
+      { label: "Driver Job History", href: "/reports/driver", icon: <ClipboardDocumentListIcon className="w-5 h-5" />, description: "View driver job history reports" }
+    ]
+  },
+  {
     title: "Settings",
     items: [
       { label: "General", href: "/general-settings", icon: <Cog6ToothIcon className="w-5 h-5" />, description: "System settings" }
