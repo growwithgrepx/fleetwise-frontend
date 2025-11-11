@@ -115,6 +115,7 @@ const defaultJobValues: JobFormData = {
   
   // Billing Information
   base_price: 0,
+  job_cost: 0,
   additional_discount: 0,
   extra_charges: 0,
   final_price: 0,
@@ -687,6 +688,7 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
 
         // Billing Information
         base_price: job.base_price || 0,
+        job_cost: job.job_cost || 0,
         additional_discount: job.additional_discount || 0,
         extra_charges: job.extra_charges || 0,
         final_price: job.final_price || 0,
@@ -723,6 +725,7 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
 
       if (currentFormDataString !== newFormDataString) {
         setFormData(jobData);
+        console.log('[JobForm] Initialized formData from job:', jobData);
         // Track initial form data for pricing comparison
         setInitialFormData({
           pickup_time: jobData.pickup_time,
@@ -730,6 +733,7 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
           vehicle_type: jobData.vehicle_type,
           customer_id: jobData.customer_id,
           base_price: jobData.base_price,
+          job_cost: jobData.job_cost,
           midnight_surcharge: jobData.midnight_surcharge
         });
       }
@@ -1375,6 +1379,8 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
 
   // Base price, additional discount, extra charges, penalty
   const basePrice = safeNumber(formData.base_price);
+  const jobCost = safeNumber(formData.job_cost);
+  console.log('[Pricing Calculation] basePrice:', basePrice, 'jobCost:', jobCost);
   const additionalDiscount = safeNumber(formData.additional_discount);
   const midnightSurcharge = safeNumber(formData.midnight_surcharge);
   const extraServicesTotal = formData.extra_services?.reduce((sum, svc) => sum + safeNumber(svc.price), 0) || 0;
@@ -1401,7 +1407,6 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
   
   const calculatedPrice = subtotal - additionalDiscount;
   const finalPrice = job?.id ? safeNumber(job.final_price) : calculatedPrice;
-
   // Handle input changes
   const handleInputChange = (field: keyof JobFormData, value: any) => {
     // Set user modified pricing flag for specific fields
@@ -1866,7 +1871,6 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
   useEffect(() => {
     if (userModifiedPricing) return; // don't overwrite if user manually changed prices
     if (!formData.contractor_id || !formData.service_type) return;
-
     // contractorPricing is an array of { service_id, service_name, cost }
     const matching = (contractorPricing || []).find((p: any) => {
       if (!p) return false;
@@ -1889,7 +1893,9 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
 
   // Auto-calculate contractor claim based on service, vehicle type, and contractor
   useEffect(() => {
-    // Reset to undefined when no contractor (field becomes editable)
+    if (role === "customer") {
+      return;
+    }
     if (!formData.contractor_id) {
       if (formData.job_cost !== undefined) {
         setFormData(prev => ({ ...prev, job_cost: undefined }));
@@ -2075,6 +2081,7 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
         status: finalStatus, // Use the determined status
         // Ensure all numeric fields are properly converted
         base_price: safeNumber(formData.base_price),
+        job_cost: safeNumber(formData.job_cost),
         additional_discount: safeNumber(formData.additional_discount),
         extra_charges: safeNumber(formData.extra_charges),
         midnight_surcharge: safeNumber(formData.midnight_surcharge),
@@ -2098,7 +2105,6 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
       delete jobData.final_price;
       
       console.log('[JobForm] Saving job with data:', jobData);
-
       await onSave(jobData);
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -3338,7 +3344,7 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
               </div>
 
               {/* Contractor/Driver Billing Card */}
-              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+             {role?.toLowerCase() !== "customer" && ( <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
                 <h2 className="text-lg font-semibold mb-6 flex items-center space-x-2 text-gray-100">
                   <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -3457,7 +3463,7 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> )}
             </div>
               {/* Contractor / Driver Billing moved to the right sidebar */}
           </div>
