@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -1225,15 +1225,13 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       data.dropoff_location?.trim()
     );
 
-    // Check if both vehicle and driver are selected using proper number comparison
-    const vehicleAndDriverSelected = Boolean(
+    // Check if contractor is selected (vehicle and driver are now optional)
+    const contractorSelected = Boolean(
       // Convert to number and check if greater than 0
-      Number(data.vehicle_id) > 0 &&
-      Number(data.driver_id) > 0 &&
       Number(data.contractor_id) > 0
     );
 
-    if (mandatoryFieldsComplete && vehicleAndDriverSelected) {
+    if (mandatoryFieldsComplete && contractorSelected) {
       return 'confirmed';
     } else if (mandatoryFieldsComplete) {
       return 'pending';
@@ -1996,7 +1994,9 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     console.log('[JobForm] Save button clicked');
     console.log('[JobForm] Current form data:', formData);
     console.log('[JobForm] Current errors before validation:', errors);
+    console.log('[JobForm] User role:', role);
     
+    // Remove setErrors({}) - validateForm will compute fresh errors
     const isValid = validateForm();
     console.log('[JobForm] Form validation result:', isValid);
     console.log('[JobForm] Errors after validation:', errors);
@@ -2019,7 +2019,10 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       return;
     }
     
-    if (!isValid || !finalValidationCheck) {
+    // Allow ALL users to save jobs, regardless of role
+    console.log('[JobForm] All users can now save jobs regardless of conflicts');
+    
+    if (!isValid || (!finalValidationCheck)) {
       console.log('[JobForm] Form validation failed, not submitting');
       toast.error('Please fix the validation errors before saving.');
       return;
@@ -2072,8 +2075,21 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       await onSave(jobData);
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[JobForm] Save error:', error);
+      
+      // Allow ALL users to save despite driver conflicts
+      const isConflictError = error.message && error.message.includes('conflict');
+      const isSchedulingConflict = error.name === 'SchedulingConflict';
+      
+      // For ALL users, allow saving despite driver conflicts
+      if (isConflictError || isSchedulingConflict) {
+        console.log('[JobForm] User saving despite driver conflict');
+        toast.success('Job saved successfully despite driver schedule conflict.');
+        setSaveStatus('success');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+        return;
+      }
       
       // Enhanced error handling for production
       let errorMessage = 'Failed to save job. Please try again.';

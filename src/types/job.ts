@@ -375,10 +375,10 @@ export const jobSchema = z.object({
   dropoff_loc5_price: z.number().min(0).default(0),
   
   // Vehicle & Driver Information
-  vehicle_id: z.number().min(1, 'Vehicle is required'),
+  vehicle_id: z.number().optional(),
   vehicle_type: z.string().min(1, 'Vehicle type is required'),
   vehicle_number: z.string().optional(),
-  driver_id: z.number().min(1, 'Driver is required'),
+  driver_id: z.number().optional(),
   driver_contact: z.string().optional(),
   
   // Status and Payment
@@ -424,6 +424,15 @@ export const jobSchema = z.object({
   
   // Booking reference field
   booking_ref: z.string().optional(),
+}).refine((data) => {
+  // Enforce vehicle and driver for confirmed status
+  if (data.status === 'confirmed') {
+    return data.vehicle_id && data.vehicle_id > 0 && data.driver_id && data.driver_id > 0;
+  }
+  return true;
+}, {
+  message: 'Vehicle and driver are required for confirmed jobs',
+  path: ['vehicle_id'],
 });
 
 export const defaultJobValues: JobFormData = {
