@@ -34,7 +34,16 @@ export const jobSchema = z.object({
     .refine(val => !isNaN(val), { message: 'Service is required' }),
 
   vehicle_id: z.preprocess((val) => Number(val), z.number().optional()),
-
   driver_id: z.preprocess((val) => Number(val), z.number().optional()),
+  status: z.string(),
   // Add other fields as needed, with correct types and validation
+}).refine((data) => {
+  // Enforce vehicle and driver for confirmed status
+  if (data.status === 'confirmed') {
+    return data.vehicle_id && data.vehicle_id > 0 && data.driver_id && data.driver_id > 0;
+  }
+  return true;
+}, {
+  message: 'Vehicle and driver are required for confirmed jobs',
+  path: ['vehicle_id'],
 }); 

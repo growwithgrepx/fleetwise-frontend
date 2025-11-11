@@ -1996,9 +1996,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
     console.log('[JobForm] Current errors before validation:', errors);
     console.log('[JobForm] User role:', role);
     
-    // Clear all existing errors before validation
-    setErrors({});
-    
+    // Remove setErrors({}) - validateForm will compute fresh errors
     const isValid = validateForm();
     console.log('[JobForm] Form validation result:', isValid);
     console.log('[JobForm] Errors after validation:', errors);

@@ -424,6 +424,15 @@ export const jobSchema = z.object({
   
   // Booking reference field
   booking_ref: z.string().optional(),
+}).refine((data) => {
+  // Enforce vehicle and driver for confirmed status
+  if (data.status === 'confirmed') {
+    return data.vehicle_id && data.vehicle_id > 0 && data.driver_id && data.driver_id > 0;
+  }
+  return true;
+}, {
+  message: 'Vehicle and driver are required for confirmed jobs',
+  path: ['vehicle_id'],
 });
 
 export const defaultJobValues: JobFormData = {
