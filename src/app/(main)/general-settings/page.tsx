@@ -1258,6 +1258,9 @@ export default function SettingsPage() {
                         <thead>
                           <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                              Full Name
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                               Email
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -1277,6 +1280,9 @@ export default function SettingsPage() {
                         <tbody className="divide-y divide-gray-800">
                           {users.map((user) => (
                             <tr key={user.id}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-white">{user.name || '-'}</div>
+                              </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm text-white">{user.email}</div>
                               </td>
