@@ -292,7 +292,7 @@ export default function ServiceWithAllPricingForm({
 
   return (
     <div className="max-w-4xl mx-auto bg-gray-900 p-8 rounded-lg shadow">
-      <h1 className="text-2xl font-bold text-white mb-6">Service Vehicle Price</h1>
+      <h1 className="text-2xl font-bold text-white mb-6">Service</h1>
       
       <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
         {/* Service Details Section */}
