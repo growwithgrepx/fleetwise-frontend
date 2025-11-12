@@ -261,8 +261,10 @@ export default function SettingsPage() {
       case 'manager':
         return 'full access to job workflow, people and assets, billing';
       case 'accountant':
+        // Verify existence in backend roles
         return 'full access to billing and claim, people and assets, job';
       case 'customer':
+        // Verify existence in backend roles
         return 'create, view and edit jobs for himself, view audit trail';
       case 'driver':
         return 'view own jobs';

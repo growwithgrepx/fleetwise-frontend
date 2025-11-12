@@ -115,22 +115,8 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
           // Fetch ALL customers instead of just unassigned ones
           const customers = await getCustomers();
           
-          // Include current customer if editing
-          let finalCustomers = customers;
-          if (user?.customer_id) {
-            try {
-              const currentCustomer = await getCustomerById(user.customer_id);
-              if (currentCustomer && isMounted) {
-                // No need to do anything special since we're already showing all customers
-                finalCustomers = customers;
-              }
-            } catch (error) {
-              console.error('Error fetching current customer:', error);
-            }
-          }
-          
           if (isMounted) {
-            setAvailableCustomers(finalCustomers);
+            setAvailableCustomers(customers);
           }
         } catch (error) {
           if (isMounted) {
@@ -194,8 +180,13 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
         };
         
         // Send username as 'name' field in the API payload
-        if (username && username.trim() !== '') {
-          userData.name = username.trim();
+        const trimmedName = username.trim();
+        if (trimmedName) {
+          if (trimmedName.length > 255) {
+            toast.error('Name cannot exceed 255 characters');
+            return;
+          }
+          userData.name = trimmedName;
         }
         
         try {
@@ -216,7 +207,7 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
               await assignCustomerOrDriver(userId, 'driver', selectedDriverId);
               assignmentSuccess = true;
             } catch (error) {
-              assignmentMessage = 'User updated but driver assignment failed.';
+              assignmentMessage = 'User updated but driver assignment failed. Driver may be assigned already.';
               console.error('Driver assignment error:', error);
             }
           } else {
@@ -228,7 +219,7 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
               await assignCustomerOrDriver(userId, 'customer', selectedCustomerId);
               assignmentSuccess = true;
             } catch (error) {
-              assignmentMessage = 'User updated but customer assignment failed. The customer might already be assigned to another user.';
+              assignmentMessage = 'User updated but customer assignment failed. Please verify details and retry.';
               console.error('Customer assignment error:', error);
             }
           } else {
@@ -239,7 +230,7 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
         // Show appropriate success message
         if (userType) {
           if (assignmentMessage) {
-            toast.success('User updated successfully. ' + assignmentMessage);
+            toast.error('User updated successfully, but ' + assignmentMessage);
           } else {
             toast.success('User and assignment updated successfully');
           }
@@ -255,8 +246,13 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
         };
         
         // Send username as 'name' field in the API payload
-        if (username && username.trim() !== '') {
-          userData.name = username.trim();
+        const trimmedName = username.trim();
+        if (trimmedName) {
+          if (trimmedName.length > 255) {
+            toast.error('Name cannot exceed 255 characters');
+            return;
+          }
+          userData.name = trimmedName;
         }
         
         // Include password only when creating a new user
@@ -280,8 +276,8 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
             await assignCustomerOrDriver(userId, 'driver', selectedDriverId);
             toast.success('User created and driver assigned successfully');
           } catch (error) {
-            assignmentMessage = 'User created but driver assignment failed. Please assign manually from edit.';
-            toast.success('User created successfully. ' + assignmentMessage);
+            assignmentMessage = 'User created but driver assignment failed. Driver may be assigned already.';
+            toast.error('User created successfully, but ' + assignmentMessage);
             console.error('Driver assignment error:', error);
           }
         } else if (userType === 'customer' && selectedCustomerId) {
@@ -289,8 +285,8 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
             await assignCustomerOrDriver(userId, 'customer', selectedCustomerId);
             toast.success('User created and customer assigned successfully');
           } catch (error) {
-            assignmentMessage = 'User created but customer assignment failed. The customer might already be assigned to another user. Please assign manually from edit.';
-            toast.success('User created successfully. ' + assignmentMessage);
+            assignmentMessage = 'User created but customer assignment failed. Verify details and retry.';
+            toast.error('User created successfully, but ' + assignmentMessage);
             console.error('Customer assignment error:', error);
           }
         } else {
