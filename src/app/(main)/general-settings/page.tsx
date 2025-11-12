@@ -259,9 +259,15 @@ export default function SettingsPage() {
       case 'admin':
         return 'Full Access';
       case 'manager':
-        return 'Fleet Wise, View Report';
+        return 'full access to job workflow, people and assets, billing';
+      case 'accountant':
+        // Verify existence in backend roles
+        return 'full access to billing and claim, people and assets, job';
+      case 'customer':
+        // Verify existence in backend roles
+        return 'create, view and edit jobs for himself, view audit trail';
       case 'driver':
-        return 'View Assignment, Update Status';
+        return 'view own jobs';
       default:
         return 'View Only';
     }
@@ -1254,6 +1260,9 @@ export default function SettingsPage() {
                         <thead>
                           <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                              Full Name
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                               Email
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -1273,6 +1282,9 @@ export default function SettingsPage() {
                         <tbody className="divide-y divide-gray-800">
                           {users.map((user) => (
                             <tr key={user.id}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm text-white">{user.name || '-'}</div>
+                              </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm text-white">{user.email}</div>
                               </td>

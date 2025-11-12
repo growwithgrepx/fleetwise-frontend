@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { createUser, updateUser, getUnassignedDrivers, getUnassignedCustomers, assignCustomerOrDriver, getDriverById, getCustomerById } from '@/services/api/userApi';
+import { createUser, updateUser, getUnassignedDrivers, assignCustomerOrDriver, getDriverById, getCustomerById } from '@/services/api/userApi';
+import { getCustomers } from '@/services/api/customersApi';
 import { User, Role } from '@/lib/types';
 import { Driver } from '@/lib/types';
 import { Customer } from '@/types/customer';
@@ -15,6 +16,7 @@ interface UserModalProps {
 
 export default function UserModal({ user, roles, onClose, onSave }: UserModalProps) {
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
@@ -38,6 +40,8 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
   useEffect(() => {
     if (user) {
       setEmail(user.email || '');
+      // Initialize username with user's name field
+      setUsername(user.name || '');
       setIsActive(user.active);
       // For single role selection, use the first role if available
       setSelectedRoleId(user.roles && user.roles.length > 0 ? user.roles[0].id : null);
@@ -52,6 +56,7 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
       }
     } else {
       setEmail('');
+      setUsername('');
       setPassword('');
       setConfirmPassword('');
       setIsActive(true);
@@ -107,28 +112,16 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
           setCustomersError(null); // Clear previous errors
         }
         try {
-          const customers = await getUnassignedCustomers();
-          
-          // Include current customer if editing
-          let finalCustomers = customers;
-          if (user?.customer_id) {
-            try {
-              const currentCustomer = await getCustomerById(user.customer_id);
-              if (currentCustomer && isMounted) {
-                finalCustomers = [currentCustomer, ...customers.filter(c => c.id !== currentCustomer.id)];
-              }
-            } catch (error) {
-              console.error('Error fetching current customer:', error);
-            }
-          }
+          // Fetch ALL customers instead of just unassigned ones
+          const customers = await getCustomers();
           
           if (isMounted) {
-            setAvailableCustomers(finalCustomers);
+            setAvailableCustomers(customers);
           }
         } catch (error) {
           if (isMounted) {
             setCustomersError('Failed to load customers');
-            toast.error('Failed to fetch unassigned customers');
+            toast.error('Failed to fetch customers');
           }
         } finally {
           if (isMounted) {
@@ -186,6 +179,16 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
           role_names: selectedRoleId ? [roles.find(role => role.id === selectedRoleId)?.name].filter(Boolean) : []
         };
         
+        // Send username as 'name' field in the API payload
+        const trimmedName = username.trim();
+        if (trimmedName) {
+          if (trimmedName.length > 255) {
+            toast.error('Name cannot exceed 255 characters');
+            return;
+          }
+          userData.name = trimmedName;
+        }
+        
         try {
           const updatedUser = await updateUser(user.id, userData);
           userId = updatedUser.id;
@@ -196,6 +199,7 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
         
         // Handle assignment updates for existing user
         let assignmentSuccess = false;
+        let assignmentMessage = '';
         
         if (userType === 'driver' && selectedDriverId) {
           if (!user || user.driver_id !== selectedDriverId) {
@@ -203,7 +207,7 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
               await assignCustomerOrDriver(userId, 'driver', selectedDriverId);
               assignmentSuccess = true;
             } catch (error) {
-              toast.error('User updated but driver assignment failed.');
+              assignmentMessage = 'User updated but driver assignment failed. Driver may be assigned already.';
               console.error('Driver assignment error:', error);
             }
           } else {
@@ -215,7 +219,7 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
               await assignCustomerOrDriver(userId, 'customer', selectedCustomerId);
               assignmentSuccess = true;
             } catch (error) {
-              toast.error('User updated but customer assignment failed.');
+              assignmentMessage = 'User updated but customer assignment failed. Please verify details and retry.';
               console.error('Customer assignment error:', error);
             }
           } else {
@@ -223,12 +227,15 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
           }
         }
         
-        if (assignmentSuccess) {
-          if (userType) {
-            toast.success('User and assignment updated successfully');
+        // Show appropriate success message
+        if (userType) {
+          if (assignmentMessage) {
+            toast.error('User updated successfully, but ' + assignmentMessage);
           } else {
-            toast.success('User updated successfully');
+            toast.success('User and assignment updated successfully');
           }
+        } else {
+          toast.success('User updated successfully');
         }
       } else {
         // Create new user
@@ -237,6 +244,16 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
           active: isActive,
           role_names: selectedRoleId ? [roles.find(role => role.id === selectedRoleId)?.name].filter(Boolean) : []
         };
+        
+        // Send username as 'name' field in the API payload
+        const trimmedName = username.trim();
+        if (trimmedName) {
+          if (trimmedName.length > 255) {
+            toast.error('Name cannot exceed 255 characters');
+            return;
+          }
+          userData.name = trimmedName;
+        }
         
         // Include password only when creating a new user
         if (password) {
@@ -252,23 +269,25 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
         }
         
         // Handle user assignment for new user
+        let assignmentMessage = '';
+        
         if (userType === 'driver' && selectedDriverId) {
           try {
             await assignCustomerOrDriver(userId, 'driver', selectedDriverId);
             toast.success('User created and driver assigned successfully');
           } catch (error) {
-            toast.error('User created but driver assignment failed. Please assign manually from edit.');
+            assignmentMessage = 'User created but driver assignment failed. Driver may be assigned already.';
+            toast.error('User created successfully, but ' + assignmentMessage);
             console.error('Driver assignment error:', error);
-            // Don't throw - user is created, allow modal to close
           }
         } else if (userType === 'customer' && selectedCustomerId) {
           try {
             await assignCustomerOrDriver(userId, 'customer', selectedCustomerId);
             toast.success('User created and customer assigned successfully');
           } catch (error) {
-            toast.error('User created but customer assignment failed. Please assign manually from edit.');
+            assignmentMessage = 'User created but customer assignment failed. Verify details and retry.';
+            toast.error('User created successfully, but ' + assignmentMessage);
             console.error('Customer assignment error:', error);
-            // Don't throw - user is created, allow modal to close
           }
         } else {
           toast.success('User created successfully');
@@ -308,8 +327,8 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-lg w-full max-w-md max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-gray-800">
           <h3 className="text-lg font-medium text-white">
             {user ? 'Edit User' : 'Create User'}
@@ -322,7 +341,19 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 flex-1 overflow-y-auto">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Full Name
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
               Email
@@ -532,7 +563,7 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
             </label>
           </div>
           
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-4 sticky bottom-0 bg-gray-900 py-4 -mx-4 px-4">
             <button
               type="button"
               onClick={onClose}
