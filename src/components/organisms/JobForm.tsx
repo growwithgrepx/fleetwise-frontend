@@ -8,7 +8,7 @@ import ExtraServicesList from '@/components/molecules/ExtraServicesList';
 import { Job, JobFormData, JobStatus, Location } from '@/types/job';
 import { useGetCustomerById } from '@/hooks/useCustomers';
 import { useGetAllVehicles } from '@/hooks/useVehicles';
-import { useGetAllDrivers } from '@/hooks/useDrivers';
+import { useGetAllDrivers, useGetDriverById } from '@/hooks/useDrivers';
 import { useGetAllCustomers } from '@/hooks/useCustomers';
 import { useGetAllServices } from '@/hooks/useServices';
 import { useGetAllVehicleTypes } from '@/hooks/useVehicleTypes';
@@ -33,6 +33,7 @@ import { useAddressLookup } from '@/hooks/useAddressLookup';
 import PhoneInput from '@/components/molecules/PhoneInput';
 import { useUser } from '@/context/UserContext';
 import { getUserRole } from '@/utils/roleUtils';
+import { useGetVehicleById } from '@/hooks/useVehicles';
 
 import { 
   createJob, 
@@ -114,6 +115,7 @@ const defaultJobValues: JobFormData = {
   
   // Billing Information
   base_price: 0,
+  job_cost: 0,
   additional_discount: 0,
   extra_charges: 0,
   final_price: 0,
@@ -196,6 +198,17 @@ const shouldLockField = (
     // Customers can only edit remarks in confirmed/otw/ots/pob
     return !editableFields.includes(field);
   }
+   if (role === "customer" && field === "customer_id" && ["new", "pending"].includes(status)) {
+    return true;
+  }
+  if (
+  role === "customer" &&
+  ["new", "pending"].includes(status)
+) {
+  const editableFields = ["customer_id"];
+  return editableFields.includes(field);
+}
+
 
   // 🧩 For driver/admin roles etc.
   // In these statuses, only allow editing of specific fields
@@ -210,7 +223,7 @@ const shouldLockField = (
     return !editableFields.includes(field);
   }
 
-  // 🚫 In these statuses, lock all fields
+  //  In these statuses, lock all fields
   const lockedStatuses: JobStatus[] = ["jc", "sd", "canceled"];
   return lockedStatuses.includes(status);
 };
@@ -469,16 +482,34 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   const role = getUserRole(user);
 
   // only fetch drivers for allowed roles
-  const isRoleAllowed = ["admin", "manager", "accountant", "customer"].includes(role);
+  
+  const isRoleAllowed = ["admin", "manager", "accountant"].includes(role);
 
-  const { data: allDriversRaw = [] } = useGetAllDrivers();
-  const allDrivers = isRoleAllowed ? allDriversRaw : [];
+// Always call hook — conditionally enabled
+const { data: allDriversRaw = [] } = useGetAllDrivers({
+  enabled: isRoleAllowed,
+});
 
+  
+  const { data: singleDriver } = useGetDriverById(formData.driver_id || 0);
 
+  // Determine driver list based on role
+  const allDrivers = role === "customer"
+  ? (singleDriver ? [singleDriver] : [])
+  : allDriversRaw;
+
+  const { data: allVehiclesRaw = [] } = useGetAllVehicles();
+  const { data: singleVehicle } = useGetVehicleById(formData.vehicle_id || 0);
+
+  console.log("[JobForm] singleVehicle:", singleVehicle);
+ const allVehicles = role === "customer"
+  ? singleVehicle? [singleVehicle] : []
+  : allVehiclesRaw;
+
+ 
   // Data hooks
   const { subCustomers } = useSubCustomers(job?.customer_id ?? 0);
   const { data: customer } = useGetCustomerById(job?.customer_id ?? "");
-  const { data: allVehicles = [] } = useGetAllVehicles();
   // const { data: allDrivers = [] } = useGetAllDrivers();
   const { data: allCustomers = [] } = useGetAllCustomers();
   const { data: allServices = [] } = useGetAllServices();
@@ -657,6 +688,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
         // Billing Information
         base_price: job.base_price || 0,
+        job_cost: job.job_cost || 0,
         additional_discount: job.additional_discount || 0,
         extra_charges: job.extra_charges || 0,
         final_price: job.final_price || 0,
@@ -693,6 +725,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
       if (currentFormDataString !== newFormDataString) {
         setFormData(jobData);
+        console.log('[JobForm] Initialized formData from job:', jobData);
         // Track initial form data for pricing comparison
         setInitialFormData({
           pickup_time: jobData.pickup_time,
@@ -700,6 +733,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
           vehicle_type: jobData.vehicle_type,
           customer_id: jobData.customer_id,
           base_price: jobData.base_price,
+          job_cost: jobData.job_cost,
           midnight_surcharge: jobData.midnight_surcharge
         });
       }
@@ -1343,6 +1377,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
   // Base price, additional discount, extra charges, penalty
   const basePrice = safeNumber(formData.base_price);
+  const jobCost = safeNumber(formData.job_cost);
+  console.log('[Pricing Calculation] basePrice:', basePrice, 'jobCost:', jobCost);
   const additionalDiscount = safeNumber(formData.additional_discount);
   const midnightSurcharge = safeNumber(formData.midnight_surcharge);
   const extraServicesTotal = formData.extra_services?.reduce((sum, svc) => sum + safeNumber(svc.price), 0) || 0;
@@ -1369,7 +1405,6 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   
   const calculatedPrice = subtotal - additionalDiscount;
   const finalPrice = job?.id ? safeNumber(job.final_price) : calculatedPrice;
-
   // Handle input changes
   const handleInputChange = (field: keyof JobFormData, value: any) => {
     // Set user modified pricing flag for specific fields
@@ -1834,7 +1869,6 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   useEffect(() => {
     if (userModifiedPricing) return; // don't overwrite if user manually changed prices
     if (!formData.contractor_id || !formData.service_type) return;
-
     // contractorPricing is an array of { service_id, service_name, cost }
     const matching = (contractorPricing || []).find((p: any) => {
       if (!p) return false;
@@ -1857,7 +1891,9 @@ const JobForm: React.FC<JobFormProps> = (props) => {
 
   // Auto-calculate contractor claim based on service, vehicle type, and contractor
   useEffect(() => {
-    // Reset to undefined when no contractor (field becomes editable)
+    if (role === "customer") {
+      return;
+    }
     if (!formData.contractor_id) {
       if (formData.job_cost !== undefined) {
         setFormData(prev => ({ ...prev, job_cost: undefined }));
@@ -2048,6 +2084,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
         status: finalStatus, // Use the determined status
         // Ensure all numeric fields are properly converted
         base_price: safeNumber(formData.base_price),
+        job_cost: safeNumber(formData.job_cost),
         additional_discount: safeNumber(formData.additional_discount),
         extra_charges: safeNumber(formData.extra_charges),
         midnight_surcharge: safeNumber(formData.midnight_surcharge),
@@ -2071,7 +2108,6 @@ const JobForm: React.FC<JobFormProps> = (props) => {
       delete jobData.final_price;
       
       console.log('[JobForm] Saving job with data:', jobData);
-
       await onSave(jobData);
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -2535,7 +2571,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                       ...(allCustomers || []).map((c) => ({ value: c.id, label: c.name })),
                     ]}
                     className={fieldsLocked ? "opacity-75" : ""}
-                    disabled={fieldsLocked}
+                    disabled={isFieldLocked("customer_id")}
                   />
 		  {/* Customer Reference ID */}
                   <div className="space-y-2">
@@ -2581,7 +2617,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                     value={formData.service_type || ''}
                     onChange={v => {
                       // Only allow changes if fields are not locked
-                      if (!fieldsLocked) {
+                      if (!isFieldLocked("service_type")) {
                         handleInputChange('service_type', v);
                         // Find the selected service for service_id reference
                         const selectedService = allServices.find(s => s.name === v);
@@ -2605,8 +2641,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                         .filter(s => s.is_ancillary === false) // Explicit false check to filter out ancillary services
                         .map(s => ({ value: s.name, label: s.name }))
                     ]}
-                    className={fieldsLocked ? "opacity-75" : ""}
-                    disabled={fieldsLocked}
+                    // className={fieldsLocked ? "opacity-75" : ""}
+                    disabled={isFieldLocked("service_type")}
                   />
                   
                   <SelectField 
@@ -3324,7 +3360,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
               </div>
 
               {/* Contractor/Driver Billing Card */}
-              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+             {role?.toLowerCase() !== "customer" && ( <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
                 <h2 className="text-lg font-semibold mb-6 flex items-center space-x-2 text-gray-100">
                   <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -3443,7 +3479,7 @@ const JobForm: React.FC<JobFormProps> = (props) => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> )}
             </div>
               {/* Contractor / Driver Billing moved to the right sidebar */}
           </div>

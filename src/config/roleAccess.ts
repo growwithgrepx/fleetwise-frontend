@@ -17,6 +17,7 @@ export const roleAccessRules: Record<string, string[]> = {
     "/services-vehicle-price",
     "/jobs/manage",
     "/billing/*",
+    "/reports/driver",
   ],
   driver: [
     "/dashboard",

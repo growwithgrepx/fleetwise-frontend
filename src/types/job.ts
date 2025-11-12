@@ -402,6 +402,7 @@ export const jobSchema = z.object({
   
   // Invoice Information
   invoice_id: z.number().nullable().optional(),
+  job_cost: z.number().min(0).default(0),
   invoice_number: z.string().optional(),
   
   // Extra Services
@@ -497,7 +498,7 @@ export const defaultJobValues: JobFormData = {
   
   // Billing Information
   base_price: 0,
-  job_cost: undefined,
+  job_cost: 0,
   cash_to_collect: 0,
   additional_discount: 0,
   extra_charges: 0,
