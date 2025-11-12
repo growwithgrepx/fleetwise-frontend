@@ -82,6 +82,8 @@ export interface Role {
 export interface User {
   id: number;
   email: string;
+  // username?: string;
+  name?: string;  // Add name property to match backend response
   password?: string;
   active: boolean;
   roles?: Role[];
