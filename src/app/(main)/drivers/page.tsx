@@ -147,6 +147,14 @@ export default function DriversPage() {
         title="Drivers" 
         onAddClick={() => router.push('/drivers/new')} 
         addLabel="Add Driver" 
+        extraActions={
+          <AnimatedButton
+            onClick={() => router.push('/drivers/leave')}
+            className="bg-gradient-to-r from-blue-500 to-blue-700 hover:opacity-90 text-white rounded-lg px-4 py-2"
+          >
+            Leave Management
+          </AnimatedButton>
+        }
         className="mb-6"
       />
       {isLoading && <div className="text-gray-400">Loading drivers...</div>}
