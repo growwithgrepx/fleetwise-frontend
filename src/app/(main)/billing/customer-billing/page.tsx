@@ -153,7 +153,7 @@ const customerColumns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
     stringLabel: "Customer",
   },
   {
-    label: "Total Amount",
+    label: "Amount",
     accessor: "total_amount",
     filterable: false,
     stringLabel: "Total Amount",
