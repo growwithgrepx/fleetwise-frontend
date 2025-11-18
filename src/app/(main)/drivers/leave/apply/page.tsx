@@ -87,7 +87,9 @@ export default function ApplyLeavePage() {
         }
       } catch (error: any) {
         console.error("Error previewing affected jobs:", error);
-        toast.error(error.response?.data?.error || "Failed to preview affected jobs");
+        // Check if it's a leave conflict error during preview
+        const errorMessage = error.response?.data?.error || "Failed to preview affected jobs";
+        toast.error(errorMessage);
         setJobsPreviewLoaded(false);
       } finally {
         setLoadingJobs(false);
@@ -108,7 +110,7 @@ export default function ApplyLeavePage() {
     });
   }, [affectedJobs, selectedDriver, startDate, endDate]);
 
-  // Handle assignment change
+  // Handle assignment change - allow all three fields to be selected
   const handleAssignmentChange = (
     jobId: number,
     type: 'driver' | 'vehicle' | 'contractor',
@@ -117,15 +119,13 @@ export default function ApplyLeavePage() {
     setJobAssignments(prev => {
       const current = prev[jobId] || { reassignment_type: 'driver' };
 
-      // Update the assignment based on type
+      // Update the assignment based on type without clearing other fields
       if (type === 'driver') {
         return {
           ...prev,
           [jobId]: {
             ...current,
-            reassignment_type: 'driver',
-            new_driver_id: value,
-            new_contractor_id: undefined // Clear contractor when assigning to driver
+            new_driver_id: value
           }
         };
       } else if (type === 'vehicle') {
@@ -134,8 +134,7 @@ export default function ApplyLeavePage() {
           [jobId]: {
             ...current,
             reassignment_type: 'vehicle',
-            new_vehicle_id: value,
-            new_contractor_id: undefined // Clear contractor when assigning to vehicle
+            new_vehicle_id: value
           }
         };
       } else if (type === 'contractor') {
@@ -144,9 +143,7 @@ export default function ApplyLeavePage() {
           [jobId]: {
             ...current,
             reassignment_type: 'contractor',
-            new_contractor_id: value,
-            new_driver_id: undefined, // Clear driver when assigning to contractor
-            new_vehicle_id: undefined // Clear vehicle when assigning to contractor
+            new_contractor_id: value
           }
         };
       }
@@ -155,7 +152,10 @@ export default function ApplyLeavePage() {
     });
   };
 
-  // Validate all assignments
+  // Validate all assignments - modified logic:
+  // - If no fields selected for a job, skip it (not required)
+  // - If some but not all fields selected, mark as pending
+  // - If all fields selected, mark as confirmed
   const validateAssignments = (): boolean => {
     if (affectedJobs.length === 0) {
       return true; // No jobs to assign
@@ -164,31 +164,19 @@ export default function ApplyLeavePage() {
     for (const job of affectedJobs) {
       const assignment = jobAssignments[job.id];
 
+      // If no assignment data for this job, it's not required - skip validation
       if (!assignment) {
-        toast.error(`Please assign job #${job.id}`);
-        return false;
+        continue;
       }
 
-      // Check that at least one resource is assigned
-      if (!assignment.new_driver_id && !assignment.new_vehicle_id && !assignment.new_contractor_id) {
-        toast.error(`Please assign a replacement resource for job #${job.id}`);
-        return false;
-      }
+      // Check if any fields are selected
+      const hasDriver = !!assignment.new_driver_id;
+      const hasVehicle = !!assignment.new_vehicle_id;
+      const hasContractor = !!assignment.new_contractor_id;
 
-      if (assignment.reassignment_type === 'driver' && !assignment.new_driver_id) {
-        toast.error(`Please select a driver for job #${job.id}`);
-        return false;
-      }
-
-      if (assignment.reassignment_type === 'vehicle' && !assignment.new_vehicle_id) {
-        toast.error(`Please select a vehicle for job #${job.id}`);
-        return false;
-      }
-
-      if (assignment.reassignment_type === 'contractor' && !assignment.new_contractor_id) {
-        toast.error(`Please select a contractor for job #${job.id}`);
-        return false;
-      }
+      // If some but not all fields are selected, it's valid but will be pending
+      // If all fields are selected, it's confirmed
+      // If no fields are selected, we already skipped above
     }
 
     return true;
@@ -229,24 +217,35 @@ export default function ApplyLeavePage() {
       return;
     }
 
+    // Validate assignments before saving
     if (!validateAssignments()) {
       return;
     }
 
     setIsSaving(true);
+    
     try {
-      // Build job reassignments array
-      const job_reassignments = affectedJobs.map(job => {
-        const assignment = jobAssignments[job.id];
-        return {
-          job_id: job.id,
+      // Prepare job reassignments data
+      const job_reassignments = Object.entries(jobAssignments).map(([jobId, assignment]) => {
+        // Only include fields that have values
+        const reassignment: any = {
+          job_id: Number(jobId),
           reassignment_type: assignment.reassignment_type,
-          // Only include fields that are set
-          ...(assignment.new_driver_id && { new_driver_id: assignment.new_driver_id }),
-          ...(assignment.new_vehicle_id && { new_vehicle_id: assignment.new_vehicle_id }),
-          ...(assignment.new_contractor_id && { new_contractor_id: assignment.new_contractor_id }),
           notes: `Reassigned due to ${leaveType} leave from ${startDate} to ${endDate}`
         };
+        
+        // Conditionally include only defined fields
+        if (assignment.new_driver_id) {
+          reassignment.new_driver_id = assignment.new_driver_id;
+        }
+        if (assignment.new_vehicle_id) {
+          reassignment.new_vehicle_id = assignment.new_vehicle_id;
+        }
+        if (assignment.new_contractor_id) {
+          reassignment.new_contractor_id = assignment.new_contractor_id;
+        }
+        
+        return reassignment;
       });
 
       // Create leave with reassignments atomically
@@ -291,7 +290,19 @@ export default function ApplyLeavePage() {
       router.push("/drivers/leave/history");
     } catch (error: any) {
       console.error("Error saving leave:", error);
-      toast.error(error.response?.data?.error || "Failed to save leave application");
+      
+      // Extract error message
+      let errorMessage = "Failed to save leave application";
+      
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      toast.error(errorMessage);
       
       // If it's a partial failure (leave created but reassignments failed), still navigate to history
       if (error.response?.data?.leave_id) {
@@ -434,12 +445,6 @@ export default function ApplyLeavePage() {
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                      />
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Job ID
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -450,9 +455,6 @@ export default function ApplyLeavePage() {
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Assign To *
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       New Driver
@@ -468,17 +470,9 @@ export default function ApplyLeavePage() {
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredJobs.map((job: any) => {
                     const assignment = jobAssignments[job.id];
-                    const isDriverType = !assignment || assignment.reassignment_type === 'driver';
-                    const isContractorType = assignment?.reassignment_type === 'contractor';
 
                     return (
                       <tr key={job.id} className="">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                          />
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           #{job.id}
                         </td>
@@ -495,31 +489,9 @@ export default function ApplyLeavePage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           <select
-                            value={assignment?.reassignment_type || 'driver'}
-                            onChange={(e) => {
-                              const type = e.target.value as 'driver' | 'contractor';
-                              setJobAssignments(prev => ({
-                                ...prev,
-                                [job.id]: {
-                                  reassignment_type: type,
-                                  new_driver_id: undefined,
-                                  new_vehicle_id: undefined,
-                                  new_contractor_id: undefined
-                                }
-                              }));
-                            }}
-                            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="driver">Driver</option>
-                            <option value="contractor">Contractor</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          <select
                             value={assignment?.new_driver_id || ""}
                             onChange={(e) => handleAssignmentChange(job.id, 'driver', e.target.value ? Number(e.target.value) : undefined)}
                             className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            disabled={isContractorType}
                           >
                             <option value="">Select Driver</option>
                             {drivers
@@ -536,7 +508,6 @@ export default function ApplyLeavePage() {
                             value={assignment?.new_vehicle_id || ""}
                             onChange={(e) => handleAssignmentChange(job.id, 'vehicle', e.target.value ? Number(e.target.value) : undefined)}
                             className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            disabled={isContractorType}
                           >
                             <option value="">Select Vehicle</option>
                             {vehicles.map((vehicle) => (
@@ -551,7 +522,6 @@ export default function ApplyLeavePage() {
                             value={assignment?.new_contractor_id || ""}
                             onChange={(e) => handleAssignmentChange(job.id, 'contractor', e.target.value ? Number(e.target.value) : undefined)}
                             className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            disabled={isDriverType}
                           >
                             <option value="">Select Contractor</option>
                             {contractors.map((contractor) => (
