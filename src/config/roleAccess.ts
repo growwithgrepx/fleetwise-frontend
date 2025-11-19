@@ -8,7 +8,12 @@ export const roleAccessRules: Record<string, string[]> = {
   customer: [
     "/dashboard",
     "/billing",
+    "/billing/contractor-billing",
+    "/billing/driver-billing",
     "/drivers",
+    "/drivers/leave",
+    "/drivers/leave/apply",
+    "/drivers/leave/history",
     "/customers",
     "/contractors",
     "/vehicles",

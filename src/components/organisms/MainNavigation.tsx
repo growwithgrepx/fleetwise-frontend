@@ -218,9 +218,9 @@ const visibleSections = navSections
   }))
   .filter((item) => {
     if (isBlocked(item.href)) return false;
-    // Allow items with children arrays (even if empty) or items without children
-    if (Array.isArray(item.children)) {
-      return true; // Always show items that have a children array, even if empty
+     // Hide parent items if all children are blocked (empty after filtering)
+    if (Array.isArray(item.children) && item.children.length === 0) {
+      return false;
     }
     return true;
   }),
