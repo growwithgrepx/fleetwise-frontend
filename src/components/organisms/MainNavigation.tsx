@@ -218,10 +218,15 @@ const visibleSections = navSections
   }))
   .filter((item) => {
     if (isBlocked(item.href)) return false;
-     // Hide parent items if all children are blocked (empty after filtering)
-    if (Array.isArray(item.children) && item.children.length === 0) {
+        // If item has children array
+    if (Array.isArray(item.children)) {
+    // If it's a non-clickable parent (href is empty), hide if no children
+    if (item.href === "" && item.children.length === 0) {
       return false;
     }
+    // Otherwise show (clickable parent with empty children is OK)
+    return true;
+  }
     return true;
   }),
   }))
