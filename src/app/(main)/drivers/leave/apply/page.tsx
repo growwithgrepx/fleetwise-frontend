@@ -140,10 +140,10 @@ export default function ApplyLeavePage() {
     });
     
     if (unassignedJobs.length > 0) {
-      toast.error(
-        `${unassignedJobs.length} job(s) have no field assignments and will move to PENDING status`
+      const confirmed = window.confirm(
+        `${unassignedJobs.length} job(s) have no field assignments and will move to PENDING status. Continue?`
       );
-      return false;
+      return confirmed; // Allow submission if user confirms
     }
     return true;
   };
