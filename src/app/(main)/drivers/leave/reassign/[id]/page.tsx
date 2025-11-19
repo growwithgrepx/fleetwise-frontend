@@ -146,7 +146,7 @@ export default function ReassignJobsPage({ params }: { params: Promise<{ id: str
         extraActions={
           <button 
             onClick={() => router.push(`/drivers/leave/details/${leaveId}`)}
-            className="text-sm text-blue-600 hover:text-blue-800"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm"
           >
             Back to Leave Details
           </button>
@@ -248,7 +248,7 @@ export default function ReassignJobsPage({ params }: { params: Promise<{ id: str
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {affectedJobs.affected_jobs.map((job: any) => (
-                        <tr key={job.id} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                        <tr key={job.id} className="">
                           <td className="px-4 py-3 whitespace-nowrap">
                             <input
                               type="checkbox"

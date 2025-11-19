@@ -34,6 +34,11 @@ export default function ApplyLeavePage() {
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Custom modal state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [unassignedJobsCount, setUnassignedJobsCount] = useState(0);
+  const [resolveConfirm, setResolveConfirm] = useState<((value: boolean) => void) | null>(null);
 
   // Fetch data
   const { data: drivers = [], isLoading: driversLoading } = useGetAllDrivers();
@@ -127,11 +132,36 @@ export default function ApplyLeavePage() {
     });
   };
 
+  // Custom confirm function that returns a promise
+  const customConfirm = (unassignedCount: number): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setUnassignedJobsCount(unassignedCount);
+      setShowConfirmModal(true);
+      setResolveConfirm(() => resolve);
+    });
+  };
+
+  // Handle modal confirm
+  const handleModalConfirm = () => {
+    setShowConfirmModal(false);
+    if (resolveConfirm) {
+      resolveConfirm(true);
+    }
+  };
+
+  // Handle modal cancel
+  const handleModalCancel = () => {
+    setShowConfirmModal(false);
+    if (resolveConfirm) {
+      resolveConfirm(false);
+    }
+  };
+
   // Validate all assignments - modified logic:
   // - If no fields selected for a job, skip it (not required)
   // - If some but not all fields selected, mark as pending
   // - If all fields selected, mark as confirmed
-  const validateAssignments = (): boolean => {
+  const validateAssignments = async (): Promise<boolean> => {
     if (affectedJobs.length === 0) return true;
     
     const unassignedJobs = affectedJobs.filter(job => {
@@ -140,9 +170,7 @@ export default function ApplyLeavePage() {
     });
     
     if (unassignedJobs.length > 0) {
-      const confirmed = window.confirm(
-        `${unassignedJobs.length} job(s) have no field assignments and will move to PENDING status. Continue?`
-      );
+      const confirmed = await customConfirm(unassignedJobs.length);
       return confirmed; // Allow submission if user confirms
     }
     return true;
@@ -168,7 +196,8 @@ export default function ApplyLeavePage() {
     }
 
     // Validate assignments before saving
-    if (!validateAssignments()) {
+    const isValid = await validateAssignments();
+    if (!isValid) {
       return;
     }
 
@@ -488,6 +517,36 @@ export default function ApplyLeavePage() {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Confirm Unassigned Jobs</h3>
+            </div>
+            <div className="mb-6">
+              <p className="text-gray-600 dark:text-gray-300">
+                {unassignedJobsCount} job(s) have no field assignments and will move to PENDING status. Do you want to continue?
+              </p>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={handleModalCancel}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleModalConfirm}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
