@@ -71,6 +71,7 @@ export interface JobReassignmentRequest {
   new_vehicle_id?: number;
   new_contractor_id?: number;
   notes?: string;
+  isDirty?: boolean;
 }
 
 export interface DriverLeaveFilters {
