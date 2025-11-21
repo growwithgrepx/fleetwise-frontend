@@ -1,4 +1,4 @@
-"use client";
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿"use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -2148,12 +2148,8 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
         }
       }
       
-      // Show error to user (you might want to add a toast notification here)
-      // Skip showing toast if this is a ServiceError that's already handled by useJobs hook
-      // Check if this error has already been shown by looking for specific patterns
-      if (!errorMessage.includes('Driver is on sick leave')) {
-        toast.error(errorMessage);
-      }
+      // Error is now handled by the useJobs hook, so we don't need to show a toast here
+      // The hook will show appropriate error messages to the user
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 3000);
     }
@@ -2172,7 +2168,8 @@ const { data: allDriversRaw = [] } = useGetAllDrivers({
         await onDelete(job.id);
       } catch (error) {
         console.error("Failed to delete job:", error);
-        toast.error('Failed to delete job. Please try again.');
+        // Error is handled by the parent component, no need to show toast here
+        throw error;
       }
     }
   };

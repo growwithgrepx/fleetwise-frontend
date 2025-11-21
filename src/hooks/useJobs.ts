@@ -143,6 +143,26 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
         console.log('Scheduling conflict:', error.message);
         return;
       }
+      
+      // Handle ServiceError messages that contain specific patterns
+      // These are business logic errors that should be shown to the user
+      const serviceErrorPatterns = [
+        'Driver is on sick leave',
+        'Please select a different driver'
+      ];
+      
+      const isServiceError = serviceErrorPatterns.some(pattern => 
+        error.message && error.message.includes(pattern)
+      );
+      
+      if (isServiceError) {
+        // Show toast for ServiceErrors as they're important business logic errors
+        // that the user needs to see
+        console.log('ServiceError (business logic):', error.message);
+        toast.error(error.message);
+        return;
+      }
+      
       // Show toast for other errors
       toast.error(error.message || 'Failed to create job');
     }
@@ -167,7 +187,7 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
       }
       
       // Handle ServiceError messages that contain specific patterns
-      // These are business logic errors that should not show duplicate toast notifications
+      // These are business logic errors that should be shown to the user
       const serviceErrorPatterns = [
         'Driver is on sick leave',
         'Please select a different driver'
@@ -178,8 +198,10 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
       );
       
       if (isServiceError) {
-        // Don't show toast for ServiceErrors as they're business logic, not errors
+        // Show toast for ServiceErrors as they're important business logic errors
+        // that the user needs to see
         console.log('ServiceError (business logic):', error.message);
+        toast.error(error.message);
         return;
       }
       

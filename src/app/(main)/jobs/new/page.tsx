@@ -44,7 +44,7 @@ export default function NewJobPage() {
       router.push('/jobs');
     } catch (err) {
       console.error('[NewJobPage] Failed to create job:', err);
-      toast.error('Failed to create job. Please try again.');
+      // Let the JobForm component handle the error display
       throw err;
     }
   };

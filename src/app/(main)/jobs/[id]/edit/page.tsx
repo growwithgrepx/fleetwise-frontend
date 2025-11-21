@@ -45,6 +45,7 @@ export default function EditJobPage() {
       router.push('/jobs');
     } catch (error) {
       console.error('Failed to cancel job:', error);
+      // Let the JobForm component handle the error display
       throw error;
     }
   };
