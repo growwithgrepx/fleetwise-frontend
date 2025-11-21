@@ -105,7 +105,7 @@ const getStatusChain = (currentStatus: JobStatus): { from: JobStatus; to: JobSta
   return transitions;
 };
 
-const formatTo12Hour = (datetime: string): string => {
+const formatTo24Hour = (datetime: string): string => {
   if (!datetime) return '';
   const date = new Date(datetime);
   
@@ -117,15 +117,10 @@ const formatTo12Hour = (datetime: string): string => {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
   
-  let hours = date.getHours();
+  const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
-  const period = hours >= 12 ? 'PM' : 'AM';
   
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  const displayHours = String(hours).padStart(2, '0');
-  
-  return `${day}/${month}/${year} ${displayHours}:${minutes} ${period}`;
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 };
 
 export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
@@ -340,8 +335,8 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
         if (timeDiff < -1000) { // More than 1 second before last change
           toast.error(
             `${statusLabels[transition.to]} timestamp cannot be before the last status change.\n\n` +
-            `Last change: ${formatTo12Hour(lastStatusChangeTime.toISOString())}\n` +
-            `Your selection: ${formatTo12Hour(transition.datetime)}\n\n` +
+            `Last change: ${formatTo24Hour(lastStatusChangeTime.toISOString())}\n` +
+            `Your selection: ${formatTo24Hour(transition.datetime)}\n\n` +
             `Please select a time at or after the last change.`
           );
           return;
@@ -364,9 +359,9 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
       if (currDate <= prevDate) {
         toast.error(
           `Invalid timeline: ${statusLabels[sortedTransitions[i].to]} timestamp ` +
-          `(${formatTo12Hour(sortedTransitions[i].datetime)}) must be after ` +
+          `(${formatTo24Hour(sortedTransitions[i].datetime)}) must be after ` +
           `${statusLabels[sortedTransitions[i - 1].to]} ` +
-          `(${formatTo12Hour(sortedTransitions[i - 1].datetime)}).`
+          `(${formatTo24Hour(sortedTransitions[i - 1].datetime)}).`
         );
         return;
       }
@@ -465,7 +460,7 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
                   <span className="text-lg">ℹ️</span>
                   <div>
                     <p className="font-semibold mb-1">Important:</p>
-                    <p>Last status change was at <strong>{formatTo12Hour(lastStatusChangeTime.toISOString())}</strong></p>
+                    <p>Last status change was at <strong>{formatTo24Hour(lastStatusChangeTime.toISOString())}</strong></p>
                     <p className="mt-1">New status timestamp must be set to a time <strong>at or after</strong> this.</p>
                   </div>
                 </div>
@@ -527,7 +522,7 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
                               />
                               {transition.datetime && (
                                 <div className="text-[10px] text-text-secondary mt-1">
-                                  {formatTo12Hour(transition.datetime)}
+                                  {formatTo24Hour(transition.datetime)}
                                 </div>
                               )}
                             </div>

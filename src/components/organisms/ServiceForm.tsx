@@ -1,4 +1,5 @@
 import React from "react";
+import TimePicker24Hour from '@/components/atoms/TimePicker24Hour';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { serviceSchema } from "@/lib/validationSchemas";
@@ -322,21 +323,21 @@ export default function ServiceForm({ initialData, onSubmit, onCancel, onClose, 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-gray-400 text-sm mb-1">Start Time</label>
-                      <input
-                        type="time"
-                        {...register('time_range_start')}
-                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      <TimePicker24Hour
+                        value={timeRangeStart || ''}
+                        onChange={(value) => setValue('time_range_start', value)}
+                        className="w-full"
                       />
-                      <p className="text-gray-500 text-xs mt-1">e.g., 23:00 (11 PM)</p>
+                      <p className="text-gray-500 text-xs mt-1">e.g., 23:00</p>
                     </div>
                     <div>
                       <label className="block text-gray-400 text-sm mb-1">End Time</label>
-                      <input
-                        type="time"
-                        {...register('time_range_end')}
-                        className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600"
+                      <TimePicker24Hour
+                        value={timeRangeEnd || ''}
+                        onChange={(value) => setValue('time_range_end', value)}
+                        className="w-full"
                       />
-                      <p className="text-gray-500 text-xs mt-1">e.g., 06:00 (6 AM)</p>
+                      <p className="text-gray-500 text-xs mt-1">e.g., 06:00</p>
                     </div>
                   </div>
                   {(timeRangeStart || timeRangeEnd) && (

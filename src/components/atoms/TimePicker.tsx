@@ -1,4 +1,5 @@
 import { forwardRef, InputHTMLAttributes } from 'react';
+import TimePicker24Hour from '@/components/atoms/TimePicker24Hour';
 import { cn } from '@/lib/utils';
 
 export interface TimePickerProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -7,7 +8,18 @@ export interface TimePickerProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
-  ({ className, label, error, required, ...props }, ref) => {
+  ({ className, label, error, required, value, onChange, ...props }, ref) => {
+    // Handle the onChange event properly to match the expected signature
+    const handleChange = (newValue: string) => {
+      // Create a synthetic event to match the expected ChangeEvent<HTMLInputElement> signature
+      if (onChange) {
+        const syntheticEvent = {
+          target: { value: newValue }
+        } as React.ChangeEvent<HTMLInputElement>;
+        onChange(syntheticEvent);
+      }
+    };
+
     return (
       <div className="space-y-1">
         {label && (
@@ -16,18 +28,15 @@ export const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
             {required && <span className="text-red-500 ml-1">*</span>}
           </label>
         )}
-        <input
-          type="time"
+        <TimePicker24Hour
+          value={value as string || ''}
+          onChange={handleChange}
           className={cn(
-            'w-full rounded-lg border bg-transparent px-3 py-2 text-sm',
-            'focus:outline-none focus:ring-2 focus:ring-offset-2',
             error
               ? 'border-red-600 focus:border-red-600 focus:ring-red-600'
               : 'border-gray-700 focus:border-blue-600 focus:ring-blue-600',
             className
           )}
-          ref={ref}
-          {...props}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>

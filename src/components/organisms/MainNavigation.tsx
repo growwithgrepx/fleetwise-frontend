@@ -5,25 +5,33 @@ import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import {
   HomeIcon,
-  BriefcaseIcon,
-  UsersIcon,
+  BuildingOfficeIcon,
   UserGroupIcon,
-  WrenchScrewdriverIcon,
   TruckIcon,
-  XMarkIcon,
-  Bars3Icon,
-  ArrowRightOnRectangleIcon,
-  Cog6ToothIcon,
-  SunIcon,
-  MoonIcon,
-  CurrencyDollarIcon,
-  StarIcon,
+  WrenchIcon,
+  DocumentTextIcon,
+  ChartBarIcon,
+  CogIcon,
+  UsersIcon,
+  DocumentDuplicateIcon,
   ClipboardDocumentListIcon,
+  CommandLineIcon,
+  PlusCircleIcon,
+  InformationCircleIcon,
+  BriefcaseIcon,
+  ArrowsRightLeftIcon,
+  ClockIcon,
+  StarIcon,
+  CurrencyDollarIcon,
+  WalletIcon,
+  Cog6ToothIcon,
+  Bars3Icon,
+  XMarkIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  DocumentDuplicateIcon,
-  WalletIcon,
-  UserIcon
+  ArrowRightOnRectangleIcon,
+  SunIcon,
+  MoonIcon
 } from '@heroicons/react/24/outline';
 import { useMediaQuery } from 'react-responsive';
 import { useTheme } from '@/context/ThemeContext';
@@ -87,9 +95,24 @@ const navSections: NavSection[] = [
   {
     title: "People",
     items: [
-      { label: "Drivers", href: "/drivers", icon: <UsersIcon className="w-5 h-5" />, description: "Driver management" },
+      {
+        label: "Drivers",
+        href: "/drivers",
+        icon: <UsersIcon className="w-5 h-5" />,
+        description: "Driver management"
+      },
       { label: "Customers", href: "/customers", icon: <UserGroupIcon className="w-5 h-5" />, description: "Customer database" },
-       { label: "Contractors", href: "/contractors", icon: <WalletIcon className="w-5 h-5" />, description: "Contractor management" },
+      { label: "Contractors", href: "/contractors", icon: <WalletIcon className="w-5 h-5" />, description: "Contractor management" },
+      // Modified Leave Management section to be clickable and link to Apply Leave directly
+      {
+        label: "Leave Management",
+        href: "/drivers/leave/apply", // Clicking this will go directly to Apply Leave
+        icon: <DocumentDuplicateIcon className="w-5 h-5" />,
+        description: "Apply for driver leave",
+        // Removed Apply Leave from children since it's now the main link
+        children: [
+        ]
+      },
     ] 
   },
   {
@@ -195,9 +218,15 @@ const visibleSections = navSections
   }))
   .filter((item) => {
     if (isBlocked(item.href)) return false;
+        // If item has children array
     if (Array.isArray(item.children)) {
-      return item.children.length > 0;
+    // If it's a non-clickable parent (href is empty), hide if no children
+    if (item.href === "" && item.children.length === 0) {
+      return false;
     }
+    // Otherwise show (clickable parent with empty children is OK)
+    return true;
+  }
     return true;
   }),
   }))
@@ -213,6 +242,8 @@ const computedMenus = useMemo(() => {
   if (pathname.startsWith("/billing") && !pathname.startsWith("/billing/contractor-billing") && !pathname.startsWith("/billing/driver-billing")) next["Billing"] = true;
   // Use the label as the key for Cost Summary
   if (pathname.startsWith("/billing/contractor-billing") || pathname.startsWith("/billing/driver-billing")) next["cost_summary"] = true;
+  // Expand Leave Management menu for leave pages (instead of Drivers)
+  if (pathname.startsWith("/drivers/leave")) next["Leave Management"] = true;
 
   return next;
 }, [pathname]);
@@ -291,6 +322,11 @@ const finalMenuState = { ...computedMenus, ...manualOverrides };
     if (href === "/billing") {
       return pathname === "/billing" || pathname === "/billing/";
     }
+    // Special handling for Drivers to avoid matching leave routes
+    if (href === "/drivers") {
+      return pathname === "/drivers" || pathname === "/drivers/" || 
+             (pathname.startsWith("/drivers") && !pathname.startsWith("/drivers/leave"));
+    }
     return pathname?.startsWith(href) ?? false;
   };
 
@@ -358,7 +394,11 @@ const toggleMenu = (key: string) => {
         // Special handling for Billing to avoid matching child routes
         !(item.href === "/billing" && 
           (pathname.startsWith("/billing/contractor-billing") || 
-           pathname.startsWith("/billing/driver-billing")))));
+           pathname.startsWith("/billing/driver-billing"))) &&
+        // Special handling for Drivers to avoid matching leave routes
+        !(item.href === "/drivers" && pathname.startsWith("/drivers/leave"))
+       )
+      );
     
     const anyChildActive = item.children?.some((c) => pathname.startsWith(c.href));
     // For Cost Summary, we don't want to highlight the parent when children are active
@@ -461,8 +501,8 @@ const toggleMenu = (key: string) => {
               </div>
             </Link>
 
-            {/* Chevron for expand */}
-            {!isCollapsed && (
+            {/* Chevron for expand - only show if there are actual children */}
+            {!isCollapsed && item.children && item.children.length > 0 && (
               <button
                 onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleMenu(item.label); }}
                 className="px-3 py-3 rounded-r-xl hover:bg-white/10 focus:outline-none"

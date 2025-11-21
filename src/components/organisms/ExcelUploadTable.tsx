@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import TimePicker24Hour from '@/components/atoms/TimePicker24Hour';
 import clsx from 'clsx';
 
 import {
@@ -1702,12 +1703,10 @@ function EditForm({
             <label className="block text-sm font-medium text-text-secondary mb-1">
               Pickup Time *
             </label>
-            <input
-              type="time"
-              defaultValue={row.pickup_time}
-              onChange={(e) => handleChange('pickup_time', e.target.value)}
-              className={clsx(inputClassName, validationErrors.pickup_time && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
-              required
+            <TimePicker24Hour
+              value={row.pickup_time}
+              onChange={(value) => handleChange('pickup_time', value)}
+              className={clsx('w-full', validationErrors.pickup_time && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
             />
             {validationErrors.pickup_time && (
               <p className="text-xs text-red-500 mt-1">{validationErrors.pickup_time}</p>

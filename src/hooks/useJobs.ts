@@ -165,6 +165,24 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
         console.log('Scheduling conflict:', error.message);
         return;
       }
+      
+      // Handle ServiceError messages that contain specific patterns
+      // These are business logic errors that should not show duplicate toast notifications
+      const serviceErrorPatterns = [
+        'Driver is on sick leave',
+        'Please select a different driver'
+      ];
+      
+      const isServiceError = serviceErrorPatterns.some(pattern => 
+        error.message && error.message.includes(pattern)
+      );
+      
+      if (isServiceError) {
+        // Don't show toast for ServiceErrors as they're business logic, not errors
+        console.log('ServiceError (business logic):', error.message);
+        return;
+      }
+      
       // Show toast for other errors
       toast.error(error.message || 'Failed to update job');
     }

@@ -62,7 +62,8 @@ api.interceptors.response.use(
         if (Object.keys(data).length > 0) {
           // Check for error message in different possible locations
           // For scheduling conflicts, prefer the message field over error field
-          msg = data.message || data.error || JSON.stringify(data);
+          // Also check for more detailed error information in the traceback or other fields
+          msg = data.message || data.error || data.detail || JSON.stringify(data);
         } else {
           // Empty object response - check status code
           if (error.response.status === 409) {
@@ -78,14 +79,17 @@ api.interceptors.response.use(
         msg = 'Scheduling conflict detected. Please select a different date or time.';
       }
       
-    if (data && typeof data === "object") {
-  console.error("API Error Response:", data);
-} else if (data) {
-  console.error("API Error Response (non-object):", data);
-} else {
-  console.error("API Error: No response data");
-}
-
+      if (data && typeof data === "object") {
+        // Don't log ServiceError messages to console to avoid duplication with toast notifications
+        // Only log if it's not a ServiceError with detailed message
+        if (!(data.message || data.error)) {
+          console.error("API Error Response:", data);
+        }
+      } else if (data) {
+        console.error("API Error Response (non-object):", data);
+      } else {
+        console.error("API Error: No response data");
+      }
       
       // Create a special error object for 409 conflicts
       if (error.response.status === 409) {
