@@ -95,8 +95,30 @@ export interface ReassignJobsRequest {
 }
 
 export interface ReassignJobsResponse {
+  success: boolean;
   message: string;
-  success: any[];
-  failed: any[];
-  total: number;
+  reassignment_summary: {
+    total: number;
+    successful: number;
+    failed: number;
+    skipped: number;
+  };
+  successful_jobs: Array<{
+    job_id: number;
+    reassignment_id: number;
+    new_driver_id?: number;
+    new_vehicle_id?: number;
+    new_contractor_id?: number;
+  }>;
+  failed_jobs: Array<{
+    job_id: number;
+    error: string;
+  }>;
+  skipped_jobs?: Array<{
+    job_id: number;
+    reason: string;
+    status: string;
+  }>;
+  remaining_jobs_count: number;
+  remaining_job_ids: number[];
 }
