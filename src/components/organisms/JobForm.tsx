@@ -52,7 +52,11 @@ function getBrowserCountryCode() {
   const parts = locale.split('-');
   return parts.length > 1 ? parts[1].toLowerCase() : 'us';
 }
-
+export const analytics = {
+  track: (eventName: string, payload?: Record<string, any>) => {
+    console.log(`[Analytics] Event: ${eventName}`, payload || {});
+  }
+};
 // Default job values
 const defaultJobValues: JobFormData = {
   // Customer Information
@@ -533,89 +537,101 @@ useEffect(() => {
   };
 }, []);
 
-const handleAISuggestDriver = async (retryCount = 0) => {
+const abortControllerRef = useRef<AbortController | null>(null);
+
+const handleAISuggestDriver = async () => {
+  const startTime = Date.now();
+  let controller: AbortController | null = null;
+
+  analytics.track('ai_driver_suggest_clicked');
+
   try {
+    if (abortControllerRef.current) {
+    abortControllerRef.current.abort();
+  }
+
+  controller = new AbortController();
+  abortControllerRef.current = controller;
+
     setIsAiLoading(true);
 
+    const payload = {}; // no pickup_time / vehicle_type_id needed
     const res = await fetch("/api/run", {
-      method: "GET",
-      headers: {
-    "Content-Type": "application/json",
-  },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      credentials: "include",
+      body: JSON.stringify(payload),
     });
 
-    if (!res.ok) {
-      // Attempt to parse JSON error, fallback to plain text
-      const errorData = await res.json().catch(() => ({ message: res.statusText }));
-      throw new Error(errorData.message || `HTTP ${res.status}`);
+  if (!res.ok) {
+  let errorMessage = `HTTP ${res.status}`;
+  const contentType = res.headers.get("content-type");
+
+  if (contentType?.includes("application/json")) {
+    try {
+      const errorData = await res.json();
+      errorMessage = errorData.message || errorMessage;
+    } catch {
+      // If JSON parsing fails, fallback to status text
+      errorMessage = res.statusText || errorMessage;
     }
+  } else {
+    // For non-JSON responses (HTML, plain text, etc.)
+    errorMessage = res.statusText || errorMessage;
+  }
+
+  throw new Error(errorMessage);
+}
+
 
     const data = await res.json();
+    console.log("[AI DRIVER RESULT]", data);
 
-    // Case 1: Workflow complete or skipped
-    if (data.status === "ok" || data.status === "skipped") {
-      if (aiToastId.current) toast.dismiss(aiToastId.current);
-      aiToastId.current = null;
-
-      const topDriver = data.best_driver || data.ranking?.[0];
-
-      if (!topDriver) {
-        toast.error("No driver recommendation found");
-        return;
-      }
-
-      const driverExists = allDrivers?.some((d) => d.id === topDriver.driver_id);
-      if (!driverExists) {
-        toast.error("AI returned an unavailable driver");
-        return;
-      }
-
-      if (!isFieldLocked("driver_id")) {
-        handleInputChange("driver_id", topDriver.driver_id);
-        toast.success(`AI selected: ${topDriver.name}`);
-      } else {
-        toast.error("Driver field is locked and cannot be modified");
-      }
-
+    if (!data.ranking || data.ranking.length === 0) {
+      toast.error("AI could not find any available drivers");
       return;
     }
 
-    // Case 2: Still processing
-    if (data.status === "processing") {
-      // Show or update loading toast
-      if (!aiToastId.current) {
-        aiToastId.current = toast.loading(`AI processing new data… (${retryCount + 1}/${AI_MAX_RETRIES})`);
-      } else {
-        toast.loading(`AI processing new data… (${retryCount + 1}/${AI_MAX_RETRIES})`, { id: aiToastId.current });
-      }
+    const topDriver = data.best_driver || data.ranking[0];
+    console.log("Top Driver", topDriver);
 
-      if (retryCount < AI_MAX_RETRIES) {
-        if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+   const driverExists = allDrivers?.some(
+  d => 
+    d.id === topDriver.driver_id &&
+    d.status === "Active" 
+);
 
-        retryTimeoutRef.current = setTimeout(
-          () => handleAISuggestDriver(retryCount + 1),
-          AI_RETRY_DELAY_MS
-        );
-      } else {
-        toast.dismiss(aiToastId.current);
-        toast.error("AI still processing. Please try again later.");
-        aiToastId.current = null;
-      }
+if (!driverExists) {
+  toast.error("Recommended driver is not available");
+  return;
+}
 
-      setIsAiLoading(false);
-      return;
-    }
 
-    // Case 3: Error response from AI
-    if (aiToastId.current) toast.dismiss(aiToastId.current);
-    toast.error(`AI failed: ${data.message || "Unknown error"}`);
 
-  } catch (err) {
+    handleInputChange("driver_id", topDriver.driver_id);
+    toast.success(`AI selected: ${topDriver.name}`);
+    analytics.track('ai_driver_suggest_success', {
+      driver_id: topDriver.driver_id,
+      driver_name: topDriver.name,
+      latency_ms: Date.now() - startTime
+    });
+
+  } catch (err: any) {
+    if (err.name === "AbortError") return; // Ignore cancelled requests
     console.error("AI Suggest error:", err);
-    if (aiToastId.current) toast.dismiss(aiToastId.current);
-    toast.error("Could not connect to AI backend.");
+
+    // Track failure
+    analytics.track('ai_driver_suggest_failed', {
+      error: err.message,
+    });
+
+    toast.error("Could not get AI recommendation");
   } finally {
-    setIsAiLoading(false);
+    if (controller === abortControllerRef.current) {
+      setIsAiLoading(false);
+      abortControllerRef.current = null;
+    }
   }
 };
 
@@ -2589,9 +2605,9 @@ const handleAISuggestDriver = async (retryCount = 0) => {
             <button
               type="button"
               onClick={handleSave}
-              disabled={isLoading || saveStatus === "saving"}
+              disabled={isLoading || saveStatus === "saving" || isAiLoading}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                isLoading || saveStatus === "saving"
+                isLoading || saveStatus === "saving" || isAiLoading
                   ? 'bg-blue-800 cursor-not-allowed' 
                   : 'bg-blue-600 hover:bg-blue-700'
               }`}
