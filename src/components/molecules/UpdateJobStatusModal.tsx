@@ -514,17 +514,53 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
                           <td className="p-2">
                             <div className="relative">
                               <input
-                                type="datetime-local"
-                                value={transition.datetime}
-                                onChange={(e) => handleTransitionChange(index, 'datetime', e.target.value)}
+                                type="date"
+                                value={transition.datetime ? transition.datetime.split('T')[0] : ''}
+                                onChange={(e) => {
+                                  const newDate = e.target.value;
+                                  const currentTime = transition.datetime ? transition.datetime.split('T')[1] : '00:00';
+                                  handleTransitionChange(index, 'datetime', `${newDate}T${currentTime}`);
+                                }}
                                 disabled={isSubmitting}
-                                className="w-full rounded-lg px-2 py-1 text-xs transition-colors bg-background-light border border-border-color text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full rounded-lg px-2 py-1 text-xs transition-colors bg-background-light border border-border-color text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed mb-1"
                               />
-                              {transition.datetime && (
-                                <div className="text-[10px] text-text-secondary mt-1">
-                                  {formatTo24Hour(transition.datetime)}
-                                </div>
-                              )}
+                              <div className="flex gap-1">
+                                <select
+                                  value={transition.datetime ? transition.datetime.split('T')[1]?.split(':')[0] : '00'}
+                                  onChange={(e) => {
+                                    const newHour = e.target.value.padStart(2, '0');
+                                    const currentMinute = transition.datetime ? transition.datetime.split('T')[1]?.split(':')[1] : '00';
+                                    const currentDate = transition.datetime ? transition.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
+                                    handleTransitionChange(index, 'datetime', `${currentDate}T${newHour}:${currentMinute}`);
+                                  }}
+                                  disabled={isSubmitting}
+                                  className="w-1/2 rounded-lg px-2 py-1 text-xs transition-colors bg-background-light border border-border-color text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed mr-1"
+                                >
+                                  {Array.from({ length: 24 }, (_, i) => i).map(hour => (
+                                    <option key={hour} value={hour.toString().padStart(2, '0')}>
+                                      {hour.toString().padStart(2, '0')}
+                                    </option>
+                                  ))}
+                                </select>
+                                <span className="self-center">:</span>
+                                <select
+                                  value={transition.datetime ? transition.datetime.split('T')[1]?.split(':')[1] : '00'}
+                                  onChange={(e) => {
+                                    const newMinute = e.target.value.padStart(2, '0');
+                                    const currentHour = transition.datetime ? transition.datetime.split('T')[1]?.split(':')[0] : '00';
+                                    const currentDate = transition.datetime ? transition.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
+                                    handleTransitionChange(index, 'datetime', `${currentDate}T${currentHour}:${newMinute}`);
+                                  }}
+                                  disabled={isSubmitting}
+                                  className="w-1/2 rounded-lg px-2 py-1 text-xs transition-colors bg-background-light border border-border-color text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {Array.from({ length: 60 }, (_, i) => i).map(minute => (
+                                    <option key={minute} value={minute.toString().padStart(2, '0')}>
+                                      {minute.toString().padStart(2, '0')}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                           </td>
                           <td className="p-2">

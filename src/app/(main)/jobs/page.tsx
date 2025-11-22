@@ -324,7 +324,8 @@ const JobsPage = () => {
       setShowEditModal(false);
       setEditJob(null);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to update job');
+      // Error is handled by the useJobs hook, no need to show toast here
+      console.error('Failed to update job in modal:', error);
     }
   };
 

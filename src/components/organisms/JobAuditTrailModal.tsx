@@ -84,7 +84,7 @@ const JobAuditTrailModal: React.FC<JobAuditTrailModalProps> = ({ jobId, isOpen, 
 
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+      return format(new Date(dateString), 'MMM d, yyyy HH:mm');
     } catch {
       return dateString;
     }

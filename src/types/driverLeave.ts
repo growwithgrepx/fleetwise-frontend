@@ -71,6 +71,7 @@ export interface JobReassignmentRequest {
   new_vehicle_id?: number;
   new_contractor_id?: number;
   notes?: string;
+  isDirty?: boolean;
 }
 
 export interface DriverLeaveFilters {
@@ -96,7 +97,14 @@ export interface ReassignJobsRequest {
 
 export interface ReassignJobsResponse {
   message: string;
-  success: any[];
-  failed: any[];
+  successful_jobs: any[];
+  failed_jobs: any[];
+  skipped_jobs?: any[];
   total: number;
+  reassignment_summary?: {
+    total: number;
+    successful: number;
+    failed: number;
+    skipped: number;
+  };
 }
