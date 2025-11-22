@@ -119,20 +119,16 @@ const JobReassignPage: React.FC = () => {
         reassignments
       });
       
-      // Show success message with details
-      toast.success(reassignResponse.message || "Job reassignments submitted successfully");
-
-      // Show individual success messages
-      if (reassignResponse.success && Array.isArray(reassignResponse.success)) {
-        reassignResponse.success.forEach((item: any) => {
-          toast.success(`Job ${item.job_id} successfully reassigned`);
-        });
+      // Show summary toast with counts
+      const successCount = reassignResponse.success?.length || 0;
+      const failedCount = reassignResponse.failed?.length || 0;
+      if (successCount > 0) {
+        toast.success(`Successfully reassigned ${successCount} job(s)`, { duration: 4000 });
       }
-
-      // Show any failed reassignments
+      // Show individual failures (keep detailed errors for failures)
       if (reassignResponse.failed && Array.isArray(reassignResponse.failed)) {
         reassignResponse.failed.forEach((item: any) => {
-          toast.error(`Failed to reassign job ${item.job_id}: ${item.error || 'Unknown error'}`);
+          toast.error(`Job ${item.job_id}: ${item.error || 'Failed to reassign'}`, { duration: 6000 });
         });
       }
       
@@ -140,8 +136,10 @@ const JobReassignPage: React.FC = () => {
       setSelectedJobs([]);
       setJobAssignments({});
       
-      // Refresh the affected jobs data
-      // This will happen automatically due to React Query's cache invalidation
+      // Navigate back after short delay to allow user to see final toast
+      setTimeout(() => {
+        router.push(`/drivers/leave/details/${leaveId}`);
+      }, 2000);
     } catch (error: any) {
       console.error('Error reassigning jobs:', error);
       toast.error(error.response?.data?.message || 'Failed to reassign jobs');

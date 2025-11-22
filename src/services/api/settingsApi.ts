@@ -1,3 +1,28 @@
+// Email Settings Interfaces
+export interface EmailSettings {
+  smtp_host: string;
+  smtp_port: string;
+  use_tls: boolean;
+  use_ssl: boolean;
+  username: string;
+  password: string;
+  sender_email: string;
+  is_encrypted?: boolean;
+}
+
+export interface EmailSettingsResponse {
+  email_settings: EmailSettings;
+}
+
+export interface SaveEmailResponse {
+  message: string;
+}
+
+export interface TestEmailPayload {
+  email_settings: EmailSettings;
+  test_recipient?: string;
+}
+
 export async function getUserSettings() {
   const res = await fetch('/api/settings/user', { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch user settings');
@@ -68,13 +93,13 @@ export async function deleteImage(filename: string, field: string) {
 }
 
 // --- EMAIL SETTINGS API ---
-export async function getEmailSettings() {
+export async function getEmailSettings(): Promise<EmailSettingsResponse> {
   const res = await fetch('/api/settings/email', { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch email settings');
   return res.json();
 }
 
-export async function saveEmailSettings(emailSettings: any) {
+export async function saveEmailSettings(emailSettings: EmailSettings): Promise<SaveEmailResponse> {
   const res = await fetch('/api/settings/email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -88,11 +113,11 @@ export async function saveEmailSettings(emailSettings: any) {
   return res.json();
 }
 
-export async function testEmailSettings(emailSettings: any) {
+export async function testEmailSettings(payload: TestEmailPayload): Promise<SaveEmailResponse> {
   const res = await fetch('/api/settings/email/test', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email_settings: emailSettings }),
+    body: JSON.stringify(payload),
     credentials: 'include',
   });
   if (!res.ok) {
