@@ -193,7 +193,8 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
           const updatedUser = await updateUser(user.id, userData);
           userId = updatedUser.id;
         } catch (error) {
-          toast.error('Failed to update user');
+          const errorMessage = error instanceof Error ? error.message : 'Failed to update user';
+          toast.error(errorMessage);
           throw error;
         }
         
@@ -264,7 +265,8 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
           const newUser = await createUser(userData);
           userId = newUser.id;
         } catch (error) {
-          toast.error('Failed to create user');
+          const errorMessage = error instanceof Error ? error.message : 'Failed to create user';
+          toast.error(errorMessage);
           throw error;
         }
         

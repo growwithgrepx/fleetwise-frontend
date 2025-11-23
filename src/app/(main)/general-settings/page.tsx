@@ -9,7 +9,12 @@ import {
   getPhotoConfig,
   updatePhotoConfig,
   uploadImage,
-  deleteImage
+  deleteImage,
+  getEmailSettings,
+  saveEmailSettings,
+  testEmailSettings,
+  type EmailSettings,
+  type TestEmailPayload
 } from '@/services/api/settingsApi';
 import { getUsers, getRoles, createUser, updateUser as updateUserService, deleteUser, createRole, updateRole as updateRoleService, deleteRole, activateUser } from '@/services/api/userApi';
 import { User, Role } from '@/lib/types';
@@ -26,7 +31,8 @@ import {
   PlusIcon,
   PencilIcon,
   TrashIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  EnvelopeIcon
 } from '@heroicons/react/24/outline';
 import ChangePasswordForm from '@/components/ChangePasswordForm';
 import UserModal from '@/components/organisms/UserModal';
@@ -40,6 +46,7 @@ const settingsCategories = [
   { name: "Driver App", icon: DevicePhoneMobileIcon },
   { name: "Billing", icon: CreditCardIcon },
   { name: "User Management", icon: UserIcon },
+  { name: "Email Notifications", icon: EnvelopeIcon },
   { name: "Export Database", icon: ArrowPathIcon }, // Updated name
 ];
 
@@ -142,6 +149,32 @@ export default function SettingsPage() {
     message: string;
     onConfirm: () => void;
   } | null>(null);
+  const [webhookUrl, setWebhookUrl] = useState("");
+
+  // Email Notifications state
+  const [smtpHost, setSmtpHost] = useState("smtp.gmail.com");
+  const [smtpPort, setSmtpPort] = useState("587");
+  // Replace boolean states with single enum
+  const [securityProtocol, setSecurityProtocol] = useState<'tls' | 'ssl' | 'none'>('tls');
+  const [mailUsername, setMailUsername] = useState("support@grepx.sg");
+  const [mailPassword, setMailPassword] = useState("");
+  const [hasExistingPassword, setHasExistingPassword] = useState(false);
+  const [senderEmail, setSenderEmail] = useState("noreply@grepx.sg");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testRecipient, setTestRecipient] = useState('');
+  const [isLoadingEmailSettings, setIsLoadingEmailSettings] = useState(false);
+
+  // Update port when protocol changes
+  const handleProtocolChange = (protocol: 'tls' | 'ssl' | 'none') => {
+    setSecurityProtocol(protocol);
+    if (protocol === 'tls' && smtpPort === '465') {
+      setSmtpPort('587');
+    } else if (protocol === 'ssl' && smtpPort === '587') {
+      setSmtpPort('465');
+    }
+  };
 
   const [activeCategory, setActiveCategory] = useState("General");
 
@@ -175,6 +208,7 @@ export default function SettingsPage() {
     setMaxPhotos(defaultPhotoSettings.maxPhotos);
     setMaxSizeMb(defaultPhotoSettings.maxSizeMb);
     setAllowedFormats(defaultPhotoSettings.allowedFormats);
+    toast.success('Email settings reset to defaults');
     toast.success('Photo settings reset to default!');
   };
 
@@ -273,7 +307,177 @@ export default function SettingsPage() {
     }
   };
 
+  // Load email settings when Email Notifications tab is active
+  useEffect(() => {
+    if (activeCategory === "Email Notifications") {
+      loadEmailSettings();
+    }
+  }, [activeCategory]);
+  
+  const loadEmailSettings = async () => {
+    setIsLoadingEmailSettings(true);
+    try {
+      const data = await getEmailSettings();
+      const emailSettings: Partial<EmailSettings> = data.email_settings || {};
+      
+      setSmtpHost(emailSettings.smtp_host || "smtp.gmail.com");
+      setSmtpPort(emailSettings.smtp_port || "587");
+      // Convert backend boolean values to our enum
+      if (emailSettings.use_tls && !emailSettings.use_ssl) {
+        setSecurityProtocol('tls');
+      } else if (emailSettings.use_ssl && !emailSettings.use_tls) {
+        setSecurityProtocol('ssl');
+      } else if (!emailSettings.use_tls && !emailSettings.use_ssl) {
+        setSecurityProtocol('none');
+      } else {
+        // If both are true (invalid state) or both are false, default to tls
+        setSecurityProtocol('tls');
+      }
+      setMailUsername(emailSettings.username || "support@grepx.sg");
+      // Don't load actual password - use placeholder if it exists
+      if (emailSettings.password) {
+        setMailPassword("••••••••••••");  // Placeholder
+        setHasExistingPassword(true);
+      } else {
+        setMailPassword("");
+        setHasExistingPassword(false);
+      }
+      setSenderEmail(emailSettings.sender_email || "noreply@grepx.sg");
+    } catch (err) {
+      toast.error('Failed to load email settings');
+      console.error('Email settings fetch error:', err);
+    } finally {
+      setIsLoadingEmailSettings(false);
+    }
+  };
+  
+  const validateEmailSettings = (): string | null => {
+    if (!smtpHost.trim()) {
+      return 'SMTP host is required';
+    }
+    const port = parseInt(smtpPort);
+    if (isNaN(port) || port < 1 || port > 65535) {
+      return 'SMTP port must be a number between 1 and 65535';
+    }
+    if (!mailUsername.trim()) {
+      return 'Mail username is required';
+    }
+    // Note: Password can be empty in some configurations, but we'll still require it for better security
+    if (!mailPassword.trim()) {
+      return 'Mail password is required';
+    }
+    if (!senderEmail.trim()) {
+      return 'Sender email is required';
+    }
+    // Basic email format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(senderEmail)) {
+      return 'Sender email format is invalid';
+    }
+    // Check that a protocol is selected (not 'none')
+    if (securityProtocol === 'none') {
+      return 'Please select a security protocol (TLS or SSL)';
+    }
+    return null;
+  };
 
+  const getErrorMessage = (err: any): string => {
+    // Try different error structures
+    if (err.response?.data?.error) return err.response.data.error;
+    if (err.response?.data?.message) return err.response.data.message;
+    if (err.message) return err.message;
+    return 'An unexpected error occurred';
+  };
+
+  const handleSaveEmailSettings = async () => {
+    const validationError = validateEmailSettings();
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const emailSettings = {
+        smtp_host: smtpHost,
+        smtp_port: smtpPort,
+        use_tls: securityProtocol === 'tls',
+        use_ssl: securityProtocol === 'ssl',
+        username: mailUsername,
+        password: mailPassword, // This will be encrypted by the backend
+        sender_email: senderEmail
+      };
+      
+      await saveEmailSettings(emailSettings);
+      toast.success('Email settings saved successfully!');
+    } catch (err: any) {
+      const errorMsg = getErrorMessage(err);
+      console.error('Email settings save error:', err);
+      // Map technical errors to user-friendly messages
+      if (errorMsg.includes('decryption')) {
+        toast.error('Unable to decrypt existing password. Please re-enter your credentials.');
+      } else if (errorMsg.includes('validation') || errorMsg.includes('required')) {
+        toast.error('Validation failed: ' + errorMsg);
+      } else {
+        toast.error('Failed to save email settings. Please check your inputs and try again.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleTestEmailSettings = async () => {
+    const validationError = validateEmailSettings();
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+    setIsTesting(true);
+    try {
+      const payload: TestEmailPayload = {
+        email_settings: {
+          smtp_host: smtpHost,
+          smtp_port: smtpPort,
+          use_tls: securityProtocol === 'tls',
+          use_ssl: securityProtocol === 'ssl',
+          username: mailUsername,
+          password: mailPassword,
+          sender_email: senderEmail
+        }
+      };
+      // Add test recipient if specified
+      if (testRecipient.trim()) {
+        payload.test_recipient = testRecipient.trim();
+      }
+      await testEmailSettings(payload);
+      toast.success(`Test email sent successfully to ${testRecipient.trim() || senderEmail}!`);
+    } catch (err: any) {
+      const errorMsg = getErrorMessage(err);
+      console.error('Email test error:', err);
+      // Provide specific guidance based on error type
+      if (errorMsg.includes('Authentication') || errorMsg.includes('535')) {
+        toast.error('SMTP authentication failed. Check your username and password.');
+      } else if (errorMsg.includes('Connection') || errorMsg.includes('timeout')) {
+        toast.error('Could not connect to SMTP server. Verify host, port, and network access.');
+      } else if (errorMsg.includes('TLS') || errorMsg.includes('SSL')) {
+        toast.error('Security protocol error. Check TLS/SSL settings match your port.');
+      } else {
+        toast.error('Test email failed: ' + errorMsg);
+      }
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleResetEmailSettings = () => {
+    setSmtpHost("smtp.gmail.com");
+    setSmtpPort("587");
+    setSecurityProtocol('tls'); // Default to TLS only
+    setMailUsername("support@grepx.sg");
+    setMailPassword("");
+    setSenderEmail("noreply@grepx.sg");
+    toast.success('Email settings reset to defaults');
+  };
+  
   // Example save handler for General Settings
   const handleSaveGeneralSettings = async () => {
     const preferences = {
@@ -1231,6 +1435,291 @@ export default function SettingsPage() {
               Security Settings
             </h2>
             <ChangePasswordForm />
+          </div>
+        )}
+
+        {activeCategory === "Email Notifications" && (
+          <div>
+            <h2 className="text-2xl font-bold mb-6 text-white">
+              Email Notification Settings
+            </h2>
+            <p className="text-gray-400 mb-8">Configure SMTP settings for email notifications</p>
+            
+            {isLoadingEmailSettings ? (
+              <div className="flex items-center justify-center py-12">
+                <svg className="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="ml-3 text-gray-300">Loading email settings...</span>
+              </div>
+            ) : (
+              <form className="space-y-6">
+                {/* Mail Server and Port - Side by Side */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-300">
+                      Mail Server (SMTP Host)
+                    </label>
+                    <input
+                      type="text"
+                      value={smtpHost}
+                      onChange={(e) => setSmtpHost(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-300">
+                      Mail Port
+                    </label>
+                    <input
+                      type="text"
+                      value={smtpPort}
+                      onChange={(e) => setSmtpPort(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      {securityProtocol === 'tls' && 'Common ports: 587 (TLS), 2525'}
+                      {securityProtocol === 'ssl' && 'Common ports: 465 (SSL)'}
+                      {securityProtocol === 'none' && 'Common ports: 25, 2525 (no encryption)'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Security Options - Radio buttons */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <label className="flex items-center space-x-3">
+                      <input
+                        type="radio"
+                        name="security"
+                        checked={securityProtocol === 'tls'}
+                        onChange={() => handleProtocolChange('tls')}
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-600 focus:ring-2"
+                      />
+                      <div>
+                        <span className="font-medium text-gray-300">TLS (Transport Layer Security)</span>
+                        <p className="text-xs text-gray-400">Recommended for port 587</p>
+                      </div>
+                    </label>
+                    <label className="flex items-center space-x-3">
+                      <input
+                        type="radio"
+                        name="security"
+                        checked={securityProtocol === 'ssl'}
+                        onChange={() => handleProtocolChange('ssl')}
+                        className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 focus:ring-blue-600 focus:ring-2"
+                      />
+                      <div>
+                        <span className="font-medium text-gray-300">SSL (Secure Sockets Layer)</span>
+                        <p className="text-xs text-gray-400">Recommended for port 465</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Mail Username */}
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-300">
+                    Mail Username
+                  </label>
+                  <input
+                    type="text"
+                    value={mailUsername}
+                    onChange={(e) => setMailUsername(e.target.value)}
+                    className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Mail Password */}
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-300">
+                    Mail Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={mailPassword}
+                      onChange={(e) => setMailPassword(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 pr-10"
+                      placeholder="Enter password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300"
+                    >
+                      {showPassword ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                          <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                          <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">For Gmail, use an App Password instead of your regular password</p>
+                </div>
+
+                {/* Default Sender Email */}
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-300">
+                    Default Sender Email
+                  </label>
+                  <input
+                    type="email"
+                    value={senderEmail}
+                    onChange={(e) => setSenderEmail(e.target.value)}
+                    className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">This email will appear as the sender in notification emails</p>
+                </div>
+
+                {/* Test Email Recipient */}
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-300">
+                    Test Email Recipient (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    value={testRecipient}
+                    onChange={(e) => setTestRecipient(e.target.value)}
+                    placeholder="Leave blank to use sender email"
+                    className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Specify where to send the test email</p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-wrap gap-3 pt-6">
+                  <button
+                    type="button"
+                    onClick={handleSaveEmailSettings}
+                    disabled={isSaving}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow transition-colors disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span>Save Email Settings</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetEmailSettings}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-800 text-white font-medium shadow transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                    </svg>
+                    <span>Reset to Defaults</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTestEmailSettings}
+                    disabled={isTesting}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium shadow transition-colors disabled:opacity-50"
+                  >
+                    {isTesting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                          <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                        </svg>
+                        <span>Send Test Email</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Information Box */}
+            <div className="mt-10 p-5 bg-blue-900/30 border border-blue-800 rounded-lg">
+              <h3 className="text-lg font-bold text-white mb-3">SMTP Configuration Tips</h3>
+              <ul className="text-gray-300 space-y-2 text-sm">
+                <li className="flex items-start">
+                  <span className="text-blue-400 mr-2">•</span>
+                  <span>Gmail: Use smtp.gmail.com with port 587 (TLS) or 465 (SSL)</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-blue-400 mr-2">•</span>
+                  <span>Outlook: Use smtp-mail.outlook.com with port 587 (TLS)</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-blue-400 mr-2">•</span>
+                  <span>Yahoo: Use smtp.mail.yahoo.com with port 587 (TLS)</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-blue-400 mr-2">•</span>
+                  <span>For Gmail, enable 2-factor authentication and create an App Password</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-blue-400 mr-2">•</span>
+                  <span>Ensure your mail server allows SMTP connections from your application</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {activeCategory === "Webhooks" && (
+          <div>
+            <h2 className="text-2xl font-bold mb-6 text-white">
+              Webhook Settings
+            </h2>
+            <p className="text-gray-400 mb-8">Configure webhooks for real-time notifications</p>
+            <form className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-gray-300">
+                  Webhook URL
+                </label>
+                <input
+                  type="text"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex flex-wrap gap-3 pt-6">
+                <button
+                  type="button"
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow transition-colors"
+                >
+                  <span>Save Webhook Settings</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWebhookUrl("")}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-800 text-white font-medium shadow transition-colors"
+                >
+                  <span>Reset to Defaults</span>
+                </button>
+              </div>
+            </form>
           </div>
         )}
 

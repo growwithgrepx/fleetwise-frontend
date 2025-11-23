@@ -114,8 +114,32 @@ const JobReassignPage: React.FC = () => {
         toast(`Job ${item.job_id} skipped: ${item.reason || 'In-progress status'}`, { icon: '⚠️' });
       });
       
-      router.refresh();
-      router.push(`/drivers/leave/details/${leaveId}`);
+      const reassignResponse = await reassignJobsMutation.mutateAsync({
+        leaveId,
+        reassignments
+      });
+      
+      // Show summary toast with counts
+      const successCount = reassignResponse.success?.length || 0;
+      const failedCount = reassignResponse.failed?.length || 0;
+      if (successCount > 0) {
+        toast.success(`Successfully reassigned ${successCount} job(s)`, { duration: 4000 });
+      }
+      // Show individual failures (keep detailed errors for failures)
+      if (reassignResponse.failed && Array.isArray(reassignResponse.failed)) {
+        reassignResponse.failed.forEach((item: any) => {
+          toast.error(`Job ${item.job_id}: ${item.error || 'Failed to reassign'}`, { duration: 6000 });
+        });
+      }
+      
+      // Reset selections
+      setSelectedJobs([]);
+      setJobAssignments({});
+      
+      // Navigate back after short delay to allow user to see final toast
+      setTimeout(() => {
+        router.push(`/drivers/leave/details/${leaveId}`);
+      }, 2000);
     } catch (error: any) {
       console.error('Error reassigning jobs:', error);
       toast.error(error.response?.data?.message || 'Failed to reassign jobs');

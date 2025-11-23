@@ -208,15 +208,6 @@ export default function ExcelUploadTable({
         return;
       }
 
-      console.log('✅ Reference data fetched:', {
-        customers: customersRes,
-        services: servicesRes,
-        vehicles: isCustomerUser ? 'skipped for customer user' : vehiclesRes,
-        drivers: isCustomerUser ? 'skipped for customer user' : driversRes,
-        contractors: contractorsRes,
-        vehicle_types: vehicleTypesRes
-      });
-
       setReferenceData({
         customers: Array.isArray(customersRes) ? customersRes : [],
         services: Array.isArray(servicesRes) ? servicesRes : [],
@@ -1519,6 +1510,127 @@ function EditForm({
             )}
           </div>
 
+          {/* Pickup Date */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Pickup Date *
+            </label>
+            <input
+              type="date"
+              defaultValue={row.pickup_date}
+              onChange={(e) => handleChange('pickup_date', e.target.value)}
+              className={clsx(inputClassName, validationErrors.pickup_date && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
+              required
+            />
+            {validationErrors.pickup_date && (
+              <p className="text-xs text-red-500 mt-1">{validationErrors.pickup_date}</p>
+            )}
+          </div>
+
+          {/* Pickup Time */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Pickup Time *
+            </label>
+            <TimePicker24Hour
+              value={row.pickup_time}
+              onChange={(value) => handleChange('pickup_time', value)}
+              className={clsx('w-full', validationErrors.pickup_time && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
+            />
+            {validationErrors.pickup_time && (
+              <p className="text-xs text-red-500 mt-1">{validationErrors.pickup_time}</p>
+            )}
+          </div>
+
+          {/* Pickup Location */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Pickup Location *
+            </label>
+            <input
+              type="text"
+              defaultValue={row.pickup_location}
+              onChange={(e) => handleChange('pickup_location', e.target.value)}
+              className={clsx(inputClassName, validationErrors.pickup_location && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
+              required
+            />
+            {validationErrors.pickup_location && (
+              <p className="text-xs text-red-500 mt-1">{validationErrors.pickup_location}</p>
+            )}
+          </div>
+
+          {/* Dropoff Location */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Dropoff Location *
+            </label>
+            <input
+              type="text"
+              defaultValue={row.dropoff_location}
+              onChange={(e) => handleChange('dropoff_location', e.target.value)}
+              className={clsx(inputClassName, validationErrors.dropoff_location && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
+              required
+            />
+            {validationErrors.dropoff_location && (
+              <p className="text-xs text-red-500 mt-1">{validationErrors.dropoff_location}</p>
+            )}
+          </div>
+
+          {/* Passenger Name */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Passenger Name
+            </label>
+            <input
+              type="text"
+              defaultValue={row.passenger_name}
+              onChange={(e) => handleChange('passenger_name', e.target.value)}
+              className={inputClassName}
+            />
+          </div>
+
+          {/* Passenger Mobile */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Passenger Mobile
+            </label>
+            <input
+              type="tel"
+              defaultValue={row.passenger_mobile || ''}
+              onChange={(e) => handleChange('passenger_mobile', e.target.value)}
+              className={inputClassName}
+              placeholder="Enter mobile number"
+            />
+          </div>
+
+          {/* Vehicle Type */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Vehicle Type
+            </label>
+            {isLoadingReferenceData ? (
+              <div className="w-full px-3 py-2 border border-border-color rounded-md">
+                <span className="text-text-secondary">Loading...</span>
+              </div>
+            ) : (
+              <select
+                key={`vehicle-type-${row.vehicle_type || 'none'}`}
+                defaultValue={row.vehicle_type || ""}
+                onChange={(e) => handleChange("vehicle_type", e.target.value)}
+                className={selectClassName}
+              >
+                <option value="">Select Vehicle Type</option>
+                {referenceData.vehicle_types?.map((type, index) => {
+                  return (
+                    <option key={type.id} value={type.name}>
+                      {type.name}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+          </div>
+
           {/* Vehicle Dropdown - Hidden for customer users */}
           {userRole !== 'customer' && (
             <div>
@@ -1612,12 +1724,6 @@ function EditForm({
                       };
                     }
                   }
-                  console.log("👔 Contractor Data:", {
-                    contractor_id: row.contractor_id,
-                    contractor: row.contractor,
-                    resolvedValue: contractorValue,
-                    contractors: referenceData.contractors
-                  });
                   return null;
                 })()}
                 <select
@@ -1641,137 +1747,6 @@ function EditForm({
                 </select>
               </>
             )}
-          </div>
-
-          {/* Vehicle Type */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Vehicle Type
-            </label>
-            {isLoadingReferenceData ? (
-              <div className="w-full px-3 py-2 border border-border-color rounded-md">
-                <span className="text-text-secondary">Loading...</span>
-              </div>
-            ) : (
-              <>
-                {console.log("🚗 Vehicle Type Data:", {
-                  vehicle_type: row.vehicle_type,
-                  vehicle_types: referenceData.vehicle_types
-                })}
-                <select
-                  key={`vehicle-type-${row.vehicle_type || 'none'}`}
-                  defaultValue={row.vehicle_type || ""}
-                  onChange={(e) => {
-                    console.log("✅ Vehicle Type selected:", e.target.value);
-                    handleChange("vehicle_type", e.target.value);
-                  }}
-                  className={selectClassName}
-                >
-                  <option value="">Select Vehicle Type</option>
-                  {referenceData.vehicle_types?.map((type, index) => {
-                    return (
-                      <option key={type.id} value={type.name}>
-                        {type.name}
-                      </option>
-                    );
-                  })}
-                </select>
-              </>
-            )}
-          </div>
-
-
-          {/* Pickup Date */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Pickup Date *
-            </label>
-            <input
-              type="date"
-              defaultValue={row.pickup_date}
-              onChange={(e) => handleChange('pickup_date', e.target.value)}
-              className={clsx(inputClassName, validationErrors.pickup_date && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
-              required
-            />
-            {validationErrors.pickup_date && (
-              <p className="text-xs text-red-500 mt-1">{validationErrors.pickup_date}</p>
-            )}
-          </div>
-
-          {/* Pickup Time */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Pickup Time *
-            </label>
-            <TimePicker24Hour
-              value={row.pickup_time}
-              onChange={(value) => handleChange('pickup_time', value)}
-              className={clsx('w-full', validationErrors.pickup_time && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
-            />
-            {validationErrors.pickup_time && (
-              <p className="text-xs text-red-500 mt-1">{validationErrors.pickup_time}</p>
-            )}
-          </div>
-
-          {/* Pickup Location */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Pickup Location *
-            </label>
-            <input
-              type="text"
-              defaultValue={row.pickup_location}
-              onChange={(e) => handleChange('pickup_location', e.target.value)}
-              className={clsx(inputClassName, validationErrors.pickup_location && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
-              required
-            />
-            {validationErrors.pickup_location && (
-              <p className="text-xs text-red-500 mt-1">{validationErrors.pickup_location}</p>
-            )}
-          </div>
-
-          {/* Dropoff Location */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Dropoff Location *
-            </label>
-            <input
-              type="text"
-              defaultValue={row.dropoff_location}
-              onChange={(e) => handleChange('dropoff_location', e.target.value)}
-              className={clsx(inputClassName, validationErrors.dropoff_location && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
-              required
-            />
-            {validationErrors.dropoff_location && (
-              <p className="text-xs text-red-500 mt-1">{validationErrors.dropoff_location}</p>
-            )}
-          </div>
-
-          {/* Passenger Name */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Passenger Name
-            </label>
-            <input
-              type="text"
-              defaultValue={row.passenger_name}
-              onChange={(e) => handleChange('passenger_name', e.target.value)}
-              className={inputClassName}
-            />
-          </div>
-
-          {/* Passenger Mobile */}
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1">
-              Passenger Mobile
-            </label>
-            <input
-              type="tel"
-              defaultValue={row.passenger_mobile || ''}
-              onChange={(e) => handleChange('passenger_mobile', e.target.value)}
-              className={inputClassName}
-              placeholder="Enter mobile number"
-            />
           </div>
 
           {/* Remarks */}
