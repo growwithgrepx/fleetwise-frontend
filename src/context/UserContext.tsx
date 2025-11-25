@@ -2,11 +2,17 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { useRouter } from 'next/navigation';
 
 
+interface LoginResult {
+  success: boolean;
+  error?: string;
+  locked_until?: string;
+}
+
 interface UserContextType {
   user: any;
   isLoggedIn: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   updateUser: (userData: any) => void;
 }
@@ -67,7 +73,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Login using backend session
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<LoginResult> => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -75,16 +81,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
         credentials: 'include',
       });
-      
+
       if (res.ok) {
         // After successful login, fetch user info
-        const meRes = await fetch('/api/auth/me', { 
+        const meRes = await fetch('/api/auth/me', {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           }
         });
-        
+
         if (meRes.ok) {
           const data = await meRes.json();
           // Extract user data from response
@@ -94,25 +100,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
             setUser(userData);
             setIsLoggedIn(true);
 
-            return true;
+            return { success: true };
           } else {
             console.warn('Invalid user data received during login:', userData);
             setUser(null);
             setIsLoggedIn(false);
-            return false;
+            return { success: false, error: 'Invalid user data received' };
           }
 
         }
       }
-      
+
+      // Handle error responses (401, 403, etc.)
+      const errorData = await res.json().catch(() => ({}));
+      const errorMessage = errorData.response?.errors?.[0] ||
+                          errorData.error?.message ||
+                          'Invalid email or password';
+      const lockedUntil = errorData.response?.locked_until;
+
       setUser(null);
       setIsLoggedIn(false);
-      return false;
+      return {
+        success: false,
+        error: errorMessage,
+        locked_until: lockedUntil
+      };
     } catch (error) {
       console.error('Login error:', error);
       setUser(null);
       setIsLoggedIn(false);
-      return false;
+      return { success: false, error: 'Network error. Please try again.' };
     }
   };
 

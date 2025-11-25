@@ -42,16 +42,27 @@ if (role === 'admin') {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
-      const success = await login(email, password);
+      const result = await login(email, password);
       setLoading(false);
-      
-      if (success) {
+
+      if (result.success) {
         router.replace('/dashboard');
       } else {
-      setError('Invalid email or password');
-    }
+        // Display the specific error message from the backend
+        let errorMsg = result.error || 'Invalid email or password';
+
+        // If account is locked and we have the locked_until timestamp, append it to the message
+        if (result.locked_until) {
+          // Convert UTC time to local time for display
+          const lockedUntilDate = new Date(result.locked_until + ' UTC');
+          const localTime = lockedUntilDate.toLocaleString();
+          errorMsg += ` (Account locked until: ${localTime})`;
+        }
+
+        setError(errorMsg);
+      }
     } catch (err) {
       setLoading(false);
       setError('Login failed. Please try again.');
