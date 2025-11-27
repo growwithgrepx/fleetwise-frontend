@@ -1283,19 +1283,13 @@ function EditForm({
         break;
       case 'vehicle_id':
       case 'vehicle':
-        if (userRole !== 'customer' && !value) {
-          errors.vehicle = 'Vehicle is required';
-        } else {
-          delete errors.vehicle;
-        }
+        // Vehicle is optional for all users - jobs can be created with pending status
+        delete errors.vehicle;
         break;
       case 'driver_id':
       case 'driver':
-        if (userRole !== 'customer' && !value) {
-          errors.driver = 'Driver is required';
-        } else {
-          delete errors.driver;
-        }
+        // Driver is optional for all users - jobs can be created with pending status
+        delete errors.driver;
         break;
       case 'pickup_date':
         if (!value) {
@@ -1346,10 +1340,25 @@ function EditForm({
       editingDataRef.current[rowNumber] = {
         ...editingDataRef.current[rowNumber],
         customer: customer.name,
-        customer_id: customer.id
+        customer_id: customer.id,
+        // Clear vehicle and driver when customer changes since they may not be valid for the new customer
+        vehicle: '',
+        vehicle_id: null,
+        driver: '',
+        driver_id: null
       };
       validateField('customer_id', customer.id);
     } else {
+      // Clear customer and related fields
+      editingDataRef.current[rowNumber] = {
+        ...editingDataRef.current[rowNumber],
+        customer: '',
+        customer_id: null,
+        vehicle: '',
+        vehicle_id: null,
+        driver: '',
+        driver_id: null
+      };
       validateField('customer_id', '');
     }
   };
@@ -1381,6 +1390,12 @@ function EditForm({
       };
       validateField('vehicle_id', vehicle.id);
     } else {
+      // Clear both vehicle_id and vehicle name when user selects "Select Vehicle"
+      editingDataRef.current[rowNumber] = {
+        ...editingDataRef.current[rowNumber],
+        vehicle: '',
+        vehicle_id: null
+      };
       validateField('vehicle_id', '');
     }
   };
@@ -1396,6 +1411,12 @@ function EditForm({
       };
       validateField('driver_id', driver.id);
     } else {
+      // Clear both driver_id and driver name when user selects "Select Driver"
+      editingDataRef.current[rowNumber] = {
+        ...editingDataRef.current[rowNumber],
+        driver: '',
+        driver_id: null
+      };
       validateField('driver_id', '');
     }
   };
