@@ -8,7 +8,7 @@ const getApiBaseUrl = () => {
   }
   
   if (process.env.NODE_ENV === 'production') {
-    return 'https://test.grepx.sg';
+    return 'https://fleet.avant-garde.com.sg';
   }
   
   // In development, use the Next.js API proxy
