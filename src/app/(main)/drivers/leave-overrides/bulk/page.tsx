@@ -33,8 +33,7 @@ export default function BulkLeaveOverridesPage() {
       const matchesStatus = statusFilter === 'all' || leave.status === statusFilter;
       const matchesSearch =
         !searchFilter ||
-        leave.driver?.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
-        leave.driver?.email?.toLowerCase().includes(searchFilter.toLowerCase());
+        leave.driver?.name?.toLowerCase().includes(searchFilter.toLowerCase());
 
       return matchesStatus && matchesSearch && leave.status === 'approved';
     });
