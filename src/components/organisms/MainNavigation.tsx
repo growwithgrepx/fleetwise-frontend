@@ -31,7 +31,8 @@ import {
   ChevronRightIcon,
   ArrowRightOnRectangleIcon,
   SunIcon,
-  MoonIcon
+  MoonIcon,
+  ClipboardDocumentCheckIcon
 } from '@heroicons/react/24/outline';
 import { useMediaQuery } from 'react-responsive';
 import { useTheme } from '@/context/ThemeContext';
@@ -103,14 +104,14 @@ const navSections: NavSection[] = [
       },
       { label: "Customers", href: "/customers", icon: <UserGroupIcon className="w-5 h-5" />, description: "Customer database" },
       { label: "Contractors", href: "/contractors", icon: <WalletIcon className="w-5 h-5" />, description: "Contractor management" },
-      // Modified Leave Management section to be clickable and link to Apply Leave directly
+      // Leave Management section with submenu
       {
         label: "Leave Management",
         href: "/drivers/leave/apply", // Clicking this will go directly to Apply Leave
         icon: <DocumentDuplicateIcon className="w-5 h-5" />,
         description: "Apply for driver leave",
-        // Removed Apply Leave from children since it's now the main link
         children: [
+          { label: "Leave Overrides", href: "/drivers/leave-overrides", icon: <ClipboardDocumentCheckIcon className="w-4 h-4" />, description: "Manage time window overrides" },
         ]
       },
     ] 

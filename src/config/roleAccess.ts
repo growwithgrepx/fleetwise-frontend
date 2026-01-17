@@ -1,6 +1,6 @@
 export const roleAccessRules: Record<string, string[]> = {
   admin: [],
-  manager: ["/general-settings", "/dashboard",],
+  manager: ["/general-settings", "/dashboard", "/drivers/leave-overrides"],
   accountant: [
     "/dashboard",
     "/general-settings",
@@ -14,6 +14,7 @@ export const roleAccessRules: Record<string, string[]> = {
     "/drivers/leave",
     "/drivers/leave/apply",
     "/drivers/leave/history",
+    "/drivers/leave-overrides",
     "/customers",
     "/contractors",
     "/vehicles",
