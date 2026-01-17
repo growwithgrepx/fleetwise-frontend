@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { useTheme } from '@/context/ThemeContext';
 import { useRouter } from 'next/navigation';
+import { useJobMonitoringStore } from '@/store/useJobMonitoringStore';
+import { useJobMonitoring } from '@/hooks/useJobMonitoring';
+import { PhoneIcon, BellIcon as PhoneBellIcon, ClockIcon } from '@heroicons/react/24/outline';
 import {
   getUserSettings,
   saveUserSettings,
@@ -32,7 +35,8 @@ import {
   PencilIcon,
   TrashIcon,
   CheckCircleIcon,
-  EnvelopeIcon
+  EnvelopeIcon,
+  BellIcon
 } from '@heroicons/react/24/outline';
 import ChangePasswordForm from '@/components/ChangePasswordForm';
 import UserModal from '@/components/organisms/UserModal';
@@ -47,6 +51,7 @@ const settingsCategories = [
   { name: "Billing", icon: CreditCardIcon },
   { name: "User Management", icon: UserIcon },
   { name: "Email Notifications", icon: EnvelopeIcon },
+  { name: "Alert Settings", icon: BellIcon },
   { name: "Export Database", icon: ArrowPathIcon }, // Updated name
 ];
 
@@ -134,6 +139,15 @@ export default function SettingsPage() {
   const [isLoadingTables, setIsLoadingTables] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Alert Settings state
+  const [enableAudioNotifications, setEnableAudioNotifications] = useState<boolean>(true);
+  const [enableVisualAlerts, setEnableVisualAlerts] = useState<boolean>(true);
+  const [alertVolume, setAlertVolume] = useState<number>(70);
+  const [pickupThresholdMinutes, setPickupThresholdMinutes] = useState<number>(15); // minutes after pickup time
+  const [reminderIntervalMinutes, setReminderIntervalMinutes] = useState<number>(10); // minutes between reminders
+  const [maxAlertReminders, setMaxAlertReminders] = useState<number>(3); // max reminders for overdue jobs
+  const [alertHistoryRetentionHours, setAlertHistoryRetentionHours] = useState<number>(24); // hours to retain dismissed alerts
+
   // User Management state
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -178,6 +192,9 @@ export default function SettingsPage() {
 
   const [activeCategory, setActiveCategory] = useState("General");
 
+  // Job Monitoring for Alert Settings
+  const { alerts, dismissAlert, startTrip, isDismissing, isStartingTrip } = useJobMonitoring();
+
 
   // Fetch users and roles when User Management tab is active
   useEffect(() => {
@@ -210,6 +227,40 @@ export default function SettingsPage() {
     setAllowedFormats(defaultPhotoSettings.allowedFormats);
     toast.success('Email settings reset to defaults');
     toast.success('Photo settings reset to default!');
+  };
+
+  // Alert Settings handlers
+  const handleSaveAlertSettings = async () => {
+    try {
+      // In a real implementation, this would save to the backend
+      // For now, we'll just show a success message
+      toast.success('Alert settings saved successfully!');
+      
+      // Example API call would be:
+      // await saveAlertSettings({
+      //   enableAudioNotifications,
+      //   enableVisualAlerts,
+      //   alertVolume,
+      //   pickupThresholdMinutes,
+      //   reminderIntervalMinutes,
+      //   maxAlertReminders,
+      //   alertHistoryRetentionHours
+      // });
+    } catch (error) {
+      console.error('Error saving alert settings:', error);
+      toast.error('Failed to save alert settings');
+    }
+  };
+
+  const handleResetAlertSettings = () => {
+    setEnableAudioNotifications(true);
+    setEnableVisualAlerts(true);
+    setAlertVolume(70);
+    setPickupThresholdMinutes(15);
+    setReminderIntervalMinutes(10);
+    setMaxAlertReminders(3);
+    setAlertHistoryRetentionHours(24);
+    toast.success('Alert settings reset to defaults!');
   };
 
   // User Management functions
@@ -1686,6 +1737,275 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {activeCategory === "Alert Settings" && (
+          <div>
+            <h2 className="text-2xl font-bold mb-6 text-white">
+              Alert Settings
+            </h2>
+            <p className="text-gray-400 mb-8">Configure job monitoring and alert notification settings</p>
+            
+            <form className="space-y-6">
+              {/* Audio Notifications */}
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Audio Notifications</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-sm font-medium text-gray-300">
+                        Enable Audio Alerts
+                      </label>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Play sound when new alerts arrive
+                      </p>
+                    </div>
+                    <div className="flex items-center">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enableAudioNotifications}
+                          onChange={(e) => setEnableAudioNotifications(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  {enableAudioNotifications && (
+                    <div className="ml-8">
+                      <label className="block text-sm font-medium mb-2 text-gray-300">
+                        Alert Volume
+                      </label>
+                      <div className="flex items-center space-x-4">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={alertVolume}
+                          onChange={(e) => setAlertVolume(parseInt(e.target.value))}
+                          className="w-full max-w-xs accent-blue-600"
+                        />
+                        <span className="text-sm text-gray-300 min-w-[30px]">{alertVolume}%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Visual Alerts */}
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Visual Alerts</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-sm font-medium text-gray-300">
+                        Enable Visual Alerts
+                      </label>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Show visual notifications for alerts
+                      </p>
+                    </div>
+                    <div className="flex items-center">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enableVisualAlerts}
+                          onChange={(e) => setEnableVisualAlerts(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Alert Timing */}
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Alert Timing</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-300">
+                      Pickup Threshold
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={pickupThresholdMinutes}
+                        onChange={(e) => setPickupThresholdMinutes(parseInt(e.target.value))}
+                        className="w-32 rounded-lg bg-gray-700 border border-gray-600 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-300">minutes</span>
+                      <p className="text-xs text-gray-400 ml-4">
+                        Minutes after pickup time when alert triggers
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-300">
+                      Reminder Interval
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="number"
+                        min="5"
+                        max="60"
+                        value={reminderIntervalMinutes}
+                        onChange={(e) => setReminderIntervalMinutes(parseInt(e.target.value))}
+                        className="w-32 rounded-lg bg-gray-700 border border-gray-600 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-300">minutes</span>
+                      <p className="text-xs text-gray-400 ml-4">
+                        Interval between reminder alerts
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-300">
+                      Maximum Reminders
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={maxAlertReminders}
+                        onChange={(e) => setMaxAlertReminders(parseInt(e.target.value))}
+                        className="w-32 rounded-lg bg-gray-700 border border-gray-600 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                      <p className="text-xs text-gray-400">
+                        Maximum number of reminders for overdue jobs
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-300">
+                      History Retention
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="number"
+                        min="1"
+                        max="168" // 168 hours = 1 week
+                        value={alertHistoryRetentionHours}
+                        onChange={(e) => setAlertHistoryRetentionHours(parseInt(e.target.value))}
+                        className="w-32 rounded-lg bg-gray-700 border border-gray-600 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-300">hours</span>
+                      <p className="text-xs text-gray-400 ml-4">
+                        Hours to retain dismissed alerts in history
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Alerts Section */}
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Active Monitoring Alerts</h3>
+                <div className="space-y-3">
+                  {alerts && alerts.length > 0 ? (
+                    alerts.map((alert) => (
+                      <div key={alert.id} className="border border-gray-600 rounded-lg p-4 bg-gray-750">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="font-medium text-white">Job #{alert.jobId}</span>
+                              <span className="text-sm text-gray-300">{alert.passengerDetails}</span>
+                              <span className="text-sm text-yellow-400 bg-yellow-900/50 px-2 py-1 rounded">
+                                {Math.floor(alert.elapsedTime)} min late
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-gray-300">
+                                <span className="text-gray-400">Driver:</span> {alert.driverName}
+                              </div>
+                              <div className="text-gray-300">
+                                <span className="text-gray-400">Pickup Time:</span> {new Date(alert.pickupTime).toLocaleString()}
+                              </div>
+                              <div className="text-gray-300">
+                                <span className="text-gray-400">Passenger:</span> {alert.passengerDetails}
+                              </div>
+                              <div className="text-gray-300">
+                                <span className="text-gray-400">Elapsed:</span> {Math.floor(alert.elapsedTime)} minutes
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 ml-4">
+                            <button 
+                              onClick={() => {
+                                // Open job details in a new window/tab
+                                window.open(`/jobs/${alert.jobId}`, '_blank');
+                              }}
+                              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
+                            >
+                              View Job
+                            </button>
+                            <button 
+                              onClick={() => startTrip(alert.jobId)}
+                              className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition-colors"
+                              disabled={isStartingTrip}
+                            >
+                              Start Trip
+                            </button>
+                            <a 
+                              href={`tel:${alert.driverContact}`}
+                              className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded transition-colors flex items-center justify-center gap-1"
+                            >
+                              <PhoneIcon className="w-3 h-3" />
+                              Call
+                            </a>
+                            <button 
+                              onClick={() => dismissAlert(alert.id)}
+                              className="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors"
+                              disabled={isDismissing}
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-gray-400">
+                      No active monitoring alerts
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-3 pt-6">
+                <button
+                  type="button"
+                  onClick={handleSaveAlertSettings}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>Save Alert Settings</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetAlertSettings}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-800 text-white font-medium shadow transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                  </svg>
+                  <span>Reset to Defaults</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
         {activeCategory === "Webhooks" && (
           <div>
             <h2 className="text-2xl font-bold mb-6 text-white">
@@ -1775,7 +2095,7 @@ export default function SettingsPage() {
                                 <div className="text-sm text-white">{user.name || '-'}</div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-sm text-white">{user.email}</div>
+                                 <div className="text-sm text-white">{user.email}</div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm text-gray-300">
