@@ -9,12 +9,32 @@ export default function RootPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (isLoggedIn) {
-        router.replace('/dashboard');
-      } else {
-        router.replace('/login');
-      }
+    if (!isLoading && isLoggedIn) {
+      // Determine user role and redirect appropriately
+      const fetchUserRole = async () => {
+        try {
+          const userData = await fetch('/api/auth/me', { credentials: 'include' }).then(res => res.json());
+          const roles = userData.response?.user?.roles || [];
+          const primaryRole = Array.isArray(roles) && roles.length > 0 
+            ? typeof roles[0] === 'string' ? roles[0] : roles[0]?.name || roles[0]?.role || 'guest'
+            : 'guest';
+          
+          if (primaryRole === 'admin') {
+            router.replace('/dashboard');
+          } else if (primaryRole === 'customer') {
+            router.replace('/jobs/dashboard/customer');
+          } else {
+            router.replace('/jobs');
+          }
+        } catch (error) {
+          console.error('Error fetching user role:', error);
+          router.replace('/login');
+        }
+      };
+      
+      fetchUserRole();
+    } else if (!isLoading && !isLoggedIn) {
+      router.replace('/login');
     }
   }, [isLoggedIn, isLoading, router]);
 

@@ -6,23 +6,7 @@ import { useUser } from "@/context/UserContext";
 import { useJobs } from "@/hooks/useJobs";
 import { format, startOfMonth, endOfMonth, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
-// Removed imports that don't exist
-// import { 
-//   Table, 
-//   TableBody, 
-//   TableCell, 
-//   TableHead, 
-//   TableHeader, 
-//   TableRow 
-// } from "@/components/molecules/EntityTable";
-// import { 
-//   Dialog, 
-//   DialogContent, 
-//   DialogHeader, 
-//   DialogTitle 
-// } from "@/components/molecules/Dialog";
 
-// Using standard HTML elements with Tailwind CSS instead
 import { Badge } from "@/components/atoms/Badge";
 
 
@@ -32,9 +16,30 @@ import {
   CalendarIcon,
   ClockIcon,
   CarIcon,
-  UserIcon
+  UserIcon,
+  BriefcaseIcon,
+  CheckCircleIcon,
+  FileTextIcon,
+  DollarSignIcon
 } from "lucide-react";
 import axios from "axios";
+
+// Import chart components
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
 
 // Define types
 type ApiJob = {
@@ -65,6 +70,7 @@ type JobStatus = 'Active' | 'Pending' | 'Completed' | 'Cancelled';
 const CustomerDashboardPage = () => {
   const router = useRouter();
   const { user } = useUser();
+  
   const { jobs: allJobs = [], isLoading: jobsLoading } = useJobs();
   
   // Type assertion to handle type mismatch
@@ -122,7 +128,7 @@ const CustomerDashboardPage = () => {
     return fetchedInvoices
       .filter(invoice => invoice.customer_id === user.customer_id)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5); // Last 5 invoices
+      .slice(0, 10); // Last 10 invoices
   }, [fetchedInvoices, user?.customer_id]);
 
   // Calculate statistics
@@ -146,13 +152,27 @@ const CustomerDashboardPage = () => {
 
   const completedJobs = useMemo(() => {
     if (!user?.customer_id) return 0;
-
+      
+    const today = new Date();
+    const startOfMonthDate = startOfMonth(today);
+    const endOfMonthDate = endOfMonth(today);
+  
     return typedJobs.filter(job => 
       job.customer_id === user.customer_id && 
-      job.status.toLowerCase() === 'completed'
+      job.status.toLowerCase() === "completed" &&
+      parseISO(job.pickup_date) >= startOfMonthDate &&
+      parseISO(job.pickup_date) <= endOfMonthDate
     ).length;
   }, [typedJobs, user?.customer_id]);
-
+  
+  const totalJobs = useMemo(() => {
+    if (!user?.customer_id) return 0;
+  
+    return typedJobs.filter(job => 
+      job.customer_id === user.customer_id
+    ).length;
+  }, [typedJobs, user?.customer_id]);
+  
   const totalInvoices = useMemo(() => {
     if (!user?.customer_id) return 0;
 
@@ -177,83 +197,344 @@ const CustomerDashboardPage = () => {
     setDateRange({ from, to });
   };
 
+  // Calculate additional metrics for the new cards
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+  
+  const completedToday = useMemo(() => {
+    if (!user?.customer_id) return 0;
+
+    return typedJobs.filter(job => 
+      job.customer_id === user.customer_id && 
+      job.status.toLowerCase() === 'completed' &&
+      parseISO(job.pickup_date) >= startOfToday &&
+      parseISO(job.pickup_date) <= endOfToday
+    ).length;
+  }, [typedJobs, user?.customer_id]);
+  
+  const upcomingBookings = useMemo(() => {
+    if (!user?.customer_id) return 0;
+
+    return typedJobs.filter(job => 
+      job.customer_id === user.customer_id && 
+      (job.status.toLowerCase() === 'pending' || new Date(job.pickup_date) > today)
+    ).length;
+  }, [typedJobs, user?.customer_id]);
+  
+  // Calculate next booking date
+  const nextBookingDate = useMemo(() => {
+    if (!user?.customer_id) return null;
+    
+    const futureJobs = typedJobs
+      .filter(job => 
+        job.customer_id === user.customer_id && 
+        new Date(job.pickup_date) > today
+      )
+      .sort((a, b) => new Date(a.pickup_date).getTime() - new Date(b.pickup_date).getTime());
+      
+    return futureJobs.length > 0 ? futureJobs[0].pickup_date : null;
+  }, [typedJobs, user?.customer_id]);
+  
+  // Calculate total spent this month
+  const totalSpentThisMonth = useMemo(() => {
+    if (!user?.customer_id) return 0;
+    
+    const startOfMonthDate = startOfMonth(today);
+    const endOfMonthDate = endOfMonth(today);
+    
+    return typedJobs
+      .filter(job => 
+        job.customer_id === user.customer_id && 
+        job.status.toLowerCase() === 'completed' &&
+        parseISO(job.pickup_date) >= startOfMonthDate &&
+        parseISO(job.pickup_date) <= endOfMonthDate &&
+        job.final_price
+      )
+      .reduce((sum, job) => sum + (job.final_price || 0), 0);
+  }, [typedJobs, user?.customer_id]);
+  
+  // Calculate total spent last month for comparison
+  const totalSpentLastMonth = useMemo(() => {
+    if (!user?.customer_id) return 0;
+    
+    const lastMonthStart = startOfMonth(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+    const lastMonthEnd = endOfMonth(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+    
+    return typedJobs
+      .filter(job => 
+        job.customer_id === user.customer_id && 
+        job.status.toLowerCase() === 'completed' &&
+        parseISO(job.pickup_date) >= lastMonthStart &&
+        parseISO(job.pickup_date) <= lastMonthEnd &&
+        job.final_price
+      )
+      .reduce((sum, job) => sum + (job.final_price || 0), 0);
+  }, [typedJobs, user?.customer_id]);
+  
+  // Calculate pending invoices
+  const pendingInvoices = useMemo(() => {
+    if (!user?.customer_id) return 0;
+    
+    return fetchedInvoices.filter(invoice => 
+      invoice.customer_id === user.customer_id && 
+      (invoice.status.toLowerCase() === 'pending' || invoice.status.toLowerCase() === 'unpaid')
+    ).length;
+  }, [fetchedInvoices, user?.customer_id]);
+  
+  // Determine comparison text for total spent
+  const comparisonText = () => {
+    if (totalSpentLastMonth === 0) {
+      return totalSpentThisMonth > 0 ? 'First month spending' : 'No spending last month';
+    }
+    
+    const percentageChange = ((totalSpentThisMonth - totalSpentLastMonth) / totalSpentLastMonth) * 100;
+    
+    if (percentageChange > 0) {
+      return `↑ ${Math.abs(percentageChange).toFixed(1)}% from last month`;
+    } else if (percentageChange < 0) {
+      return `↓ ${Math.abs(percentageChange).toFixed(1)}% from last month`;
+    } else {
+      return 'Same as last month';
+    }
+  };
+  
+  // Calculate revenue analytics data for charts
+  const revenueByDay = useMemo(() => {
+    if (!user?.customer_id) return [];
+    
+    const startOfMonthDate = startOfMonth(today);
+    const endOfMonthDate = endOfMonth(today);
+    
+    // Group jobs by date and calculate revenue
+    const dailyRevenue: { date: string; revenue: number; paid: number; pending: number }[] = [];
+    
+    const jobsForCustomer = typedJobs.filter(job => job.customer_id === user.customer_id);
+    
+    // Get all dates in the current month
+    const currentDate = new Date(startOfMonthDate);
+    while (currentDate <= endOfMonthDate) {
+      const dateStr = format(currentDate, 'yyyy-MM-dd');
+      const dayJobs = jobsForCustomer.filter(job => 
+        job.pickup_date === dateStr && 
+        job.status.toLowerCase() === 'completed' &&
+        job.final_price
+      );
+      
+      const dailyTotal = dayJobs.reduce((sum, job) => sum + (job.final_price || 0), 0);
+      
+      dailyRevenue.push({
+        date: dateStr,
+        revenue: dailyTotal,
+        paid: dailyTotal, // For simplicity, assuming completed jobs are paid
+        pending: 0
+      });
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    // Return last 14 days of data
+    return dailyRevenue.slice(-14);
+  }, [typedJobs, user?.customer_id]);
+  
+  // Calculate invoice status data for pie chart
+  const invoiceStatusData = useMemo(() => {
+    if (!user?.customer_id) return [];
+    
+    const customerInvoices = fetchedInvoices.filter(inv => inv.customer_id === user.customer_id);
+    
+    const paidInvoices = customerInvoices.filter(inv => inv.status.toLowerCase() === 'paid').length;
+    const pendingInvoicesCount = customerInvoices.filter(inv => 
+      inv.status.toLowerCase() === 'pending' || inv.status.toLowerCase() === 'unpaid'
+    ).length;
+    const overdueInvoices = customerInvoices.filter(inv => 
+      inv.status.toLowerCase() === 'overdue'
+    ).length;
+    
+    return [
+      { name: 'Paid', value: paidInvoices },
+      { name: 'Pending', value: pendingInvoicesCount },
+      { name: 'Overdue', value: overdueInvoices },
+    ];
+  }, [fetchedInvoices, user?.customer_id]);
+  
+  // Calculate total revenue metrics
+  const totalRevenue = useMemo(() => {
+    if (!user?.customer_id) return 0;
+    
+    return fetchedInvoices
+      .filter(inv => inv.customer_id === user.customer_id)
+      .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+  }, [fetchedInvoices, user?.customer_id]);
+  
+  const paidRevenue = useMemo(() => {
+    if (!user?.customer_id) return 0;
+    
+    return fetchedInvoices
+      .filter(inv => 
+        inv.customer_id === user.customer_id && 
+        inv.status.toLowerCase() === 'paid'
+      )
+      .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+  }, [fetchedInvoices, user?.customer_id]);
+  
+  const pendingRevenue = useMemo(() => {
+    if (!user?.customer_id) return 0;
+    
+    return fetchedInvoices
+      .filter(inv => 
+        inv.customer_id === user.customer_id && 
+        (inv.status.toLowerCase() === 'pending' || inv.status.toLowerCase() === 'unpaid')
+      )
+      .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+  }, [fetchedInvoices, user?.customer_id]);
+  
+  const overdueRevenue = useMemo(() => {
+    if (!user?.customer_id) return 0;
+    
+    return fetchedInvoices
+      .filter(inv => 
+        inv.customer_id === user.customer_id && 
+        inv.status.toLowerCase() === 'overdue'
+      )
+      .reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+  }, [fetchedInvoices, user?.customer_id]);
+  
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-white mb-6">Customer Dashboard</h1>
+      {/* Header Section */}
+      <div className="mb-8">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700 shadow-lg">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-blue-500 rounded-lg">
+                  <BriefcaseIcon className="w-6 h-6 text-white" />
+                </div>
+                <h1 className="text-3xl font-bold text-white">Customer Command Center</h1>
+              </div>
+              <div className="flex items-center ml-11">
+                <div className="flex items-center text-green-400">
+                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                  <span className="text-sm font-medium">Live data • Updated just now</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-700 rounded-lg p-4 border border-gray-600 min-w-[200px]">
+              <div className="text-center">
+                <p className="text-white font-medium truncate">{user?.name || user?.email || 'Customer'}</p>
+                <p className="text-gray-400 text-sm truncate">{user?.customer?.name || user?.customer_name || 'Organization'}</p>
+                <div className="mt-2 flex items-center justify-center">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  <span className="text-xs text-green-400">Active</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      {/* Summary Cards */}
+      {/* Main Dashboard Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-lg p-4">
-          <div className="pb-2">
-            <div className="text-sm font-medium">Active Jobs</div>
+        {/* Active Jobs Card */}
+        <div className="bg-gradient-to-br from-gray-700 to-gray-800 text-white rounded-lg p-4 border border-gray-600">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-sm font-medium mb-1">Active Jobs</div>
+              <div className="text-2xl font-bold text-blue-400">{activeJobs}</div>
+            </div>
+            <div className="p-2 bg-gray-600 rounded-full">
+              <BriefcaseIcon className="w-5 h-5 text-blue-400" />
+            </div>
           </div>
-          <div>
-            <div className="text-2xl font-bold">{activeJobs}</div>
-            <p className="text-xs opacity-80">Currently active jobs</p>
-          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => router.push('/jobs')}
+            className="mt-3 w-full text-white border-gray-500 hover:bg-gray-600 hover:border-gray-400"
+          >
+            View All
+          </Button>
         </div>
 
-        <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 text-white rounded-lg p-4">
-          <div className="pb-2">
-            <div className="text-sm font-medium">Pending Jobs</div>
+        {/* Pending Jobs Card */}
+        <div className="bg-gradient-to-br from-gray-700 to-gray-800 text-white rounded-lg p-4 border border-gray-600">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-sm font-medium mb-1">Pending Jobs</div>
+              <div className="text-2xl font-bold text-yellow-400">{pendingJobs}</div>
+            </div>
+            <div className="p-2 bg-gray-600 rounded-full">
+              <ClockIcon className="w-5 h-5 text-yellow-400" />
+            </div>
           </div>
-          <div>
-            <div className="text-2xl font-bold">{pendingJobs}</div>
-            <p className="text-xs opacity-80">Waiting for confirmation</p>
-          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => router.push('/jobs')}
+            className="mt-3 w-full text-white border-gray-500 hover:bg-gray-600 hover:border-gray-400"
+          >
+            View Details
+          </Button>
         </div>
 
-        <div className="bg-gradient-to-br from-green-600 to-green-700 text-white rounded-lg p-4">
-          <div className="pb-2">
-            <div className="text-sm font-medium">Completed This Month</div>
+        {/* Total Jobs Card */}
+        <div className="bg-gradient-to-br from-gray-700 to-gray-800 text-white rounded-lg p-4 border border-gray-600">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-sm font-medium mb-1">Total Jobs</div>
+              <div className="text-2xl font-bold text-green-400">{totalJobs}</div>
+            </div>
+            <div className="p-2 bg-gray-600 rounded-full">
+              <BriefcaseIcon className="w-5 h-5 text-green-400" />
+            </div>
           </div>
-          <div>
-            <div className="text-2xl font-bold">{completedJobs}</div>
-            <p className="text-xs opacity-80">Jobs completed this month</p>
-          </div>
+          <p className="text-xs text-gray-400 mt-2">All jobs</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-600 to-purple-700 text-white rounded-lg p-4">
-          <div className="pb-2">
-            <div className="text-sm font-medium">Total Invoices</div>
+        {/* Total Invoices Card */}
+        <div className="bg-gradient-to-br from-gray-700 to-gray-800 text-white rounded-lg p-4 border border-gray-600">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="text-sm font-medium mb-1">Total Invoices</div>
+              <div className="text-2xl font-bold text-purple-400">{totalInvoices}</div>
+            </div>
+            <div className="p-2 bg-gray-600 rounded-full">
+              <FileTextIcon className="w-5 h-5 text-purple-400" />
+            </div>
           </div>
-          <div>
-            <div className="text-2xl font-bold">{totalInvoices}</div>
-            <p className="text-xs opacity-80">Total invoices issued</p>
+          <p className="text-xs text-gray-400 mt-2">{Math.min(totalInvoices, 10)} recent shown</p>
+        </div>
+      </div>
+      
+      {/* Revenue Intelligence Section */}
+      <div className="mb-8 px-4">
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white rounded-xl p-6 shadow-xl border border-gray-700">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-white">Revenue Intelligence</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="text-center p-4 bg-gray-700 rounded-lg border border-gray-600">
+              <div className="text-2xl font-bold text-green-400">${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-sm text-gray-400">Total Revenue</div>
+            </div>
+            <div className="text-center p-4 bg-gray-700 rounded-lg border border-gray-600">
+              <div className="text-2xl font-bold text-blue-400">${paidRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-sm text-gray-400">Paid</div>
+            </div>
+            <div className="text-center p-4 bg-gray-700 rounded-lg border border-gray-600">
+              <div className="text-2xl font-bold text-orange-400">${pendingRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-sm text-gray-400">Pending</div>
+            </div>
+            <div className="text-center p-4 bg-gray-700 rounded-lg border border-gray-600">
+              <div className="text-2xl font-bold text-red-400">${overdueRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="text-sm text-gray-400">Overdue</div>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Date Range Filter */}
-      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Date Range
-          </label>
-          <div className="flex gap-2">
-            <div className="relative">
-              <input
-                type="date"
-                value={format(dateRange.from, 'yyyy-MM-dd')}
-                onChange={(e) => handleDateRangeChange(new Date(e.target.value), dateRange.to)}
-                className="bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-white"
-              />
-              <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
-            </div>
-            <span className="flex items-center text-gray-400">to</span>
-            <div className="relative">
-              <input
-                type="date"
-                value={format(dateRange.to, 'yyyy-MM-dd')}
-                onChange={(e) => handleDateRangeChange(dateRange.from, new Date(e.target.value))}
-                className="bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-white"
-              />
-              <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
-            </div>
-          </div>
-        </div>
-      </div>
-
+      
       {/* Recent Jobs Section */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
@@ -261,7 +542,7 @@ const CustomerDashboardPage = () => {
           <Button 
             variant="outline" 
             onClick={() => router.push('/jobs')}
-            className="text-white border-white hover:bg-white hover:text-gray-900"
+            className="text-white border-gray-500 hover:bg-gray-600 hover:border-gray-400"
           >
             View All Jobs
           </Button>
@@ -271,18 +552,14 @@ const CustomerDashboardPage = () => {
           {jobsLoading ? (
             <div className="p-6 text-center text-gray-400">Loading jobs...</div>
           ) : filteredJobs.length === 0 ? (
-            <div className="p-6 text-center text-gray-400">No jobs found in the selected date range</div>
+            <div className="p-6 text-center text-gray-400">No jobs found</div>
           ) : (
             <table className="min-w-full divide-y divide-gray-700">
               <thead className="bg-gray-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Job ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date & Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Driver</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Vehicle</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Pickup</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Dropoff</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -309,27 +586,9 @@ const CustomerDashboardPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-gray-300">
                       <div className="flex items-center gap-1">
                         <CalendarIcon className="h-4 w-4" />
-                        {format(parseISO(job.pickup_date), 'MMM dd, yyyy')}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <ClockIcon className="h-4 w-4" />
-                        {job.pickup_time}
+                        {format(parseISO(job.pickup_date), 'MMM dd')}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">
-                      <div className="flex items-center gap-1">
-                        <UserIcon className="h-4 w-4" />
-                        {job.driver_name || 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">
-                      <div className="flex items-center gap-1">
-                        <CarIcon className="h-4 w-4" />
-                        {job.vehicle_number || 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">{job.pickup_location}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">{job.dropoff_location}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Button 
                         size="sm" 
@@ -351,70 +610,8 @@ const CustomerDashboardPage = () => {
         </div>
       </div>
 
-      {/* Invoice Summary Section */}
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-white">Recent Invoices</h2>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/billing')}
-            className="text-white border-white hover:bg-white hover:text-gray-900"
-          >
-            View All Invoices
-          </Button>
-        </div>
 
-        <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-          {invoicesLoading ? (
-            <div className="p-6 text-center text-gray-400">Loading invoices...</div>
-          ) : filteredInvoices.length === 0 ? (
-            <div className="p-6 text-center text-gray-400">No invoices found</div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-700">
-              <thead className="bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Invoice ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-gray-800 divide-y divide-gray-700">
-                {filteredInvoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-gray-750">
-                    <td className="px-6 py-4 whitespace-nowrap text-white font-medium">INV-{String(invoice.id).padStart(6, '0')}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">{format(parseISO(invoice.date), 'MMM dd, yyyy')}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">${invoice.total_amount?.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge 
-                        variant={
-                          invoice.status.toLowerCase() === 'paid' ? 'success' :
-                          invoice.status.toLowerCase() === 'partially paid' ? 'warning' :
-                          'destructive'
-                        }
-                      >
-                        {invoice.status}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        onClick={() => handleInvoiceDownload(invoice.id)}
-                        className="text-primary hover:bg-primary/10"
-                      >
-                        <DownloadIcon className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
+      
       {/* Job Detail Modal */}
       {isJobDetailOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

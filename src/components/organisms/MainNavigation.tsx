@@ -59,7 +59,8 @@ const navSections: NavSection[] = [
   {
     title: "Operations",
     items: [
-      { label: "Dashboard", href: "/dashboard", icon: <HomeIcon className="w-5 h-5" />, description: "Overview and analytics" },
+      { label: "Admin Dashboard", href: "/dashboard", icon: <HomeIcon className="w-5 h-5" />, description: "Overview and analytics" },
+      { label: "Dashboard", href: "/jobs/dashboard/customer", icon: <HomeIcon className="w-4 h-4" />, description: "Overview and analytics" },
       {
         label: "Jobs",
         href: "/jobs",
@@ -237,8 +238,8 @@ const visibleSections = navSections
 const computedMenus = useMemo(() => {
   const next: Record<string, boolean> = {};
 
-  // Example: expand "Jobs" if pathname starts with /jobs
-  if (pathname.startsWith("/jobs")) next["Jobs"] = true;
+  // Example: expand "Jobs" if pathname starts with /jobs, but not for customer dashboard
+  if (pathname.startsWith("/jobs") && !pathname.startsWith("/jobs/dashboard/customer")) next["Jobs"] = true;
   if (pathname.startsWith("/billing") && !pathname.startsWith("/billing/contractor-billing") && !pathname.startsWith("/billing/driver-billing")) next["Billing"] = true;
   // Use the label as the key for Cost Summary
   if (pathname.startsWith("/billing/contractor-billing") || pathname.startsWith("/billing/driver-billing")) next["cost_summary"] = true;
@@ -327,6 +328,11 @@ const finalMenuState = { ...computedMenus, ...manualOverrides };
       return pathname === "/drivers" || pathname === "/drivers/" || 
              (pathname.startsWith("/drivers") && !pathname.startsWith("/drivers/leave"));
     }
+    // Special handling for Jobs to avoid matching customer dashboard
+    if (href === "/jobs") {
+      return pathname === "/jobs" || pathname === "/jobs/" || 
+             (pathname.startsWith("/jobs") && !pathname.startsWith("/jobs/dashboard/customer"));
+    }
     return pathname?.startsWith(href) ?? false;
   };
 
@@ -396,11 +402,16 @@ const toggleMenu = (key: string) => {
           (pathname.startsWith("/billing/contractor-billing") || 
            pathname.startsWith("/billing/driver-billing"))) &&
         // Special handling for Drivers to avoid matching leave routes
-        !(item.href === "/drivers" && pathname.startsWith("/drivers/leave"))
+        !(item.href === "/drivers" && pathname.startsWith("/drivers/leave")) &&
+        // Special handling for Jobs to avoid matching customer dashboard
+        !(item.href === "/jobs" && pathname.startsWith("/jobs/dashboard/customer"))
        )
       );
     
-    const anyChildActive = item.children?.some((c) => pathname.startsWith(c.href));
+    // Special handling for Jobs - don't count customer dashboard as a child
+    const anyChildActive = item.href === "/jobs" 
+      ? item.children?.some((c) => pathname.startsWith(c.href) && !pathname.startsWith("/jobs/dashboard/customer"))
+      : item.children?.some((c) => pathname.startsWith(c.href));
     // For Cost Summary, we don't want to highlight the parent when children are active
     const isCostSummaryActive = item.key === "cost_summary" && parentActive; // Only highlight if directly on the parent (which is never since it's non-clickable)
     const open = finalMenuState[item.label] ?? anyChildActive;

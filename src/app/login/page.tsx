@@ -18,11 +18,13 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (!isLoading && isLoggedIn && user) {
-if (role === 'admin') {
-  router.replace('/dashboard');
-} else {
-  router.replace('/jobs');
-}
+      if (role === 'admin') {
+        router.replace('/dashboard');
+      } else if (role === 'customer') {
+        router.replace('/jobs/dashboard/customer');
+      } else {
+        router.replace('/jobs');
+      }
     }
   }, [isLoggedIn, isLoading, user, role, router]);
 
@@ -48,7 +50,20 @@ if (role === 'admin') {
       setLoading(false);
 
       if (result.success) {
-        router.replace('/dashboard');
+        // Redirect based on user role
+        const userData = await fetch('/api/auth/me', { credentials: 'include' }).then(res => res.json());
+        const roles = userData.response?.user?.roles || [];
+        const primaryRole = Array.isArray(roles) && roles.length > 0 
+          ? typeof roles[0] === 'string' ? roles[0] : roles[0]?.name || roles[0]?.role || 'guest'
+          : 'guest';
+        
+        if (primaryRole === 'admin') {
+          router.replace('/dashboard');
+        } else if (primaryRole === 'customer') {
+          router.replace('/jobs/dashboard/customer');
+        } else {
+          router.replace('/jobs');
+        }
       } else {
         // Display the specific error message from the backend
         let errorMsg = result.error || 'Invalid email or password';
