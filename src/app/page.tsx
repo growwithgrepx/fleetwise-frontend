@@ -5,38 +5,32 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '../context/UserContext';
 
 export default function RootPage() {
-  const { isLoggedIn, isLoading } = useUser();
+  const { isLoggedIn, isLoading, user } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && isLoggedIn) {
-      // Determine user role and redirect appropriately
-      const fetchUserRole = async () => {
-        try {
-          const userData = await fetch('/api/auth/me', { credentials: 'include' }).then(res => res.json());
-          const roles = userData.response?.user?.roles || [];
-          const primaryRole = Array.isArray(roles) && roles.length > 0 
-            ? typeof roles[0] === 'string' ? roles[0] : roles[0]?.name || roles[0]?.role || 'guest'
-            : 'guest';
-          
-          if (primaryRole === 'admin') {
-            router.replace('/dashboard');
-          } else if (primaryRole === 'customer') {
-            router.replace('/jobs/dashboard/customer');
-          } else {
-            router.replace('/jobs');
-          }
-        } catch (error) {
-          console.error('Error fetching user role:', error);
-          router.replace('/login');
-        }
-      };
+    if (!isLoading && isLoggedIn && user) {
+      // Extract role from user data
+      const roles = user?.roles || [];
+      const primaryRole = Array.isArray(roles) && roles.length > 0 
+        ? typeof roles[0] === 'string' ? roles[0] : roles[0]?.name || roles[0]?.role || 'guest'
+        : 'guest';
       
-      fetchUserRole();
+      console.log('Root page redirect - user:', user);
+      console.log('Root page redirect - roles:', roles);
+      console.log('Root page redirect - primaryRole:', primaryRole);
+      
+      if (primaryRole === 'admin') {
+        router.replace('/dashboard');
+      } else if (primaryRole === 'customer') {
+        router.replace('/jobs/dashboard/customer');
+      } else {
+        router.replace('/jobs');
+      }
     } else if (!isLoading && !isLoggedIn) {
       router.replace('/login');
     }
-  }, [isLoggedIn, isLoading, router]);
+  }, [isLoggedIn, isLoading, user, router]);
 
   // Show loading while determining redirect
   return (
