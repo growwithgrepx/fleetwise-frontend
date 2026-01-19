@@ -35,6 +35,13 @@ import NotAuthorizedPage from '@/app/not-authorized/page';
 // Column configuration for Jobs table (simple, filterable)
 const columns: EntityTableColumn<ApiJob & { stringLabel?: string }>[] = [
   { label: 'Job ID', accessor: 'id', filterable: true, stringLabel: 'Job ID', width: '80px' },
+  {
+    label: 'Passenger', 
+    accessor: 'passenger_name', 
+    filterable: true, 
+    stringLabel: 'Passenger',
+    width: '150px'
+  },
   { label: 'Customer', accessor: 'customer_name', filterable: true, stringLabel: 'Customer' },
   {
     label: 'Service',

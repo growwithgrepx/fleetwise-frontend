@@ -10,6 +10,7 @@ export interface JobFilters {
   pickup_location?: string;
   dropoff_location?: string;
   status?: string;
+  passenger_name?: string;
 }
 
 export interface DriverRemark {
