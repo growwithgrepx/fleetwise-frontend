@@ -4,8 +4,16 @@ import { useRouter } from "next/navigation";
 import { EntityHeader } from '@/components/organisms/EntityHeader';
 import { AnimatedButton } from '@/components/ui/AnimatedButton';
 import { useGetDriverLeave, useGetAffectedJobs, useDeleteDriverLeave, useUpdateDriverLeave } from "@/hooks/useDriverLeave";
+import { useGetOverridesForLeave } from "@/hooks/useLeaveOverride";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
+
+// Utility function to safely format time values
+const formatTimeDisplay = (time: string | any): string => {
+  if (!time) return '--:--';
+  const timeStr = String(time);
+  return timeStr.substring(0, 5); // Extract HH:MM from HH:MM:SS or other formats
+};
 
 export default function LeaveDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   // Unwrap the params promise
@@ -15,9 +23,12 @@ export default function LeaveDetailsPage({ params }: { params: Promise<{ id: str
   
   // Fetch the specific leave details
   const { data: leave, isLoading: leaveLoading, isError: leaveError, error: leaveErrorMsg } = useGetDriverLeave(leaveId);
-  
+
   // Fetch affected jobs for this leave
   const { data: affectedJobs, isLoading: jobsLoading, isError: jobsError, error: jobsErrorMsg } = useGetAffectedJobs(leaveId);
+
+  // Fetch overrides for this leave
+  const { data: overrides = [], isLoading: overridesLoading } = useGetOverridesForLeave(leaveId);
   
   // Mutation hook for updating driver leave
   const updateLeaveMutation = useUpdateDriverLeave();
@@ -291,6 +302,14 @@ export default function LeaveDetailsPage({ params }: { params: Promise<{ id: str
                       >
                         Reassign Jobs
                       </AnimatedButton>
+                      {leave.status === 'approved' && (
+                        <AnimatedButton
+                          onClick={() => router.push(`/drivers/leave-overrides?leaveId=${leave.id}`)}
+                          className="bg-gradient-to-r from-blue-600 to-blue-800 hover:opacity-90 text-white px-4 py-2 rounded-md"
+                        >
+                          Manage Overrides
+                        </AnimatedButton>
+                      )}
                       <AnimatedButton
                         onClick={handleDeleteLeave}
                         disabled={deleteLeaveMutation.isPending}
@@ -304,7 +323,70 @@ export default function LeaveDetailsPage({ params }: { params: Promise<{ id: str
               )}
             </div>
           </div>
-          
+
+          {/* Override Timeline Section */}
+          {leave && leave.status === 'approved' && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                  Available Time Windows ({overrides.length})
+                </h2>
+              </div>
+
+              <div className="p-6">
+                {overridesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500 mr-2"></div>
+                    <span>Loading overrides...</span>
+                  </div>
+                ) : overrides.length === 0 ? (
+                  <div className="text-gray-600 dark:text-gray-400 text-center py-8">
+                    No time window overrides created. Driver is unavailable during entire leave period.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {overrides.map((override: any) => {
+                      const daysDiff = Math.floor((new Date(override.override_date).getTime() - new Date(leave.start_date).getTime()) / (1000 * 60 * 60 * 24));
+                      const totalDays = Math.floor((new Date(leave.end_date).getTime() - new Date(leave.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                      const percentStart = (daysDiff / totalDays) * 100;
+                      const percentWidth = (1 / totalDays) * 100;
+
+                      return (
+                        <div key={override.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                {format(new Date(override.override_date), 'EEE, MMM d, yyyy')}
+                              </p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {formatTimeDisplay(override.start_time)} - {formatTimeDisplay(override.end_time)}
+                              </p>
+                            </div>
+                            <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-semibold rounded-full">
+                              Available
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 italic">
+                            Reason: {override.override_reason}
+                          </p>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                            <div
+                              className="h-1.5 bg-green-500 rounded-full"
+                              style={{
+                                width: percentWidth + '%',
+                                marginLeft: percentStart + '%'
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Affected Jobs Section */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
