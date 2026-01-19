@@ -274,34 +274,91 @@ export default function DriverCalendarPage() {
             const leaveStartTime = '00:00';
             const leaveEndTime = '24:00';
             
-            availabilityBlocksForDate.push({
-              type: 'leave',
+            // Create full-day leave block
+            const leaveBlock = {
+              type: 'leave' as const,
               startTime: leaveStartTime,
               endTime: leaveEndTime,
               leave: driverLeaves[0],
               driverId: driver.id,
               date: dateString
-            });
-          } else {
-            // Process jobs only if driver is not on leave
+            };
+            
+            availabilityBlocksForDate.push(leaveBlock);
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`Created FULL-DAY LEAVE block for ${driver.name}: ${leaveStartTime} to ${leaveEndTime}`);
+              console.log(`Leave block duration: 1440 minutes = 100% of timeline`);
+            }
+            
+            // Clear any existing job blocks for this day since driver is on leave
+            // This prevents overlapping/conflicting blocks
+            return; // Skip job processing for this date
+          } 
+          
+          // Process jobs only if driver is not on leave
+          if (driverLeaves.length === 0) {
             driverJobs.forEach(job => {
               if (!job.pickup_time) return;
               
-              const [pickupHour] = job.pickup_time.split(':').map(Number);
-              const startTime = `${pickupHour.toString().padStart(2, '0')}:00`;
-              // Assuming 1-hour duration for now, in a real scenario we'd calculate actual duration
-              const endTimeHour = pickupHour + 1;
-              const endTime = `${endTimeHour.toString().padStart(2, '0')}:00`;
+              // Parse pickup time
+              const [pickupHour, pickupMinute] = job.pickup_time.split(':').map(Number);
+              const startTime = `${pickupHour.toString().padStart(2, '0')}:${pickupMinute.toString().padStart(2, '0')}`;
+              
+              // Calculate job duration - use service type to estimate duration
+              let durationHours = 1; // Default fallback
+              
+              // Try to get duration from service type patterns
+              if (job.service_type) {
+                // Look for duration patterns like "4Hrs", "2 Hours", etc.
+                const durationMatch = job.service_type.match(/(\d+)\s*(?:Hrs?|Hours?|H)/i);
+                if (durationMatch) {
+                  durationHours = parseInt(durationMatch[1]);
+                } 
+                // Handle common service types
+                else if (job.service_type.includes('Tour Package')) {
+                  // Tour packages typically 4-8 hours
+                  durationHours = 4;
+                }
+                else if (job.service_type.includes('Airport Transfer')) {
+                  // Airport transfers typically 2-3 hours
+                  durationHours = 2;
+                }
+                else if (job.service_type.includes('Hourly')) {
+                  // Look for numeric prefix in hourly services
+                  const hourlyMatch = job.service_type.match(/^([0-9]+)\s*Hour/i);
+                  if (hourlyMatch) {
+                    durationHours = parseInt(hourlyMatch[1]);
+                  }
+                }
+              }
+              
+              // Calculate end time
+              const totalMinutes = (pickupHour * 60 + pickupMinute) + (durationHours * 60);
+              const endHour = Math.floor(totalMinutes / 60);
+              const endMinute = totalMinutes % 60;
+              const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+              
+              // Validate times
+              if (endHour >= 24) {
+                console.warn(`Job ${job.id} ends after midnight (${endHour}:${endMinute}), clamping to 24:00`);
+                // For jobs extending past midnight, clamp to end of day
+                // In a real implementation, you might want to split these across days
+              }
               
               // Create job block
               availabilityBlocksForDate.push({
                 type: 'job',
                 startTime,
-                endTime,
+                endTime: endHour >= 24 ? '24:00' : endTime,
                 job,
                 driverId: driver.id,
                 date: dateString
               });
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`Job ${job.id}: ${startTime} to ${endHour >= 24 ? '24:00' : endTime} (${durationHours} hours) | Service: ${job.service_type}`);
+              }
             });
             
             // Fill remaining hours with available blocks
@@ -326,6 +383,14 @@ export default function DriverCalendarPage() {
                 });
               }
             }
+          }
+          
+          // Log all blocks created for this driver/date
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`  Created ${availabilityBlocksForDate.length} blocks for ${driver.name} on ${dateString}:`);
+            availabilityBlocksForDate.forEach((block, idx) => {
+              console.log(`    Block ${idx + 1}: ${block.type} ${block.startTime}-${block.endTime}${block.job ? ` (Job ${block.job.id})` : ''}${block.leave ? ` (Leave ${block.leave.id})` : ''}`);
+            });
           }
           
           // Sort blocks by start time and type to ensure proper rendering order
@@ -585,8 +650,8 @@ export default function DriverCalendarPage() {
   };
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4">
+      <div className="max-w-full mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div>
@@ -655,153 +720,205 @@ export default function DriverCalendarPage() {
           </div>
         </Card>
 
-        {/* Date Headers */}
-        <div className="grid grid-cols-6 gap-1 mb-2 sticky top-0 z-10 bg-gray-900/80 backdrop-blur-sm py-2 px-1 rounded-lg">
-          <div className="text-sm font-semibold text-gray-300 pl-2">Driver</div>
-          {dateRange.map(date => (
-            <div 
-              key={date.toISOString()} 
-              className={`text-center text-sm font-medium ${
-                isToday(date) ? 'text-green-400' : 
-                isYesterday(date) ? 'text-blue-400' : 'text-gray-300'
-              }`}
-            >
-              <div>{format(date, 'EEE')}</div>
-              <div className="text-xs opacity-75">{format(date, 'MMM d')}</div>
-            </div>
-          ))}
+        {/* Date Tabs Navigation */}
+        <div className="mb-4">
+          <div className="flex space-x-2 overflow-x-auto pb-2">
+            {dateRange.map((date, index) => {
+              const isSelected = isSameDay(date, selectedDate);
+              return (
+                <button
+                  key={index}
+                  className={`px-3 py-1.5 text-sm rounded-lg whitespace-nowrap transition-colors ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+                  onClick={() => setSelectedDate(date)}
+                >
+                  {format(date, 'EEE, MMM d')}
+                </button>
+              );
+            })}
+          </div>
         </div>
-
-        {/* Driver Rows */}
-        <div className="space-y-3">
-          {driversWithAvailability.map(({ driver, availabilityBlocks, todayStats, yesterdayStats }) => (
-            <Card key={driver.id} className="p-4 bg-gray-800/30 border-gray-700 hover:border-gray-600 transition-colors">
-              <div className="grid grid-cols-6 gap-1">
-                {/* Driver Info */}
-                <div className="flex items-center gap-3 pl-2">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
-                    {driver.name?.charAt(0).toUpperCase() || 'D'}
+        
+        {/* Timeline View */}
+        <div className="overflow-x-auto bg-gray-800/50 rounded-lg border border-gray-700">
+          <div className="min-w-max w-full">
+            {/* Timeline Header */}
+            <div className="flex bg-gray-900/50">
+              <div className="w-40 min-w-[10rem] flex-shrink-0"></div> {/* Space for driver info */}
+              <div className="flex-1 grid grid-cols-12 gap-0">
+                {Array.from({ length: 12 }, (_, i) => i * 2).map(hour => (
+                  <div 
+                    key={hour} 
+                    className="text-center text-xs text-gray-400 py-2 border-r border-gray-600 last:border-r-0"
+                  >
+                    {hour}:00
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-white truncate">{driver.name}</div>
-                    <div className="text-xs text-gray-400 flex gap-2">
-                      <span>Vehicle: {driver.vehicle?.number || 'None'}</span>
-                      <span className="text-gray-500">|</span>
-                      <span>Status: {driver.status || 'Unknown'}</span>
+                ))}
+              </div>
+            </div>
+            
+            {/* Driver Rows */}
+            {driversWithAvailability.map(({ driver, availabilityBlocks, todayStats, yesterdayStats }) => {
+              const dateString = format(selectedDate, 'yyyy-MM-dd');
+              const driverBlocks = availabilityBlocks.filter(block => 
+                block.date === dateString && block.driverId === driver.id
+              );
+              
+              // Check if the driver has any leave for the entire day
+              const hasAnyLeave = driverBlocks.some(block => block.type === 'leave');
+              
+              return (
+                <div key={driver.id} className="flex border-b border-gray-700 last:border-b-0">
+                  {/* Driver Info */}
+                  <div className="w-48 min-w-[12rem] flex-shrink-0 py-3 pr-4 flex flex-col justify-center">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-inner">
+                        {driver.name?.charAt(0).toUpperCase() || 'D'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-white text-sm truncate">{driver.name}</div>
+                        <div className="text-xs text-gray-400 flex gap-2">
+                          <span>Today: {todayStats.totalJobs} jobs, {todayStats.totalHours.toFixed(1)} hrs</span>
+                          <span className="text-gray-600">|</span>
+                          <span>Y'day: {yesterdayStats.totalJobs} jobs, {yesterdayStats.totalHours.toFixed(1)} hrs</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Availability Blocks for each day */}
-                {dateRange.map(date => {
-                  const dateString = format(date, 'yyyy-MM-dd');
-                  return (
-                    <div 
-                      key={`${driver.id}-${dateString}`} 
-                      className="h-16 bg-gray-700/50 rounded border border-gray-600 relative overflow-hidden"
-                    >
-                      {/* Hourly grid lines */}
-                      {TIME_SLOTS.map(hour => (
+                  
+                  {/* Timeline Grid */}
+                  <div className="flex-1 grid grid-cols-12 gap-0 min-h-16">
+                    {Array.from({ length: 12 }, (_, i) => i * 2).map(hour => {
+                      const hourStart = `${hour.toString().padStart(2, '0')}:00`;
+                      
+                      // Find blocks that fall within this hour range (excluding 'available' blocks as they're handled by base availability)
+                      const hourBlocks = driverBlocks.filter(block => {
+                        const blockStartHour = parseInt(block.startTime.split(':')[0]);
+                        return (blockStartHour === hour || blockStartHour === hour + 1) && block.type !== 'available';
+                      });
+                      
+                      // If driver has any leave for the day, all time slots should be marked as unavailable
+                      // unless there's a specific job block for that time slot
+                      const hasLeaveForDay = hasAnyLeave;
+                      
+                      // Determine if this specific time slot should show as unavailable due to leave
+                      // If the driver has any leave for the day, then all time slots should be unavailable
+                      // unless there's a specific job in that time slot
+                      const showAsUnavailableDueToLeave = hasLeaveForDay && hourBlocks.every(block => block.type !== 'job');
+                      
+                      return (
                         <div 
                           key={hour}
-                          className="absolute top-0 bottom-0 w-px bg-gray-600/30"
-                          style={{ left: `${(hour / 24) * 100}%` }}
-                        />
-                      ))}
-                      
-                      {/* Render availability blocks */}
-                      {availabilityBlocks
-                        .filter(block => {
-                          // Match blocks that belong to this specific date and driver
-                          const dateMatches = block.date === dateString;
-                          const driverMatches = block.driverId === driver.id;
-                          
-                          const isMatch = dateMatches && driverMatches;
-                          if (process.env.NODE_ENV === 'development' && isMatch) {
-                            console.log(`Block ${block.type} for ${dateString} matched:`, block);
-                          }
-                          return isMatch;
-                        })
-                        .map((block, idx) => {
-                          const startHour = parseInt(block.startTime.split(':')[0]);
-                          const endHour = parseInt(block.endTime.split(':')[0]);
-                          const duration = endHour - startHour;
-                          const widthPercent = (duration / 24) * 100; // Width based on actual duration
-                          const leftPercent = (startHour / 24) * 100;
-                          
-                          let bgColor = 'bg-white';
-                          let borderClass = 'border border-gray-600/30';
-                          if (block.type === 'job') {
-                            bgColor = 'bg-blue-500';
-                            borderClass = 'border-2 border-blue-400';
-                          }
-                          else if (block.type === 'leave') {
-                            bgColor = 'bg-orange-500';
-                            borderClass = 'border-2 border-orange-400';
-                          }
-                          else if (block.type === 'unavailable') {
-                            bgColor = 'bg-gray-500';
-                            borderClass = 'border border-gray-400/50';
-                          }
-                          else {
-                            bgColor = 'bg-white/20'; // available - subtle white
-                            borderClass = 'border border-gray-500/30';
-                          }
-                          
-                          return (
-                            <div
-                              key={`${block.driverId}-${dateString}-${idx}`}
-                              className={`absolute h-full ${bgColor} ${borderClass} ${block.type === 'job' ? 'cursor-pointer ring-1 ring-blue-300/50' : 'cursor-default'} transition-all duration-200 hover:opacity-90 hover:scale-[1.02] ${block.type === 'job' ? 'hover:brightness-110' : ''}`}
-                              style={{
-                                left: `${leftPercent}%`,
-                                width: `${widthPercent}%`
-                              }}
-                              onMouseEnter={(e) => {
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                setHoveredBlock({
-                                  block,
-                                  position: { x: rect.left, y: rect.bottom + 10 }
-                                });
-                              }}
-                              onMouseLeave={() => setHoveredBlock(null)}
-                              onClick={() => {
-                                console.log('Block clicked, type:', block.type, 'Has job data:', !!block.job);
-                                if (block.type === 'job' && block.job) {
-                                  console.log('Job block clicked:', block.job);
-                                  handleJobClick(block.job);
-                                } else {
-                                  console.log('Non-job block clicked - Type:', block.type, 'Can be clicked:', block.type === 'job');
-                                }
-                              }}
-                            >
-                              {block.type === 'job' && (
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <div className="w-2 h-2 bg-white/80 rounded-full"></div>
-                                </div>
+                          className="relative border-r border-gray-700 last:border-r-0 flex items-center justify-center min-h-16 bg-gray-800/30"
+                        >
+                          {/* Show base availability only if there are no blocks for this hour */}
+                          {!hourBlocks.length && (
+                            <>
+                              {/* If driver has any leave for the day, show as unavailable */}
+                              {hasLeaveForDay && (
+                                <div className="w-full h-full bg-gray-700/50"></div>
                               )}
-                              {block.type === 'leave' && (
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <div className="w-2 h-2 bg-white/60 rounded-full"></div>
-                                </div>
+                              {/* If driver doesn't have leave, show as available - now with subtle styling */}
+                              {!hasLeaveForDay && (
+                                <div className="w-full h-full bg-gray-800/30 border border-gray-700/50"></div>
                               )}
-                            </div>
-                          );
-                        })
-                      }
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-700">
-                <StatsCard title="Today's Performance" stats={todayStats} isToday={true} />
-                <StatsCard title="Yesterday's Performance" stats={yesterdayStats} isToday={false} />
-              </div>
-            </Card>
-          ))}
+                            </>
+                          )}
+                          
+                          {hourBlocks.map((block, idx) => {
+                            let bgColor = 'bg-gray-700/50';
+                            let borderClass = 'border border-gray-500/30';
+                            let textColor = 'text-gray-400';
+                            let displayText = '';
+                            
+                            if (block.type === 'job') {
+                              bgColor = 'bg-blue-500';
+                              borderClass = 'border border-blue-400';
+                              textColor = 'text-white';
+                              displayText = `#${block.job?.id || 'Job'}`;
+                              // Optionally, we can add more descriptive text like customer name or location
+                              if (block.job?.customer_name) {
+                                displayText += ` (${block.job.customer_name})`;
+                              }
+                            }
+                            else if (block.type === 'leave') {
+                              bgColor = 'bg-orange-500';
+                              borderClass = 'border border-orange-400';
+                              textColor = 'text-white';
+                              displayText = 'Leave';
+                            }
+                            else if (block.type === 'unavailable') {
+                              bgColor = 'bg-gray-700';
+                              borderClass = 'border border-gray-600';
+                              textColor = 'text-white';
+                              displayText = '';
+                            }
+                            
+                            // Calculate position based on start time
+                            const startHour = parseInt(block.startTime.split(':')[0]);
+                            const startMinute = parseInt(block.startTime.split(':')[1]);
+                            const blockStartOffset = ((startHour * 60 + startMinute) / (24 * 60)) * 100; // Percentage of day
+                            
+                            // Calculate width based on duration
+                            const [endHour, endMinute] = block.endTime.split(':').map(Number);
+                            const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+                            
+                            // Calculate percentage of 24-hour day (1440 minutes)
+                            const durationPercentage = (durationMinutes / 1440) * 100;
+                            
+                            // Set minimum width for visibility (at least 2% for very short jobs)
+                            // But make sure longer jobs get appropriately wider
+                            const minPercentage = Math.max(2, Math.min(5, durationPercentage * 0.5));
+                            const widthPercent = Math.max(minPercentage, durationPercentage);
+                            
+                            if (process.env.NODE_ENV === 'development') {
+                              console.log(`Block ${block.type} (${block.job?.id || block.leave?.id || 'N/A'}): ${durationMinutes} mins = ${durationPercentage.toFixed(1)}%, final width: ${widthPercent.toFixed(1)}%`);
+                              if (block.type === 'leave') {
+                                console.log(`LEAVE BLOCK DEBUG: startTime=${block.startTime}, endTime=${block.endTime}, duration=${durationMinutes}mins, width=${widthPercent}%`);
+                              }
+                            }
+                            
+                            return (
+                              <div
+                                key={`${block.driverId}-${block.startTime}-${idx}`}
+                                className={`absolute h-full ${bgColor} ${borderClass} cursor-pointer transition-all duration-200 hover:opacity-90 flex items-center text-sm ${textColor} overflow-hidden`}
+                                style={{
+                                  left: `${blockStartOffset}%`,
+                                  width: `${widthPercent}%`,
+                                  top: `${idx * 25}px`, // Fixed pixel height for consistent spacing
+                                  minHeight: '24px',
+                                  maxHeight: '24px',
+                                  maxWidth: '100%'
+                                }}
+                                onMouseEnter={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setHoveredBlock({
+                                    block,
+                                    position: { x: rect.left, y: rect.bottom + 10 }
+                                  });
+                                }}
+                                onMouseLeave={() => setHoveredBlock(null)}
+                                onClick={() => {
+                                  if (block.type === 'job' && block.job) {
+                                    handleJobClick(block.job);
+                                  }
+                                }}
+                              >
+                                <span className="truncate px-1 font-medium">{displayText}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
+
+        
         {driversWithAvailability.length === 0 && (
           <Card className="p-12 text-center bg-gray-800/30 border-gray-700">
             <CalendarIcon className="w-16 h-16 text-gray-600 mx-auto mb-4" />
