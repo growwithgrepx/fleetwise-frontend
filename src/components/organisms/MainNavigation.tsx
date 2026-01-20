@@ -32,6 +32,7 @@ import {
   ArrowRightOnRectangleIcon,
   SunIcon,
   MoonIcon,
+  CalendarDaysIcon,
   ClipboardDocumentCheckIcon
 } from '@heroicons/react/24/outline';
 import { useMediaQuery } from 'react-responsive';
@@ -100,7 +101,10 @@ const navSections: NavSection[] = [
         label: "Drivers",
         href: "/drivers",
         icon: <UsersIcon className="w-5 h-5" />,
-        description: "Driver management"
+        description: "Driver management",
+        children: [
+          { label: "Driver Calendar", href: "/drivers/calendar", icon: <CalendarDaysIcon className="w-4 h-4" />, description: "View driver schedules and availability" },
+        ]
       },
       { label: "Customers", href: "/customers", icon: <UserGroupIcon className="w-5 h-5" />, description: "Customer database" },
       { label: "Contractors", href: "/contractors", icon: <WalletIcon className="w-5 h-5" />, description: "Contractor management" },
