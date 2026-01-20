@@ -815,7 +815,7 @@ export default function DriverCalendarPage() {
           <div className="min-w-max w-full">
             {/* Timeline Header */}
             <div className="flex bg-gray-900/50">
-              <div className="w-40 min-w-[10rem] flex-shrink-0"></div> {/* Space for driver info */}
+              <div className="w-48 min-w-[12rem] flex-shrink-0"></div> {/* Space for driver info */}
               <div className="flex-1 grid grid-cols-12 gap-0">
                 {Array.from({ length: 12 }, (_, i) => i * 2).map(hour => (
                   <div 
