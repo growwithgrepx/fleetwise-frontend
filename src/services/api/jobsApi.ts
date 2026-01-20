@@ -10,7 +10,15 @@ export interface JobFilters {
   pickup_location?: string;
   dropoff_location?: string;
   status?: string;
+  // Add passenger and booking reference fields for search
   passenger_name?: string;
+  passenger_email?: string;
+  passenger_mobile?: string;
+  booking_ref?: string;
+  sub_customer_name?: string;
+  service_type?: string;
+  driver_name?: string;
+  vehicle_name?: string;
 }
 
 export interface DriverRemark {

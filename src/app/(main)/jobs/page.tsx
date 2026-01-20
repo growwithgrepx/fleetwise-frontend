@@ -31,6 +31,29 @@ import { parseJobText } from '@/utils/jobTextParser';
 import { useUser } from '@/context/UserContext';
 import NotAuthorizedPage from '@/app/not-authorized/page';
 
+// Component to highlight search terms in text
+const HighlightedCell = ({ text, searchTerm }: { text: string | number | undefined | null, searchTerm: string }) => {
+  if (!text || !searchTerm) return <>{text?.toString() || ''}</>;
+
+  const strText = text.toString();
+  // Escape regex special characters to prevent invalid regex errors
+  const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escapedTerm})`, 'gi');
+  const parts = strText.split(regex);
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        // Create a fresh regex for each test to avoid state mutation issues
+        const testRegex = new RegExp(escapedTerm, 'i');
+        return testRegex.test(part) ? 
+          <mark key={index} className="bg-yellow-200 text-text-main p-0.5 rounded">{part}</mark> : 
+          <span key={index}>{part}</span>;
+      })}
+    </>
+  );
+};
+
 
 // Column configuration for Jobs table (simple, filterable)
 const columns: EntityTableColumn<ApiJob & { stringLabel?: string }>[] = [
@@ -67,6 +90,7 @@ const columns: EntityTableColumn<ApiJob & { stringLabel?: string }>[] = [
   { label: 'Pickup Time', accessor: 'pickup_time', filterable: true, stringLabel: 'Pickup Time' },
   // Removed Status column
 ];
+// Moved inside component to access search state for highlighting
 
 // Row-level actions (view / edit / delete / copy)
 const getJobActions = (
@@ -166,6 +190,71 @@ const JobsPage = () => {
   const { user } = useUser();
   const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
   const isDriver = role === "driver";
+
+  const [search, setSearch] = useState('');
+
+  // Column configuration for Jobs table (moved inside component to access search state for highlighting)
+  const columns = React.useMemo<EntityTableColumn<ApiJob & { stringLabel?: string }>[]>(() => [
+    {
+      label: 'Job ID',
+      accessor: 'id',
+      filterable: true,
+      stringLabel: 'Job ID',
+      width: '80px',
+      render: (job: ApiJob) => <HighlightedCell text={job.id} searchTerm={search} />
+    },
+    {
+      label: 'Booking Ref',
+      accessor: 'booking_ref',
+      filterable: true,
+      stringLabel: 'Booking Ref',
+      render: (job: ApiJob) => <HighlightedCell text={job.booking_ref || '-'} searchTerm={search} />
+    },
+    {
+      label: 'Customer',
+      accessor: 'customer_name',
+      filterable: true,
+      stringLabel: 'Customer',
+      render: (job: ApiJob) => <HighlightedCell text={job.customer_name} searchTerm={search} />
+    },
+    {
+      label: 'Pickup',
+      accessor: 'pickup_location',
+      filterable: true,
+      stringLabel: 'Pickup',
+      render: (job: ApiJob) => <HighlightedCell text={job.pickup_location} searchTerm={search} />
+    },
+    {
+      label: 'Drop-off',
+      accessor: 'dropoff_location',
+      filterable: true,
+      stringLabel: 'Drop-off',
+      render: (job: ApiJob) => <HighlightedCell text={job.dropoff_location} searchTerm={search} />
+    },
+    {
+      label: 'Pickup Date',
+      accessor: 'pickup_date',
+      filterable: true,
+      stringLabel: 'Pickup Date',
+      render: (job: ApiJob) => <HighlightedCell text={job.pickup_date} searchTerm={search} />
+    },
+    {
+      label: 'Pickup Time',
+      accessor: 'pickup_time',
+      filterable: true,
+      stringLabel: 'Pickup Time',
+      render: (job: ApiJob) => <HighlightedCell text={job.pickup_time} searchTerm={search} />
+    },
+    {
+      label: 'Status',
+      accessor: 'status',
+      filterable: true,
+      stringLabel: 'Status',
+      render: (job: ApiJob) => <HighlightedCell text={job.status} searchTerm={search} />
+    },
+
+    // Removed Status column
+  ], [search]);
   // Fetch all jobs without status filter for count calculation
   const { data: allJobsData } = useQuery({
     queryKey: ['jobs', 'all-status-counts'],
@@ -221,7 +310,6 @@ const JobsPage = () => {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
-  const [search, setSearch] = useState('');
   
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
   const [openCreateFromTextModal, setOpenCreateFromTextModal] = useState(false);
@@ -233,7 +321,7 @@ const JobsPage = () => {
   // Local filter state for debouncing column filters before sending to API
   const [localFilters, setLocalFilters] = useState<Record<string, string>>({});
   const debouncedLocalFilters = useDebounce(localFilters, 500); // 500ms debounce for column filters
-  const debouncedSearch = useDebounce(search, 500);
+  const debouncedSearch = useDebounce(search, 300); // 300ms debounce for search
 
   // Version counter to cancel stale debounced filter updates (e.g., when user switches tabs)
   const filterVersionRef = React.useRef(0);
@@ -508,6 +596,29 @@ const JobsPage = () => {
       )}
       <div className="flex flex-col md:flex-row md:items-center gap-4 bg-background pt-4 pb-4 rounded-t-xl">
         <div className="flex-1">
+          <div className="mb-3 px-4 py-2">
+            <div className="relative max-w-2xl">
+              <Input
+                placeholder="Search jobs by passenger, location, date, driver, vehicle, booking ref, or job ID"
+                value={search}
+                onChange={(e) => setSearch(e.target.value.trim())}
+                className="w-full bg-background-light border-border-color text-text-main pl-4 pr-10 py-2 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                aria-label="Search jobs"
+              />
+              {search && (
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-red-500"
+                  onClick={() => {
+                    setSearch('');
+                  }}
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
           <h3 className="font-bold text-text-main mb-3 px-4 py-2">Filter by status</h3>
           <div className="flex gap-2 w-full px-2">
             {jobStatuses.map((status) => (
