@@ -148,12 +148,20 @@ export default function DriversPage() {
         onAddClick={() => router.push('/drivers/new')} 
         addLabel="Add Driver" 
         extraActions={
-          <AnimatedButton
-            onClick={() => router.push('/drivers/leave')}
-            className="bg-gradient-to-r from-blue-500 to-blue-700 hover:opacity-90 text-white rounded-lg px-4 py-2"
-          >
-            Leave Management
-          </AnimatedButton>
+          <div className="flex gap-3">
+            <AnimatedButton
+              onClick={() => router.push('/drivers/leave')}
+              className="bg-gradient-to-r from-blue-500 to-blue-700 hover:opacity-90 text-white rounded-lg px-4 py-2"
+            >
+              Leave Management
+            </AnimatedButton>
+            <AnimatedButton
+              onClick={() => router.push('/drivers/leave-overrides')}
+              className="bg-gradient-to-r from-blue-600 to-blue-800 hover:opacity-90 text-white rounded-lg px-4 py-2"
+            >
+              Leave Overrides
+            </AnimatedButton>
+          </div>
         }
         className="mb-6"
       />

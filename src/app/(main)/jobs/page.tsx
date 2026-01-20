@@ -161,66 +161,62 @@ const JobsPage = () => {
 
   // Column configuration for Jobs table (moved inside component to access search state for highlighting)
   const columns = React.useMemo<EntityTableColumn<ApiJob & { stringLabel?: string }>[]>(() => [
-    { 
-      label: 'Job ID', 
-      accessor: 'id', 
-      filterable: true, 
-      stringLabel: 'Job ID', 
+    {
+      label: 'Job ID',
+      accessor: 'id',
+      filterable: true,
+      stringLabel: 'Job ID',
       width: '80px',
       render: (job: ApiJob) => <HighlightedCell text={job.id} searchTerm={search} />
     },
-    { 
-      label: 'Customer', 
-      accessor: 'customer_name', 
-      filterable: true, 
+    {
+      label: 'Booking Ref',
+      accessor: 'booking_ref',
+      filterable: true,
+      stringLabel: 'Booking Ref',
+      render: (job: ApiJob) => <HighlightedCell text={job.booking_ref || '-'} searchTerm={search} />
+    },
+    {
+      label: 'Customer',
+      accessor: 'customer_name',
+      filterable: true,
       stringLabel: 'Customer',
       render: (job: ApiJob) => <HighlightedCell text={job.customer_name} searchTerm={search} />
     },
     {
-      label: 'Service',
-      accessor: 'service_type',
+      label: 'Pickup',
+      accessor: 'pickup_location',
       filterable: true,
-      stringLabel: 'Service',
-      render: (job: ApiJob) => {
-        // Check for null explicitly since API returns service: null when not set
-        // Use optional chaining and nullish coalescing for safe property access
-        const serviceName = (job.service && job.service.name) ? job.service.name : (job.service_type ?? job.type_of_service);
-
-        // Optional: Log missing data for debugging in development
-        if (!serviceName && process.env.NODE_ENV === 'development') {
-          console.warn('Missing service data for job:', job.id, job);
-        }
-
-        return <HighlightedCell text={serviceName || '-'} searchTerm={search} />;
-      }
-    },
-    { 
-      label: 'Pickup', 
-      accessor: 'pickup_location', 
-      filterable: true, 
       stringLabel: 'Pickup',
       render: (job: ApiJob) => <HighlightedCell text={job.pickup_location} searchTerm={search} />
     },
-    { 
-      label: 'Drop-off', 
-      accessor: 'dropoff_location', 
-      filterable: true, 
+    {
+      label: 'Drop-off',
+      accessor: 'dropoff_location',
+      filterable: true,
       stringLabel: 'Drop-off',
       render: (job: ApiJob) => <HighlightedCell text={job.dropoff_location} searchTerm={search} />
     },
-    { 
-      label: 'Pickup Date', 
-      accessor: 'pickup_date', 
-      filterable: true, 
+    {
+      label: 'Pickup Date',
+      accessor: 'pickup_date',
+      filterable: true,
       stringLabel: 'Pickup Date',
       render: (job: ApiJob) => <HighlightedCell text={job.pickup_date} searchTerm={search} />
     },
-    { 
-      label: 'Pickup Time', 
-      accessor: 'pickup_time', 
-      filterable: true, 
+    {
+      label: 'Pickup Time',
+      accessor: 'pickup_time',
+      filterable: true,
       stringLabel: 'Pickup Time',
       render: (job: ApiJob) => <HighlightedCell text={job.pickup_time} searchTerm={search} />
+    },
+    {
+      label: 'Status',
+      accessor: 'status',
+      filterable: true,
+      stringLabel: 'Status',
+      render: (job: ApiJob) => <HighlightedCell text={job.status} searchTerm={search} />
     },
 
     // Removed Status column

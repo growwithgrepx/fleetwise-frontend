@@ -104,6 +104,10 @@ export interface Job {
     timestamp: string;
     status: JobStatus;
   }>;
+  
+  // Duration information
+  duration_hours?: number;
+  expected_dropoff_time?: string;
 }
 
 // API Response Types - nested objects returned by backend

@@ -87,6 +87,7 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
               <DetailItem label="Email" value={normalized.customerEmail} />
               <DetailItem label="Mobile" value={normalized.customerMobile} />
               <DetailItem label="Company" value={normalized.companyName} />
+              <DetailItem label="Booking Reference" value={job.booking_ref || '-'} />
           </DetailSection>
 
           <DetailSection title="Trip Details">
