@@ -36,10 +36,9 @@ export const playAudioNotification = async () => {
     });
   } catch (error) {
     console.warn('Audio notification failed:', error);
-    // Fallback: try to play a system beep if available
+    // Fallback: try to play an audio file notification
     try {
-      // On some browsers, this might trigger a system beep
-      console.log('Playing audio notification fallback');
+      await playAudioFileNotification();
     } catch (fallbackError) {
       console.warn('Audio notification fallback also failed:', fallbackError);
     }
@@ -47,14 +46,16 @@ export const playAudioNotification = async () => {
 };
 
 // Alternative implementation using an audio file if needed
-export const playAudioFileNotification = (soundFile: string = '/sounds/alert.mp3') => {
+export const playAudioFileNotification = async (soundFile: string = '/sounds/alert.mp3') => {
   try {
     const audio = new Audio(soundFile);
     audio.volume = 0.5;
-    return audio.play().catch((error) => {
+    await audio.play().catch((error) => {
       console.warn('Audio file playback failed:', error);
+      throw error;
     });
   } catch (error) {
     console.warn('Audio file notification failed:', error);
+    throw error;
   }
 };

@@ -7,21 +7,13 @@ interface JobDetailsModalProps {
   isOpen: boolean;
   jobId: number | null;
   onClose: () => void;
+  jobData?: any; // Optional job data to use instead of fetching
 }
 
-const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ isOpen, jobId, onClose }) => {
+const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ isOpen, jobId, onClose, jobData }) => {
   const [job, setJob] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isOpen && jobId) {
-      loadJobDetails();
-    } else {
-      setJob(null);
-      setError(null);
-    }
-  }, [isOpen, jobId]);
 
   const loadJobDetails = async () => {
     setLoading(true);
@@ -36,6 +28,26 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ isOpen, jobId, onClos
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      // If jobData is provided, use it directly and skip API call
+      if (jobData) {
+        setJob(jobData);
+        setLoading(false);
+        setError(null);
+      } else if (jobId) {
+        // Otherwise, fetch from API
+        loadJobDetails();
+      } else {
+        setJob(null);
+        setError(null);
+      }
+    } else {
+      setJob(null);
+      setError(null);
+    }
+  }, [isOpen, jobId, jobData]); // Removed loadJobDetails to prevent unnecessary re-fetching when jobData is provided
 
   if (!isOpen) return null;
 

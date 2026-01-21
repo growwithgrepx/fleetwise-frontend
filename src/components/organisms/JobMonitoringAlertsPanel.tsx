@@ -7,16 +7,19 @@ import {
   UserIcon,
 } from "@heroicons/react/24/outline";
 import JobDetailsModal from "./JobDetailsModal";
+import { ApiJob } from "@/types/job";
 
 const JobMonitoringAlertsPanel = () => {
-  const { alerts, startTrip, dismissAlert, isStartingTrip, isDismissing } =
-    useJobMonitoring();
+  const { alerts, startTrip, dismissAlert } = useJobMonitoring();
 
   const [expandedAlerts, setExpandedAlerts] = useState<Record<number, boolean>>(
     {}
   );
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
+  const [selectedJobData, setSelectedJobData] = useState<ApiJob | undefined>(undefined);
   const [isJobDetailsModalOpen, setIsJobDetailsModalOpen] = useState(false);
+  const [startingTripAlerts, setStartingTripAlerts] = useState<Set<number>>(new Set());
+  const [dismissingAlerts, setDismissingAlerts] = useState<Set<number>>(new Set());
   const toggleExpand = (id: number) => {
     setExpandedAlerts((prev) => ({
       ...prev,
@@ -162,24 +165,48 @@ const JobMonitoringAlertsPanel = () => {
                       <button
                         onClick={() => {
                           setSelectedJobId(alert.jobId);
+                          setSelectedJobData(alert.jobData); // Store the job data when opening
                           setIsJobDetailsModalOpen(true);
                         }}
                         className="flex-1 text-xs bg-blue-600/90 hover:bg-blue-600 text-white px-3 py-2 rounded-lg transition font-medium"
+                        title="View Job Details"
                       >
                         View Details
                       </button>
 
                       <button
-                        onClick={() => startTrip(alert.jobId)}
-                        disabled={isStartingTrip}
+                        onClick={async () => {
+                          setStartingTripAlerts(prev => new Set(prev).add(alert.id));
+                          try {
+                            await startTrip(alert.jobId);
+                          } finally {
+                            setStartingTripAlerts(prev => {
+                              const newSet = new Set(prev);
+                              newSet.delete(alert.id);
+                              return newSet;
+                            });
+                          }
+                        }}
+                        disabled={startingTripAlerts.has(alert.id)}
                         className="flex-1 text-xs bg-green-600/90 hover:bg-green-600 text-white px-3 py-2 rounded-lg transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {isStartingTrip ? "Starting..." : "Start Trip"}
+                        {startingTripAlerts.has(alert.id) ? "Starting..." : "Start Trip"}
                       </button>
 
                       <button
-                        onClick={() => dismissAlert(alert.id)}
-                        disabled={isDismissing}
+                        onClick={async () => {
+                          setDismissingAlerts(prev => new Set(prev).add(alert.id));
+                          try {
+                            await dismissAlert(alert.id);
+                          } finally {
+                            setDismissingAlerts(prev => {
+                              const newSet = new Set(prev);
+                              newSet.delete(alert.id);
+                              return newSet;
+                            });
+                          }
+                        }}
+                        disabled={dismissingAlerts.has(alert.id)}
                         className="text-xs bg-red-600/90 hover:bg-red-600 text-white px-3 py-2 rounded-lg transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Dismiss Alert"
                       >
@@ -203,9 +230,11 @@ const JobMonitoringAlertsPanel = () => {
       <JobDetailsModal
         isOpen={isJobDetailsModalOpen}
         jobId={selectedJobId}
+        jobData={selectedJobData}
         onClose={() => {
           setIsJobDetailsModalOpen(false);
           setSelectedJobId(null);
+          setSelectedJobData(undefined); // Clear stored job data when closing
         }}
       />
     )}

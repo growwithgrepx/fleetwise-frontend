@@ -149,6 +149,7 @@ export default function SettingsPage() {
   const [reminderIntervalMinutes, setReminderIntervalMinutes] = useState<number>(10); // minutes between reminders
   const [maxAlertReminders, setMaxAlertReminders] = useState<number>(3); // max reminders for overdue jobs
   const [alertHistoryRetentionHours, setAlertHistoryRetentionHours] = useState<number>(24); // hours to retain dismissed alerts
+  const [triggerFrequencyMinutes, setTriggerFrequencyMinutes] = useState<number>(5); // minutes between alert checks
 
   // User Management state
   const [users, setUsers] = useState<User[]>([]);
@@ -271,15 +272,19 @@ export default function SettingsPage() {
         alert_history_retention_hours: alertHistoryRetentionHours
       });
       
-      const response = await saveAlertSettings({
+      const settingsToSave = {
         enable_audio_notifications: enableAudioNotifications,
         enable_visual_alerts: enableVisualAlerts,
         alert_volume: alertVolume,
         pickup_threshold_minutes: pickupThresholdMinutes,
         reminder_interval_minutes: reminderIntervalMinutes,
         max_alert_reminders: maxAlertReminders,
-        alert_history_retention_hours: alertHistoryRetentionHours
-      });
+        alert_history_retention_hours: alertHistoryRetentionHours,
+        trigger_frequency_minutes: triggerFrequencyMinutes
+      };
+      console.log('Saving alert settings:', settingsToSave);
+      
+      const response = await saveAlertSettings(settingsToSave);
       
       console.log('Save response:', response);
       toast.success('Alert settings saved successfully!');
@@ -297,6 +302,7 @@ export default function SettingsPage() {
     setReminderIntervalMinutes(10);
     setMaxAlertReminders(3);
     setAlertHistoryRetentionHours(24);
+    setTriggerFrequencyMinutes(5);
     toast.success('Alert settings reset to defaults!');
   };
 
@@ -590,6 +596,7 @@ export default function SettingsPage() {
         setReminderIntervalMinutes(alertSettings.reminder_interval_minutes);
         setMaxAlertReminders(alertSettings.max_alert_reminders);
         setAlertHistoryRetentionHours(alertSettings.alert_history_retention_hours);
+        setTriggerFrequencyMinutes(alertSettings.trigger_frequency_minutes);
       }
     } catch (err) {
       console.error('Failed to load alert settings:', err);
@@ -1954,6 +1961,26 @@ export default function SettingsPage() {
                       />
                       <p className="text-xs text-gray-400">
                         Maximum number of reminders for overdue jobs
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-300">
+                      Trigger Frequency
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={triggerFrequencyMinutes}
+                        onChange={(e) => setTriggerFrequencyMinutes(parseInt(e.target.value))}
+                        className="w-32 rounded-lg bg-gray-700 border border-gray-600 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-300">minutes</span>
+                      <p className="text-xs text-gray-400 ml-4">
+                        How often to check for new alerts
                       </p>
                     </div>
                   </div>

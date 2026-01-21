@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { Job } from '@/types/job';
+
+import { ApiJob } from '@/types/job';
 
 export interface JobMonitoringAlert {
   id: number;
@@ -13,6 +14,7 @@ export interface JobMonitoringAlert {
   dismissed: boolean;
   maxRemindersReached: boolean;
   reminderCount: number;
+  jobData?: ApiJob; // Include the full job data if available
 }
 
 interface JobMonitoringState {
@@ -20,20 +22,27 @@ interface JobMonitoringState {
   unreadCount: number;
   addAlert: (alert: Omit<JobMonitoringAlert, 'id' | 'createdAt' | 'dismissed' | 'maxRemindersReached' | 'reminderCount'>) => void;
   dismissAlert: (alertId: number) => void;
-  markAlertAsRead: (alertId: number) => void;
   startTrip: (jobId: number) => void;
   clearAllAlerts: () => void;
   updateAlerts: (alerts: JobMonitoringAlert[]) => void;
 }
+
+// Counter for generating unique alert IDs to prevent collisions
+// Uses timestamp * 1000 + counter for microsecond-level uniqueness
+let alertIdCounter = 0;
 
 export const useJobMonitoringStore = create<JobMonitoringState>((set, get) => ({
   alerts: [],
   unreadCount: 0,
   
   addAlert: (alertData) => {
+    // Generate unique ID using timestamp + counter to prevent collisions
+    const timestamp = Date.now();
+    const uniqueId = timestamp * 1000 + (alertIdCounter++ % 1000);
+    
     const newAlert: JobMonitoringAlert = {
       ...alertData,
-      id: Date.now(), // Simple ID generation - in production, use UUID
+      id: uniqueId,
       createdAt: new Date().toISOString(),
       dismissed: false,
       maxRemindersReached: false,
@@ -47,15 +56,6 @@ export const useJobMonitoringStore = create<JobMonitoringState>((set, get) => ({
   },
   
   dismissAlert: (alertId) => {
-    set((state) => ({
-      alerts: state.alerts.map(alert => 
-        alert.id === alertId ? { ...alert, dismissed: true } : alert
-      ),
-      unreadCount: Math.max(0, state.unreadCount - 1),
-    }));
-  },
-  
-  markAlertAsRead: (alertId) => {
     set((state) => ({
       alerts: state.alerts.map(alert => 
         alert.id === alertId ? { ...alert, dismissed: true } : alert

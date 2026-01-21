@@ -25,11 +25,12 @@ const convertApiAlertToStoreFormat = (apiAlert: ApiJobMonitoringAlert, maxAlertR
   dismissed: apiAlert.status !== 'active',
   maxRemindersReached: apiAlert.reminder_count >= maxAlertReminders,
   reminderCount: apiAlert.reminder_count,
+  jobData: apiAlert.job_data, 
 });
 
 export const useJobMonitoring = () => {
   const queryClient = useQueryClient();
-  const { alerts, addAlert, dismissAlert, startTrip, updateAlerts } = useJobMonitoringStore();
+  const { alerts, dismissAlert, updateAlerts } = useJobMonitoringStore();
 
   // Fetch alerts from API
   const { data: apiAlertsData, isLoading, error, refetch } = useQuery({
@@ -65,7 +66,15 @@ export const useJobMonitoring = () => {
       }
       
       // Update store if alerts have changed
-      if (JSON.stringify(alerts) !== JSON.stringify(storeAlerts)) {
+      // Compare alert IDs for efficiency instead of deep JSON comparison
+      const currentAlertIds = new Set(alerts.map(alert => alert.id));
+      const newAlertIds = new Set(storeAlerts.map(alert => alert.id));
+      
+      // Check if the sets of alert IDs are different
+      const idsChanged = currentAlertIds.size !== newAlertIds.size || 
+        ![...currentAlertIds].every(id => newAlertIds.has(id));
+      
+      if (idsChanged) {
         updateAlerts(storeAlerts);
       }
     }

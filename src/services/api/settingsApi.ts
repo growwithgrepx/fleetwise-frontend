@@ -101,6 +101,7 @@ export interface AlertSettings {
   reminder_interval_minutes: number;
   max_alert_reminders: number;
   alert_history_retention_hours: number;
+  trigger_frequency_minutes: number;
 }
 
 export interface GetAlertSettingsResponse {
@@ -119,7 +120,8 @@ export async function getAlertSettings(): Promise<GetAlertSettingsResponse> {
         pickup_threshold_minutes: 15,
         reminder_interval_minutes: 10,
         max_alert_reminders: 3,
-        alert_history_retention_hours: 24
+        alert_history_retention_hours: 24,
+        trigger_frequency_minutes: 5
       }
     };
   }
@@ -130,26 +132,45 @@ export async function getAlertSettings(): Promise<GetAlertSettingsResponse> {
   // Handle different response formats
   // If response has settings key, use that
   if (rawData.settings) {
+    const settings = rawData.settings;
+    if (settings.trigger_frequency_minutes === undefined) {
+      settings.trigger_frequency_minutes = 5;
+    }
     return {
-      alert_settings: rawData.settings
+      alert_settings: settings
     };
   }
   
   // If response has alert_settings key, use that
   if (rawData.alert_settings) {
-    return rawData as GetAlertSettingsResponse;
+    const alertSettings = rawData.alert_settings;
+    if (alertSettings.trigger_frequency_minutes === undefined) {
+      alertSettings.trigger_frequency_minutes = 5;
+    }
+    return { alert_settings: alertSettings } as GetAlertSettingsResponse;
   }
   
   // Otherwise, assume raw data is the settings
+  // Ensure trigger_frequency_minutes is present with a default value if not provided by backend
+  const settings = rawData;
+  if (settings.trigger_frequency_minutes === undefined) {
+    settings.trigger_frequency_minutes = 5;
+  }
   return {
-    alert_settings: rawData
+    alert_settings: settings
   };}
 
 export async function saveAlertSettings(alertSettings: AlertSettings): Promise<{ message: string }> {
+  // Prepare settings object, ensuring trigger_frequency_minutes is included
+  const settingsToSend = {
+    ...alertSettings,
+    trigger_frequency_minutes: alertSettings.trigger_frequency_minutes !== undefined ? alertSettings.trigger_frequency_minutes : 5
+  };
+  
   const res = await fetch('/api/job-monitoring/monitoring-settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ settings: alertSettings }),
+    body: JSON.stringify({ settings: settingsToSend }),
     credentials: 'include',
   });
   if (!res.ok) {
