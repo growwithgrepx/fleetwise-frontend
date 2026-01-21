@@ -616,12 +616,7 @@ export default function DriverCalendarPage() {
           </>
         )}
 
-        {block.type === 'available' && (
-          <div className="text-xs">
-            <div className="font-bold mb-1">Available</div>
-            <div className="text-gray-300">{block.startTime} - {block.endTime}</div>
-          </div>
-        )}
+
       </div>
     );
   };
@@ -808,7 +803,7 @@ export default function DriverCalendarPage() {
           <div className="min-w-max w-full">
             {/* Timeline Header */}
             <div className="flex bg-gray-900/50">
-              <div className="w-40 min-w-[10rem] flex-shrink-0"></div> {/* Space for driver info */}
+              <div className="w-48 min-w-[12rem] flex-shrink-0"></div> {/* Space for driver info */}
               <div className="flex-1 grid grid-cols-12 gap-0">
                 {Array.from({ length: 12 }, (_, i) => i * 2).map(hour => (
                   <div 
@@ -880,11 +875,11 @@ export default function DriverCalendarPage() {
                             <>
                               {/* If driver has any leave for the day, show as unavailable */}
                               {hasLeaveForDay && (
-                                <div className="w-full h-full bg-gray-700/50"></div>
+                                <div className="w-full h-full bg-gray-700/50" title="Not Available"></div>
                               )}
                               {/* If driver doesn't have leave, show as available - now with subtle styling */}
                               {!hasLeaveForDay && (
-                                <div className="w-full h-full bg-gray-800/30 border border-gray-700/50"></div>
+                                <div className="w-full h-full bg-gray-800/30 border border-gray-700/50" title="Available"></div>
                               )}
                             </>
                           )}
