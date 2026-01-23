@@ -26,12 +26,7 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
-  // Admin password change state
-  const [adminNewPassword, setAdminNewPassword] = useState('');
-  const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
-  const [showAdminPassword, setShowAdminPassword] = useState(false);
-  const [showAdminConfirmPassword, setShowAdminConfirmPassword] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
+
   
   // User type linking states
   const [userType, setUserType] = useState<'driver' | 'customer' | null>(null);
@@ -572,117 +567,7 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
             </label>
           </div>
           
-          {/* Admin Password Change Section - Only show when editing existing user */}
-          {user && (
-            <div className="border-t border-gray-700 pt-4 mt-4">
-              <h4 className="text-md font-medium text-white mb-3">Change User Password</h4>
-              <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showAdminPassword ? "text" : "password"}
-                      value={adminNewPassword}
-                      onChange={(e) => setAdminNewPassword(e.target.value)}
-                      className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 pr-10 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                      placeholder="Enter new password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowAdminPassword(!showAdminPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-200"
-                    >
-                      {showAdminPassword ? (
-                        <EyeSlashIcon className="h-5 w-5" />
-                      ) : (
-                        <EyeIcon className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">Must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Confirm New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showAdminConfirmPassword ? "text" : "password"}
-                      value={adminConfirmPassword}
-                      onChange={(e) => setAdminConfirmPassword(e.target.value)}
-                      className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 pr-10 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                      placeholder="Confirm new password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowAdminConfirmPassword(!showAdminConfirmPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-200"
-                    >
-                      {showAdminConfirmPassword ? (
-                        <EyeSlashIcon className="h-5 w-5" />
-                      ) : (
-                        <EyeIcon className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (adminNewPassword !== adminConfirmPassword) {
-                      toast.error('Passwords do not match');
-                      return;
-                    }
-                    
-                    if (!adminNewPassword) {
-                      toast.error('Please enter a new password');
-                      return;
-                    }
-                    
-                    // Validate password strength
-                    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
-                    if (!passwordRegex.test(adminNewPassword)) {
-                      toast.error('Password must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number');
-                      return;
-                    }
-                    
-                    setChangingPassword(true);
-                    try {
-                      const result = await adminChangePassword(user.id, adminNewPassword, adminConfirmPassword);
-                      if ('error' in result) {
-                        toast.error(result.error);
-                      } else {
-                        toast.success(result.message);
-                        // Reset the password fields
-                        setAdminNewPassword('');
-                        setAdminConfirmPassword('');
-                      }
-                    } catch (error) {
-                      toast.error('Failed to change password');
-                      console.error('Password change error:', error);
-                    } finally {
-                      setChangingPassword(false);
-                    }
-                  }}
-                  disabled={changingPassword || !adminNewPassword || !adminConfirmPassword}
-                  className="w-full px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  {changingPassword ? (
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    'Change Password'
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
+
           
           <div className="flex justify-end space-x-3 pt-4 sticky bottom-0 bg-gray-900 py-4 -mx-4 px-4">
             <button
