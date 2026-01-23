@@ -55,9 +55,6 @@ const HighlightedCell = ({ text, searchTerm }: { text: string | number | undefin
 };
 
 
-// Column configuration for Jobs table (simple, filterable)
-// Moved inside component to access search state for highlighting
-
 // Row-level actions (view / edit / delete / copy)
 const getJobActions = (
   router: AppRouterInstance,
@@ -170,6 +167,14 @@ const JobsPage = () => {
       render: (job: ApiJob) => <HighlightedCell text={job.id} searchTerm={search} />
     },
     {
+      label: 'Passenger',
+      accessor: 'passenger_name',
+      filterable: true,
+      stringLabel: 'Passenger',
+      width: '150px',
+      render: (job: ApiJob) => <HighlightedCell text={job.passenger_name} searchTerm={search} />
+    },
+    {
       label: 'Booking Ref',
       accessor: 'booking_ref',
       filterable: true,
@@ -218,8 +223,6 @@ const JobsPage = () => {
       stringLabel: 'Status',
       render: (job: ApiJob) => <HighlightedCell text={job.status} searchTerm={search} />
     },
-
-    // Removed Status column
   ], [search]);
   // Fetch all jobs without status filter for count calculation
   const { data: allJobsData } = useQuery({

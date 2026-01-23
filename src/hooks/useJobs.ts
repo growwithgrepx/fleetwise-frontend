@@ -66,7 +66,8 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
     pickup_date: '',
     pickup_location: '',
     dropoff_location: '',
-    status: ''
+    status: '',
+    passenger_name: ''
   });
 
   const [debouncedFilters, setDebouncedFilters] = useState<JobFilters>(filters);
@@ -92,7 +93,8 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
       pickup_date: '',
       pickup_location: '',
       dropoff_location: '',
-      status: ''
+      status: '',
+      passenger_name: ''
     };
     setFilters(emptyFilters);
     setDebouncedFilters(emptyFilters);
