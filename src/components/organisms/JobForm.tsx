@@ -734,7 +734,9 @@ if (!driverExists) {
   // Helper to check if a field should be locked
   const isFieldLocked = (field: string) => job ? shouldLockField(job.status, field, role) : false;
   // For legacy code, fieldsLocked is true if any lockable status
-  const fieldsLocked = job && ["jc", "sd", "canceled", "otw", "ots", "pob", "confirmed"].includes(job.status);
+  // Only apply blanket lock to statuses that should be locked for all users regardless of role
+  // Confirmed, otw, ots, pob should use field-level restrictions instead of blanket lock
+  const fieldsLocked = job && ["jc", "sd", "canceled"].includes(job.status);
 
   // Initialize form data with job data if editing
   useEffect(() => {
