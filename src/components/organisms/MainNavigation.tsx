@@ -41,6 +41,7 @@ import { useUser } from '@/context/UserContext';
 import { useMemo } from "react";
 import { roleAccessRules } from "@/config/roleAccess";
 import { extractUserRole } from "@/utils/auth";
+import { useJobMonitoringStore } from '@/store/useJobMonitoringStore';
 import {
   isJobsBasePath,
   isDriversBasePath,
@@ -165,6 +166,22 @@ export default function MainNavigation({
   const isDesktop = useMediaQuery({ query: '(min-width: 768px)' });
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useUser();
+  const { alerts } = useJobMonitoringStore();
+  const unreadCount = alerts.filter(alert => !alert.dismissed).length;
+
+  // Component to display dashboard icon with alert badge
+  const DashboardIconWithBadge = () => (
+    <div className="relative">
+      <HomeIcon className="w-5 h-5" />
+      {unreadCount > 0 && (
+        <span className="absolute -top-2 -right-2 flex h-5 w-5">
+          <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white font-bold">
+            {unreadCount}
+          </span>
+        </span>
+      )}
+    </div>
+  );
 
 const [blockedNav, setBlockedNav] = useState<string[]>([]); 
 const [isLoading, setIsLoading] = useState(true);
