@@ -55,43 +55,6 @@ const HighlightedCell = ({ text, searchTerm }: { text: string | number | undefin
 };
 
 
-// Column configuration for Jobs table (simple, filterable)
-const columns: EntityTableColumn<ApiJob & { stringLabel?: string }>[] = [
-  { label: 'Job ID', accessor: 'id', filterable: true, stringLabel: 'Job ID', width: '80px' },
-  {
-    label: 'Passenger', 
-    accessor: 'passenger_name', 
-    filterable: true, 
-    stringLabel: 'Passenger',
-    width: '150px'
-  },
-  { label: 'Customer', accessor: 'customer_name', filterable: true, stringLabel: 'Customer' },
-  {
-    label: 'Service',
-    accessor: 'service_type',
-    filterable: true,
-    stringLabel: 'Service',
-    render: (job: ApiJob) => {
-      // Check for null explicitly since API returns service: null when not set
-      // Use optional chaining and nullish coalescing for safe property access
-      const serviceName = (job.service && job.service.name) ? job.service.name : (job.service_type ?? job.type_of_service);
-
-      // Optional: Log missing data for debugging in development
-      if (!serviceName && process.env.NODE_ENV === 'development') {
-        console.warn('Missing service data for job:', job.id, job);
-      }
-
-      return <span>{serviceName || '-'}</span>;
-    }
-  },
-  { label: 'Pickup', accessor: 'pickup_location', filterable: true, stringLabel: 'Pickup' },
-  { label: 'Drop-off', accessor: 'dropoff_location', filterable: true, stringLabel: 'Drop-off' },
-  { label: 'Pickup Date', accessor: 'pickup_date', filterable: true, stringLabel: 'Pickup Date' },
-  { label: 'Pickup Time', accessor: 'pickup_time', filterable: true, stringLabel: 'Pickup Time' },
-  // Removed Status column
-];
-// Moved inside component to access search state for highlighting
-
 // Row-level actions (view / edit / delete / copy)
 const getJobActions = (
   router: AppRouterInstance,
@@ -208,6 +171,7 @@ const JobsPage = () => {
       accessor: 'passenger_name',
       filterable: true,
       stringLabel: 'Passenger',
+      width: '150px',
       render: (job: ApiJob) => <HighlightedCell text={job.passenger_name} searchTerm={search} />
     },
     {
@@ -259,8 +223,6 @@ const JobsPage = () => {
       stringLabel: 'Status',
       render: (job: ApiJob) => <HighlightedCell text={job.status} searchTerm={search} />
     },
-
-    // Removed Status column
   ], [search]);
   // Fetch all jobs without status filter for count calculation
   const { data: allJobsData } = useQuery({
