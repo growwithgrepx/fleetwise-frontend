@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createUser, updateUser, getUnassignedDrivers, assignCustomerOrDriver, getDriverById, getCustomerById, adminChangePassword } from '@/services/api/userApi';
+import { createUser, updateUser, getUnassignedDrivers, assignCustomerOrDriver, getDriverById, getCustomerById } from '@/services/api/userApi';
 import { getCustomers } from '@/services/api/customersApi';
 import { User, Role } from '@/lib/types';
 import { Driver } from '@/lib/types';

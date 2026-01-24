@@ -148,9 +148,13 @@ export async function getCustomerById(customerId: number): Promise<Customer> {
  * Admin change password for a user
  */
 export async function adminChangePassword(userId: number, newPassword: string, confirmPassword: string): Promise<{ message: string } | { error: string }> {
-  const response = await api.put<{ message: string } | { error: string }>(`/api/auth/users/${userId}/admin-change-password`, {
-    new_password: newPassword,
-    confirm_password: confirmPassword
-  });
-  return response.data;
+  try {
+    const response = await api.put<{ message: string }>(`/api/auth/users/${userId}/admin-change-password`, {
+      new_password: newPassword,
+      confirm_password: confirmPassword
+    });
+    return response.data;
+  } catch (error: any) {
+    return { error: error?.message ?? 'Failed to change password' };
+  }
 }

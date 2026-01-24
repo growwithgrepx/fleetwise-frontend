@@ -16,7 +16,7 @@ import {
   type EmailSettings,
   type TestEmailPayload
 } from '@/services/api/settingsApi';
-import { getUsers, getRoles, createUser, updateUser as updateUserService, deleteUser, createRole, updateRole as updateRoleService, deleteRole, activateUser, adminChangePassword } from '@/services/api/userApi';
+import { getUsers, getRoles, createUser, updateUser as updateUserService, deleteUser, createRole, updateRole as updateRoleService, deleteRole, activateUser } from '@/services/api/userApi';
 import { User, Role } from '@/lib/types';
 import { toast } from 'react-hot-toast';
 import {

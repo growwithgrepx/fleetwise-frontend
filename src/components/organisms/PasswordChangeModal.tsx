@@ -31,9 +31,12 @@ export default function PasswordChangeModal({ user, onClose, onSave }: PasswordC
     }
     
     // Validate password strength
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(newPassword)) {
-      toast.error('Password must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number');
+    const passwordErrors = [];
+    if (newPassword.length < 8) passwordErrors.push('Password must be at least 8 characters');
+    if (!/[A-Z]/.test(newPassword)) passwordErrors.push('Must contain uppercase letter');
+    if (!/[0-9]/.test(newPassword)) passwordErrors.push('Must contain number');
+    if (passwordErrors.length > 0) {
+      toast.error(passwordErrors.join(', '));
       return;
     }
     
@@ -41,14 +44,22 @@ export default function PasswordChangeModal({ user, onClose, onSave }: PasswordC
     try {
       const result = await adminChangePassword(user.id, newPassword, confirmPassword);
       if ('error' in result) {
-        toast.error(result.error);
+        const errorMessage =
+          result.error && typeof result.error === 'string' && result.error.includes('Validation failed')
+            ? result.error
+            : 'Failed to change password';
+        toast.error(errorMessage);
       } else {
-        toast.success(result.message);
+        toast.success(result.message || 'Password changed successfully');
         onSave();
         onClose();
       }
     } catch (error) {
-      toast.error('Failed to change password');
+      const errorMessage =
+        error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string'
+          ? (error as any).message
+          : 'Failed to change password';
+      toast.error(errorMessage);
       console.error('Password change error:', error);
     } finally {
       setLoading(false);
