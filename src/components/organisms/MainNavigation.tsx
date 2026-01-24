@@ -41,15 +41,7 @@ import { useUser } from '@/context/UserContext';
 import { useMemo } from "react";
 import { roleAccessRules } from "@/config/roleAccess";
 import { extractUserRole } from "@/utils/auth";
-import { useJobMonitoringStore } from '@/store/useJobMonitoringStore';
-import {
-  isJobsBasePath,
-  isDriversBasePath,
-  isBillingBasePath,
-  isPathActive,
-  isParentActive,
-  isAnyChildActive
-} from "@/utils/pathConfig";
+import { getUserRole } from "@/utils/roleUtils";
 
 interface NavItem {
   key?: string,
@@ -66,12 +58,12 @@ interface NavSection {
 }
 
 // Enterprise-grade navigation structure with logical grouping
-const navSections: NavSection[] = [
+  const baseNavSections: NavSection[] = [
   {
     title: "Operations",
     items: [
-      { label: "Admin Dashboard", href: "/dashboard", icon: <HomeIcon className="w-5 h-5" />, description: "Overview and analytics" },
-      { label: "Dashboard", href: "/jobs/dashboard/customer", icon: <HomeIcon className="w-4 h-4" />, description: "Overview and analytics" },
+      // Dashboard placeholder - will be replaced with user-aware version
+      { label: "Dashboard", href: "", icon: <HomeIcon className="w-5 h-5" />, description: "Overview and analytics" },
       {
         label: "Jobs",
         href: "/jobs",
@@ -153,7 +145,7 @@ const navSections: NavSection[] = [
     ]
   }
 ];
-
+  
 export default function MainNavigation({
   onSidebarStateChange
 }: { onSidebarStateChange?: (state: { isCollapsed: boolean; isMobileOpen: boolean }) => void }) {
@@ -166,22 +158,6 @@ export default function MainNavigation({
   const isDesktop = useMediaQuery({ query: '(min-width: 768px)' });
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useUser();
-  const { alerts } = useJobMonitoringStore();
-  const unreadCount = alerts.filter(alert => !alert.dismissed).length;
-
-  // Component to display dashboard icon with alert badge
-  const DashboardIconWithBadge = () => (
-    <div className="relative">
-      <HomeIcon className="w-5 h-5" />
-      {unreadCount > 0 && (
-        <span className="absolute -top-2 -right-2 flex h-5 w-5">
-          <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white font-bold">
-            {unreadCount}
-          </span>
-        </span>
-      )}
-    </div>
-  );
 
 const [blockedNav, setBlockedNav] = useState<string[]>([]); 
 const [isLoading, setIsLoading] = useState(true);
@@ -238,39 +214,56 @@ return cleanHref === pat;
 // const isBlocked = (href: string): boolean =>
 //   matchesAny(blockedNav || [], href);
 
-// --- filter nav (supports children) ---
-const visibleSections = navSections
-  .map((section) => ({
-    ...section,
-    items: section.items
-  ?.map((item) => ({
-    ...item,
-    children: item.children?.filter((child) => !isBlocked(child.href)),
-  }))
-  .filter((item) => {
-    if (isBlocked(item.href)) return false;
-        // If item has children array
-    if (Array.isArray(item.children)) {
-    // If it's a non-clickable parent (href is empty), hide if no children
-    if (item.href === "" && item.children.length === 0) {
-      return false;
+  // Construct nav sections with user-aware dashboard
+  const navSections: NavSection[] = baseNavSections.map(section => {
+    if (section.title === "Operations") {
+      return {
+        ...section,
+        items: section.items.map(item => {
+          if (item.label === "Dashboard") {
+            const dashboardHref = user && getUserRole(user) === 'customer' ? "/jobs/dashboard/customer" : "/dashboard";
+            return { ...item, href: dashboardHref };
+          }
+          return item;
+        })
+      };
     }
-    // Otherwise show (clickable parent with empty children is OK)
-    return true;
-  }
-    return true;
-  }),
-  }))
-  .filter((section) => section.items && section.items.length > 0);
+    return section;
+  });
+
+  // --- filter nav (supports children) ---
+  const visibleSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items
+        ?.map((item) => ({
+          ...item,
+          children: item.children?.filter((child) => !isBlocked(child.href)),
+        }))
+        .filter((item) => {
+          if (isBlocked(item.href)) return false;
+          // If item has children array
+          if (Array.isArray(item.children)) {
+            // If it's a non-clickable parent (href is empty), hide if no children
+            if (item.href === "" && item.children.length === 0) {
+              return false;
+            }
+            // Otherwise show (clickable parent with empty children is OK)
+            return true;
+          }
+          return true;
+        }),
+    }))
+    .filter((section) => section.items && section.items.length > 0);
 
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
  // base expansion logic from pathname
 const computedMenus = useMemo(() => {
   const next: Record<string, boolean> = {};
 
-  // Example: expand "Jobs" if pathname starts with /jobs, but not for customer dashboard
-  if (isJobsBasePath(pathname)) next["Jobs"] = true;
-  if (isBillingBasePath(pathname)) next["Billing"] = true;
+  // Example: expand "Jobs" if pathname starts with /jobs
+  if (pathname.startsWith("/jobs")) next["Jobs"] = true;
+  if (pathname.startsWith("/billing") && !pathname.startsWith("/billing/contractor-billing") && !pathname.startsWith("/billing/driver-billing")) next["Billing"] = true;
   // Use the label as the key for Cost Summary
   if (pathname.startsWith("/billing/contractor-billing") || pathname.startsWith("/billing/driver-billing")) next["cost_summary"] = true;
   // Expand Leave Management menu for leave pages (instead of Drivers)
@@ -349,7 +342,16 @@ const finalMenuState = { ...computedMenus, ...manualOverrides };
 
   const isActive = (href: string) => {
     if (!href) return false;
-    return isPathActive(href, pathname);
+    // For main billing page, ensure we don't match child routes
+    if (href === "/billing") {
+      return pathname === "/billing" || pathname === "/billing/";
+    }
+    // Special handling for Drivers to avoid matching leave routes
+    if (href === "/drivers") {
+      return pathname === "/drivers" || pathname === "/drivers/" || 
+             (pathname.startsWith("/drivers") && !pathname.startsWith("/drivers/leave"));
+    }
+    return pathname?.startsWith(href) ?? false;
   };
 
  // toggle just updates manualOverrides
@@ -409,10 +411,26 @@ const toggleMenu = (key: string) => {
          <div className="space-y-1">
   {section.items.map((item) => {
     // More precise active state detection
-    const parentActive = isParentActive(item.href, pathname, item.children);
+    const parentActive = item.href !== "" && 
+      (pathname === item.href || 
+       (pathname.startsWith(item.href) && 
+        !item.children?.some(c => pathname.startsWith(c.href)) &&
+        // Special handling for Billing to avoid matching child routes
+        !(item.href === "/billing" && 
+          (pathname.startsWith("/billing/contractor-billing") || 
+           pathname.startsWith("/billing/driver-billing"))) &&
+        // Special handling for Drivers to avoid matching leave routes
+        !(item.href === "/drivers" && pathname.startsWith("/drivers/leave")) &&
+        // Special handling for Jobs to avoid matching customer dashboard
+        !(item.href === "/jobs" && pathname.startsWith("/jobs/dashboard/customer"))
+       )
+      );
     
-    // Use helper function to determine if any child is active
-    const anyChildActive = isAnyChildActive(item.children || [], pathname, item.href);
+    const anyChildActive = item.children?.some((c) => 
+      pathname.startsWith(c.href) && 
+      // Don't count customer dashboard as a child of Jobs
+      !(item.href === "/jobs" && pathname.startsWith("/jobs/dashboard/customer"))
+    );
     // For Cost Summary, we don't want to highlight the parent when children are active
     const isCostSummaryActive = item.key === "cost_summary" && parentActive; // Only highlight if directly on the parent (which is never since it's non-clickable)
     const open = finalMenuState[item.label] ?? anyChildActive;

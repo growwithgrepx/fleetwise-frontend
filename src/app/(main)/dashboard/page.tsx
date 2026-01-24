@@ -15,8 +15,8 @@ import { useRouter } from 'next/navigation';
 import { CheckCircleIcon, CalendarIcon, UserGroupIcon, CurrencyDollarIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 import { Card } from '@/components/atoms/Card';
+import DriverCalendarView from '@/components/organisms/DriverCalendarView';
 import PriorityDashboard, { PriorityAlert } from '@/components/organisms/PriorityDashboard';
-import JobMonitoringAlertsPanel from '@/components/organisms/JobMonitoringAlertsPanel';
 import { useGetAllDrivers } from '@/hooks/useDrivers';
 import { TooltipProps } from "@/types/types";
 
@@ -522,25 +522,10 @@ export default function DashboardPage() {
   }, [jobs]);
 
   // Revenue metrics
-  // Utility function to ensure proper currency formatting
-  const formatCurrencyValue = (value: number): number => {
-    if (isNaN(value) || !isFinite(value)) return 0;
-    return parseFloat(value.toFixed(2));
-  };
-
-  // Revenue metrics
-  const totalRevenue = useMemo(() => {
-    const calculatedTotal = jobs ? jobs.reduce((sum, j) => {
-      const price = j.final_price;
-      // Ensure price is a number, not a string
-      const numericPrice = typeof price === 'string' ? parseFloat(price) : Number(price);
-      return sum + (isNaN(numericPrice) ? 0 : numericPrice);
-    }, 0) : 0;
-    return formatCurrencyValue(calculatedTotal);
-  }, [jobs]);
-  const paidRevenue = formatCurrencyValue(0);
-  const pendingRevenue = formatCurrencyValue(totalRevenue);
-  const overdueRevenue = formatCurrencyValue(0);
+  const totalRevenue = useMemo(() => jobs ? jobs.reduce((sum, j) => sum + (j.final_price || 0), 0) : 0, [jobs]);
+  const paidRevenue = 0;
+  const pendingRevenue = totalRevenue;
+  const overdueRevenue = 0;
 
   // Invoice status data for pie chart
   const invoiceStatusData = useMemo(() => {
@@ -683,16 +668,6 @@ export default function DashboardPage() {
             </>
           )}
         </div>
-
-        {/* JOB MONITORING ALERTS (FULL WIDTH) */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8 w-full"
-        >
-          <JobMonitoringAlertsPanel />
-        </motion.div>
 
         {/* TODAY'S JOBS TIMELINE (FULL WIDTH) */}
         <motion.div 
@@ -987,6 +962,18 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
+        {/* DRIVER CALENDAR VIEW (FULL WIDTH) */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8 w-full"
+        >
+          <div className="lg:col-span-3 pr-8 pl-8">
+            <DriverCalendarView days={2} />
+          </div>
+        </motion.div>
+
         {/* REVENUE INTELLIGENCE (FULL WIDTH) */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -1004,19 +991,19 @@ export default function DashboardPage() {
                 {/* KPI Metrics */}
                 <div className="grid grid-cols-4 gap-3 mb-6">
                   <div className="text-center p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-2xl font-bold text-green-400">${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
+                    <div className="text-2xl font-bold text-green-400">${totalRevenue.toLocaleString()}</div>
                     <div className="text-sm text-gray-400">Total Revenue</div>
                   </div>
                   <div className="text-center p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-2xl font-bold text-blue-400">${paidRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
+                    <div className="text-2xl font-bold text-blue-400">${paidRevenue.toLocaleString()}</div>
                     <div className="text-sm text-gray-400">Paid</div>
                   </div>
                   <div className="text-center p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-2xl font-bold text-orange-400">${pendingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
+                    <div className="text-2xl font-bold text-orange-400">${pendingRevenue.toLocaleString()}</div>
                     <div className="text-sm text-gray-400">Pending</div>
                   </div>
                   <div className="text-center p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-2xl font-bold text-red-400">${overdueRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
+                    <div className="text-2xl font-bold text-red-400">${overdueRevenue.toLocaleString()}</div>
                     <div className="text-sm text-gray-400">Overdue</div>
                   </div>
                 </div>

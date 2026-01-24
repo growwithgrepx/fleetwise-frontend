@@ -130,8 +130,6 @@ export async function getJobs(filters: JobFilters = {}): Promise<JobsResponse> {
   const response = await api.get<JobsResponse>(`/api/jobs/table?${params.toString()}`);
   const processedItems = response.data.items.map(job => ({
     ...job,
-    // Ensure final_price is a proper number, not a string with leading zeros
-    final_price: typeof job.final_price === 'string' ? parseFloat(job.final_price) : Number(job.final_price),
     extra_services: parseExtraServices(job.extra_services)
   }));
 
@@ -301,8 +299,13 @@ export async function deleteJob(id: number): Promise<void> {
 }
 
 /** Fetch calendar jobs */
-export async function getJobsCalendar(days: number = 2): Promise<CalendarResponse> {
-  const response = await api.get<CalendarResponse>(`/api/jobs/calendar?days=${days}`);
+export async function getJobsCalendar(days: number = 2, startDate?: string): Promise<CalendarResponse> {
+  const params = new URLSearchParams();
+  params.append('days', days.toString());
+  if (startDate) {
+    params.append('start_date', startDate);
+  }
+  const response = await api.get<CalendarResponse>(`/api/jobs/calendar?${params.toString()}`);
   return response.data;
 }
 

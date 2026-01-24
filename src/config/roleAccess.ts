@@ -1,6 +1,6 @@
 export const roleAccessRules: Record<string, string[]> = {
   admin: [],
-  manager: ["/general-settings", "/dashboard", "/drivers/leave-overrides"],
+  manager: ["/general-settings", "/drivers/leave-overrides"],
   accountant: [
     "/dashboard",
     "/general-settings",

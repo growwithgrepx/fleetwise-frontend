@@ -3,8 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../../context/UserContext';
 import Link from 'next/link';
-import { getPrimaryRole } from '@/utils/getUserRole';
-
+import { getUserRole } from '@/utils/roleUtils';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -14,20 +13,21 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const router = useRouter();
   const { login, isLoggedIn, isLoading, user } = useUser();
+  const role = getUserRole(user);
 
   // Redirect if already logged in
   useEffect(() => {
     if (!isLoading && isLoggedIn && user) {
-      // Extract role from user data
-      const primaryRole = getPrimaryRole(user);
+      const userRole = getUserRole(user);
       
-      console.log('Login page redirect - user:', user);
-      console.log('Login page redirect - primaryRole:', primaryRole);
-      
-      if (primaryRole === 'admin') {
+      if (userRole === 'admin') {
         router.replace('/dashboard');
-      } else if (primaryRole === 'customer') {
+      } else if (userRole === 'customer') {
         router.replace('/jobs/dashboard/customer');
+      } else if (userRole === 'manager') {
+        router.replace('/dashboard');
+      } else if (userRole === 'accountant') {
+        router.replace('/jobs');
       } else {
         router.replace('/jobs');
       }
@@ -56,8 +56,21 @@ export default function LoginPage() {
       setLoading(false);
 
       if (result.success) {
-        // Redirect will be handled by useEffect when user context updates
-        // The useEffect watches for isLoggedIn and user changes
+        // Get user role from context (user is already set after successful login)
+        const userRole = getUserRole(user);
+        
+        // Role-based redirect after login
+        if (userRole === 'admin') {
+          router.replace('/dashboard');
+        } else if (userRole === 'customer') {
+          router.replace('/jobs/dashboard/customer');
+        } else if (userRole === 'manager') {
+          router.replace('/dashboard');
+        } else if (userRole === 'accountant') {
+          router.replace('/jobs');
+        } else {
+          router.replace('/jobs');
+        }
       } else {
         // Display the specific error message from the backend
         let errorMsg = result.error || 'Invalid email or password';
