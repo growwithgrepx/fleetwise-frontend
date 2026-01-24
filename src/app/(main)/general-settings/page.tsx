@@ -44,6 +44,7 @@ import ChangePasswordForm from '@/components/ChangePasswordForm';
 import UserModal from '@/components/organisms/UserModal';
 import RoleModal from '@/components/organisms/RoleModal';
 import ConfirmationModal from '@/components/organisms/ConfirmationModal';
+import PasswordChangeModal from '@/components/organisms/PasswordChangeModal';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -159,6 +160,9 @@ export default function SettingsPage() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [isPasswordChangeModalOpen, setIsPasswordChangeModalOpen] = useState(false);
+  
+
   // Confirmation modal state
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
   const [confirmationModalData, setConfirmationModalData] = useState<{
@@ -352,6 +356,11 @@ export default function SettingsPage() {
       }
     });
     setIsConfirmationModalOpen(true);
+  };
+
+  const handleChangePassword = (user: User) => {
+    setSelectedUser(user);
+    setIsPasswordChangeModalOpen(true);
   };
 
   const handleCreateRole = () => {
@@ -2154,6 +2163,13 @@ export default function SettingsPage() {
                                   >
                                     <PencilIcon className="w-5 h-5" />
                                   </button>
+                                  <button
+                                    onClick={() => handleChangePassword(user)}
+                                    className="text-purple-400 hover:text-purple-300"
+                                    title="Change Password"
+                                  >
+                                    <KeyIcon className="w-5 h-5" />
+                                  </button>
                                   {user.active ? (
                                     <button
                                       onClick={() => handleDeleteUser(user.id)}
@@ -2178,6 +2194,8 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </div>
+
+                
 
                 {/* Roles & Permissions Section */}
                 <div>
@@ -2355,6 +2373,15 @@ export default function SettingsPage() {
           <RoleModal
             role={selectedRole}
             onClose={() => setIsRoleModalOpen(false)}
+            onSave={fetchUsersAndRoles}
+          />
+        )}
+
+        {/* Password Change Modal */}
+        {isPasswordChangeModalOpen && selectedUser && (
+          <PasswordChangeModal
+            user={selectedUser}
+            onClose={() => setIsPasswordChangeModalOpen(false)}
             onSave={fetchUsersAndRoles}
           />
         )}
