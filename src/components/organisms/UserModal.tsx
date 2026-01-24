@@ -26,6 +26,8 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
+
+  
   // User type linking states
   const [userType, setUserType] = useState<'driver' | 'customer' | null>(null);
   const [availableDrivers, setAvailableDrivers] = useState<Driver[]>([]);
@@ -564,6 +566,8 @@ export default function UserModal({ user, roles, onClose, onSave }: UserModalPro
               Active
             </label>
           </div>
+          
+
           
           <div className="flex justify-end space-x-3 pt-4 sticky bottom-0 bg-gray-900 py-4 -mx-4 px-4">
             <button
