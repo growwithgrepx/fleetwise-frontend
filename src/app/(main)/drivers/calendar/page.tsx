@@ -131,11 +131,12 @@ export default function DriverCalendarPage() {
   
   // Fetch calendar data
   const { data: calendarData, isLoading: calendarLoading, error: calendarError } = useQuery({
-    queryKey: ['jobs', 'calendar', DAYS_TO_SHOW],
+    queryKey: ['jobs', 'calendar', DAYS_TO_SHOW, format(selectedDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       try {
-        console.log('Fetching calendar data for', DAYS_TO_SHOW, 'days');
-        const response = await jobsApi.getJobsCalendar(DAYS_TO_SHOW);
+        const startDate = format(selectedDate, 'yyyy-MM-dd');
+        console.log('Fetching calendar data for', DAYS_TO_SHOW, 'days starting from', startDate);
+        const response = await jobsApi.getJobsCalendar(DAYS_TO_SHOW, startDate);
         console.log('Calendar API response:', response);
         return response;
       } catch (error) {
@@ -891,8 +892,8 @@ export default function DriverCalendarPage() {
                             let displayText = '';
                             
                             if (block.type === 'job') {
-                              bgColor = 'bg-blue-500';
-                              borderClass = 'border border-blue-400';
+                              bgColor = 'bg-gradient-to-r from-blue-500 to-blue-600';
+                              borderClass = 'border border-blue-400/50';
                               textColor = 'text-white';
                               displayText = `#${block.job?.id || 'Job'}`;
                               // Optionally, we can add more descriptive text like customer name or location
@@ -938,7 +939,7 @@ export default function DriverCalendarPage() {
                             return (
                               <div
                                 key={`${block.driverId}-${block.startTime}-${idx}`}
-                                className={`absolute h-full ${bgColor} ${borderClass} cursor-pointer transition-all duration-200 hover:opacity-90 flex items-center text-sm ${textColor} ${widthPercent < 3 ? 'justify-center' : 'justify-start'} overflow-hidden`}
+                                className={`absolute h-full ${bgColor} ${borderClass} cursor-pointer transition-all duration-200 hover:opacity-90 rounded shadow-sm hover:shadow-lg hover:scale-[1.02] hover:z-10 flex items-center text-sm ${textColor} ${widthPercent < 3 ? 'justify-center' : 'justify-start'} overflow-hidden`}
                                 style={{
                                   left: `${blockStartOffset}%`,
                                   width: `${widthPercent}%`,
@@ -964,7 +965,7 @@ export default function DriverCalendarPage() {
                                 {widthPercent < 3 ? (
                                   <span className="text-xs">•</span>
                                 ) : (
-                                  <span className="truncate px-1 font-medium">{displayText}</span>
+                                  <span className="truncate px-2 font-medium">{displayText}</span>
                                 )}
                               </div>
                             );
