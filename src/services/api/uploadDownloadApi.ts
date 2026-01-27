@@ -15,14 +15,18 @@ export interface ExcelRow {
   remarks: string;
   is_valid: boolean;
   error_message: string;
+  job_id?: string;
 }
 
 export interface PreviewData {
   valid_count: number;
   error_count: number;
+  xls_duplicate_count?: number;
+  db_duplicate_count?: number;
   rows: ExcelRow[];
   column_mapping: Record<string, string>;
   available_columns: string[];
+  force_create?: boolean;
 }
 
 export interface UploadResult {
@@ -106,7 +110,15 @@ export const uploadDownloadApi = {
   // Confirm upload and create jobs
   confirmUpload: async (previewData: PreviewData): Promise<UploadResult> => {
     try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Calling /api/jobs/confirm-upload with:', previewData);
+      }
       const response = await api.post<UploadResult>('/api/jobs/confirm-upload', previewData);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Response from /api/jobs/confirm-upload:', response.data);
+        console.log('Skipped rows in response:', response.data.skipped_rows);
+        console.log('Created jobs in response:', response.data.created_jobs);
+      }
       return response.data;
     } catch (error) {
       console.error('Confirm upload error:', error);
