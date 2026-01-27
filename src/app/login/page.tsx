@@ -3,8 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../../context/UserContext';
 import Link from 'next/link';
-import { getPrimaryRole } from '@/utils/getUserRole';
-
+import { getUserRole } from '@/utils/roleUtils';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -18,16 +17,16 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (!isLoading && isLoggedIn && user) {
-      // Extract role from user data
-      const primaryRole = getPrimaryRole(user);
+      const userRole = getUserRole(user);
       
-      console.log('Login page redirect - user:', user);
-      console.log('Login page redirect - primaryRole:', primaryRole);
-      
-      if (primaryRole === 'admin') {
+      if (userRole === 'admin') {
         router.replace('/dashboard');
-      } else if (primaryRole === 'customer') {
+      } else if (userRole === 'customer') {
         router.replace('/jobs/dashboard/customer');
+      } else if (userRole === 'manager') {
+        router.replace('/dashboard');
+      } else if (userRole === 'accountant') {
+        router.replace('/jobs');
       } else {
         router.replace('/jobs');
       }

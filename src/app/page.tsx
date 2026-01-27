@@ -3,29 +3,31 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../context/UserContext';
-import { getPrimaryRole } from '@/utils/getUserRole';
+import { getUserRole } from '@/utils/roleUtils';
 
 export default function RootPage() {
   const { isLoggedIn, isLoading, user } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && isLoggedIn && user) {
-      // Extract role from user data
-      const primaryRole = getPrimaryRole(user);
-      
-      console.log('Root page redirect - user:', user);
-      console.log('Root page redirect - primaryRole:', primaryRole);
-      
-      if (primaryRole === 'admin') {
-        router.replace('/dashboard');
-      } else if (primaryRole === 'customer') {
-        router.replace('/jobs/dashboard/customer');
+    if (!isLoading) {
+      if (isLoggedIn) {
+        const userRole = getUserRole(user);
+        
+        if (userRole === 'admin') {
+          router.replace('/dashboard');
+        } else if (userRole === 'customer') {
+          router.replace('/jobs/dashboard/customer');
+        } else if (userRole === 'manager') {
+          router.replace('/dashboard');
+        } else if (userRole === 'accountant') {
+          router.replace('/jobs');
+        } else {
+          router.replace('/jobs');
+        }
       } else {
-        router.replace('/jobs');
+        router.replace('/login');
       }
-    } else if (!isLoading && !isLoggedIn) {
-      router.replace('/login');
     }
   }, [isLoggedIn, isLoading, user, router]);
 

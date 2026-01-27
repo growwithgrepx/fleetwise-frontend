@@ -21,8 +21,8 @@ export default function NotAuthorizedPage() {
       case "accountant":
       case "driver":
       case "customer":
-        backLink = "/jobs/dashboard/customer";
-        backText = "Go back to Customer Dashboard";
+        backLink = "/jobs";
+        backText = "Go back to Jobs";
         break;
       default:
         backLink = "/dashboard";
