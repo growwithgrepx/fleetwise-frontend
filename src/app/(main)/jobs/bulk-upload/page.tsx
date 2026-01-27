@@ -86,16 +86,14 @@ export default function BulkUploadPreviewPage() {
     const fetchReferenceData = async () => {
       setIsLoadingReferenceData(true);
       try {
-        const fetchWithLogging = async (url: string, name: string) => {
+        const fetchReferenceDataEndpoint = async (url: string, name: string) => {
           try {
-            const response = await fetch(url);
-            if (!response.ok) {
-              console.error(`Failed to fetch ${name}: ${response.status}`);
-              return [];
-            }
-            return await response.json();
+            const response = await api.get(url);
+            return response.data || [];
           } catch (error) {
-            console.error(`Error fetching ${name}:`, error);
+            if (process.env.NODE_ENV === 'development') {
+              console.error(`Error fetching ${name}:`, error);
+            }
             return [];
           }
         };
@@ -104,12 +102,12 @@ export default function BulkUploadPreviewPage() {
         const isCustomerUser = role === 'customer';
 
         const fetchPromises = [
-          fetchWithLogging('/api/customers', 'customers'),
-          fetchWithLogging('/api/services', 'services'),
-          !isCustomerUser ? fetchWithLogging('/api/vehicles', 'vehicles') : Promise.resolve([]),
-          !isCustomerUser ? fetchWithLogging('/api/drivers', 'drivers') : Promise.resolve([]),
-          fetchWithLogging('/api/contractors', 'contractors'),
-          fetchWithLogging('/api/vehicle-types', 'vehicle types')
+          fetchReferenceDataEndpoint('/api/customers', 'customers'),
+          fetchReferenceDataEndpoint('/api/services', 'services'),
+          !isCustomerUser ? fetchReferenceDataEndpoint('/api/vehicles', 'vehicles') : Promise.resolve([]),
+          !isCustomerUser ? fetchReferenceDataEndpoint('/api/drivers', 'drivers') : Promise.resolve([]),
+          fetchReferenceDataEndpoint('/api/contractors', 'contractors'),
+          fetchReferenceDataEndpoint('/api/vehicle-types', 'vehicle types')
         ];
 
         const [customersRes, servicesRes, vehiclesRes, driversRes, contractorsRes, vehicleTypesRes] = await Promise.all(fetchPromises);
@@ -272,13 +270,7 @@ export default function BulkUploadPreviewPage() {
       
       const filteredData = { ...previewData, rows: validRows };
       
-      console.log('Sending valid rows:', validRows);
-      
       const result = await uploadDownloadApi.confirmUpload(filteredData);
-      
-      console.log('Full upload result:', result);
-      console.log('Skipped rows:', result.skipped_rows);
-      console.log('Skipped count:', result.skipped_count);
       
       if (result.processed_count > 0) {
         toast.success(`✓ ${result.processed_count} valid job(s) created successfully!`);

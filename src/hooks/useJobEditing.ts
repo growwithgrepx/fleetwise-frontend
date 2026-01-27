@@ -25,7 +25,7 @@ export const useJobEditing = () => {
       await callback(editJob, updated);
       handleCancelEdit();
     };
-  }, [editJob]);
+  }, [editJob, handleCancelEdit]);
 
   return {
     editJob,

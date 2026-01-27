@@ -70,13 +70,18 @@ export const useJobActions = ({
       baseActions = baseActions.filter((a) => a.label !== 'Edit' && a.label !== 'Copy');
     }
 
-    // Apply role-based disable rules
+    // Apply role-based disable rules (compose with existing disabled condition)
     baseActions = baseActions.map((a) => {
       if (a.label === 'Edit' || a.label === 'Delete') {
         return {
           ...a,
-          disabled: (job: Job) =>
-            role === 'customer' && ['jc', 'sd', 'canceled'].includes(job.status)
+          disabled: (job: Job) => {
+            const previouslyDisabled =
+              typeof a.disabled === 'function' ? a.disabled(job) : !!a.disabled;
+            const customerRestricted =
+              role === 'customer' && ['jc', 'sd', 'canceled'].includes(job.status);
+            return previouslyDisabled || customerRestricted;
+          }
         };
       }
       return a;

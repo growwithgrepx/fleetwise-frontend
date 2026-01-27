@@ -110,11 +110,15 @@ export const uploadDownloadApi = {
   // Confirm upload and create jobs
   confirmUpload: async (previewData: PreviewData): Promise<UploadResult> => {
     try {
-      console.log('Calling /api/jobs/confirm-upload with:', previewData);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Calling /api/jobs/confirm-upload with:', previewData);
+      }
       const response = await api.post<UploadResult>('/api/jobs/confirm-upload', previewData);
-      console.log('Response from /api/jobs/confirm-upload:', response.data);
-      console.log('Skipped rows in response:', response.data.skipped_rows);
-      console.log('Created jobs in response:', response.data.created_jobs);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Response from /api/jobs/confirm-upload:', response.data);
+        console.log('Skipped rows in response:', response.data.skipped_rows);
+        console.log('Created jobs in response:', response.data.created_jobs);
+      }
       return response.data;
     } catch (error) {
       console.error('Confirm upload error:', error);

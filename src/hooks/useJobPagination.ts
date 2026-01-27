@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 
 export const useJobPagination = (initialPageSize: number = 10) => {
   const [page, setPage] = useState(1);

@@ -312,7 +312,7 @@ export function JobRowEditForm({
                 <select
                   defaultValue={row.vehicle || ''}
                   onChange={handleVehicleChange}
-                  className={clsx(selectClassName, validationErrors.vehicle && 'border-red-500 focus:ring-red-500 focus:border-red-500')}
+                  className={selectClassName}
                 >
                   <option value="">Select Vehicle</option>
                   {referenceData.vehicles.map((vehicle) => (

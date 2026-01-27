@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react';
+import React, { useEffect, useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useJobs } from '@/hooks/useJobs';
 import * as jobsApi from '@/services/api/jobsApi';
@@ -26,7 +26,6 @@ import { useUser } from '@/context/UserContext';
 import NotAuthorizedPage from '@/app/not-authorized/page';
 
 // Import refactored components and hooks
-import { HighlightedCell } from '@/components/molecules/HighlightedCell';
 import { JobStatusTabs, type JobStatus } from '@/components/molecules/JobStatusTabs';
 import { CustomerFilterButtons } from '@/components/molecules/CustomerFilterButtons';
 import { useJobFiltering } from '@/hooks/useJobFiltering';
@@ -52,75 +51,6 @@ const jobStatuses: JobStatus[] = [
   { label: 'Canceled', value: 'canceled' }
 ];
 
-// Row-level actions
-const getJobActions = (
-  router: AppRouterInstance,
-  handleDelete: (id: number | string) => void,
-  isDeleting: (item: ApiJob) => boolean,
-  handleView: (job: ApiJob) => void,
-  handleEdit: (job: ApiJob) => void,
-  handleCopy: (job: ApiJob) => void,
-  role: string
-): EntityTableAction<ApiJob>[] => {
-  const restrictedRolesDelete = ["driver", "customer", "guest"];
-  const restrictedRolesEdit = ["driver", "guest"];
-
-  let actions: EntityTableAction<ApiJob>[] = [
-    {
-      label: 'View',
-      icon: <Eye className="w-5 h-5 text-primary" />,
-      onClick: handleView,
-      ariaLabel: 'View job details',
-      title: 'View',
-    },
-    {
-      label: 'Edit',
-      icon: <Pencil className="h-4 w-4 text-gray-600 dark:text-gray-300" />,
-      onClick: handleEdit,
-      ariaLabel: 'Edit job',
-      title: 'Edit',
-    },
-    {
-      label: 'Copy',
-      icon: <Copy className="w-5 h-5 text-blue-500" />,
-      onClick: handleCopy,
-      ariaLabel: 'Copy job',
-      title: 'Copy',
-    },
-    {
-      label: 'Delete',
-      icon: <Trash2 className="w-5 h-5 text-red-500" />,
-      onClick: (job) => handleDelete(job.id),
-      ariaLabel: 'Delete job',
-      title: 'Delete',
-      disabled: isDeleting,
-    },
-  ];
-
-  // Filter by role
-  if (restrictedRolesDelete.includes(role)) {
-    actions = actions.filter((a) => a.label !== "Delete");
-  }
-
-  if (restrictedRolesEdit.includes(role)) {
-    actions = actions.filter((a) => a.label !== "Edit" && a.label !== "Copy");
-  }
-
-  // Apply disable rules
-  actions = actions.map((a) => {
-    if (a.label === "Edit" || a.label === "Delete") {
-      return {
-        ...a,
-        disabled: (job: ApiJob) =>
-          role === "customer" && ["jc", "sd", "canceled"].includes(job.status),
-      };
-    }
-    return a;
-  });
-
-  return actions;
-};
-
 const JobsPage = () => {
   const router = useRouter();
   const { jobs, isLoading, error, updateFilters, deleteJobAsync, updateJobAsync, filters } = useJobs();
@@ -134,7 +64,6 @@ const JobsPage = () => {
     setSearch,
     localFilters,
     handleFilterChange,
-    handleClearFilter,
     handleTabChange: handleStatusTabChange
   } = useJobFiltering();
 
@@ -175,8 +104,7 @@ const JobsPage = () => {
   const {
     filteredCustomers,
     statusCounts,
-    customerCounts,
-    allJobs
+    customerCounts
   } = useJobsData(isDriver);
 
   const { setCopiedJobData } = useCopiedJob();

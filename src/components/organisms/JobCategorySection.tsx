@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -123,13 +123,18 @@ export default function JobCategorySection({
   if (rows.length === 0) return null;
 
   const totalPages = Math.ceil(rows.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  
+  // Clamp current page when rows change
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [rows.length, totalPages, currentPage]);
+
+  const clampedPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
+  const startIndex = (clampedPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedRows = rows.slice(startIndex, endIndex);
-
-  if (currentPage > totalPages && totalPages > 0) {
-    setCurrentPage(1);
-  }
 
   return (
     <div
