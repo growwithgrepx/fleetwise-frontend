@@ -420,6 +420,7 @@ const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, class
     const statusColor = STATUS_COLORS[job.status] || STATUS_COLORS.default;
     const borderColor = STATUS_BORDER_COLORS[job.status] || STATUS_BORDER_COLORS.default;
     const draggableId = `${job.id}_${date}_${driverId}`;
+    // Position based on pickup_time (driver start time)
     const position = getTimePosition(job.pickup_time);
     
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
