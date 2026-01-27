@@ -762,6 +762,7 @@ if (!driverExists) {
         // Dates and Times
         pickup_date: job.pickup_date || '',
         pickup_time: job.pickup_time || '',
+        dropoff_time: job.dropoff_time || undefined,
 
         // Locations
         pickup_location: job.pickup_location || '',
@@ -922,6 +923,7 @@ if (!driverExists) {
         sub_customer_name: job.sub_customer_name || prev.sub_customer_name,
         service_type: job.service_type || prev.service_type,
         vehicle_type: vehicleTypeName,
+        dropoff_time: job.dropoff_time || prev.dropoff_time,
       }));
   setUserModifiedPricing(false);
     }
@@ -3036,6 +3038,25 @@ if (!driverExists) {
                     </div>
                     {errors.dropoff_location && <p className="text-sm text-red-400">{errors.dropoff_location}</p>}
                     {dropoffAddressError && <p className="text-sm text-yellow-400">{dropoffAddressError}</p>}
+                  </div>
+                  
+                  {/* Drop-off Time - Added after dropoff location as per requirement */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-300">
+                      Drop-off Time (Optional)
+                    </label>
+                    <TimePicker24Hour
+                      value={formData.dropoff_time || ''}
+                      onChange={(value) => {
+                        // Only allow changes if fields are not locked
+                        if (!fieldsLocked) {
+                          handleInputChange('dropoff_time', value);
+                        }
+                      }}
+                      readOnly={fieldsLocked}
+                      className={fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}
+                    />
+                    {errors.dropoff_time && <p className="text-sm text-red-400">{errors.dropoff_time}</p>}
                   </div>
                 </div>
 

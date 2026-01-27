@@ -350,8 +350,29 @@ export default function DriverCalendarPage() {
               // Calculate job duration with improved validation
               let durationHours = 1; // Default fallback
               
-              // Prioritize duration from job data if available
-              if (job.duration_hours) {
+              // Prioritize dropoff_time if available for duration calculation
+              if (job.dropoff_time) {
+                // Validate time format and parse
+                const dropoffParts = job.dropoff_time.split(':');
+                
+                if (dropoffParts.length === 2) {
+                  const [dropoffHour, dropoffMinute] = dropoffParts.map(Number);
+                  
+                  // Check if parsing was successful
+                  if (!isNaN(dropoffHour) && !isNaN(dropoffMinute)) {
+                    const pickupTotalMinutes = pickupHour * 60 + pickupMinute;
+                    const dropoffTotalMinutes = dropoffHour * 60 + dropoffMinute;
+                    
+                    // For same-day jobs, dropoff must be after pickup
+                    const durationMinutes = dropoffTotalMinutes - pickupTotalMinutes;
+                    if (durationMinutes > 0) {
+                      durationHours = durationMinutes / 60;
+                    } else if (process.env.NODE_ENV === 'development') {
+                      console.warn(`Job ${job.id} has non-positive duration based on times ${job.pickup_time} - ${job.dropoff_time}; using fallback duration.`);
+                    }
+                  }
+                }
+              } else if (job.duration_hours) {
                 durationHours = job.duration_hours;
               } else {
                 // Try to get duration from service type patterns as fallback

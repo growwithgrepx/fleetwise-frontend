@@ -95,6 +95,9 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
               <DetailItem label="Pickup" value={normalized.pickupLocation} />
               <DetailItem label="Drop-off" value={normalized.dropoffLocation} />
               <DetailItem label="Date & Time" value={normalized.pickupDate && normalized.pickupTime ? `${normalized.pickupDate} at ${normalized.pickupTime}` : (normalized.pickupDate || '')} />
+              {job.dropoff_time && (
+                <DetailItem label="Drop-off Time" value={job.dropoff_time} />
+              )}
           </DetailSection>
 
           <DetailSection title="Pricing">

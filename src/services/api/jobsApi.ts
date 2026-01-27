@@ -79,6 +79,7 @@ export interface CalendarJob {
   customer_name: string | null;
   service_type: string;
   pickup_time: string;
+  dropoff_time?: string;
   pickup_location: string;
   dropoff_location: string;
   status: string;
