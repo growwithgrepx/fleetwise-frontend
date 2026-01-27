@@ -302,8 +302,7 @@ export async function deleteJob(id: number): Promise<void> {
 
 /** Fetch calendar jobs */
 export async function getJobsCalendar(days: number = 2, startDate?: string): Promise<CalendarResponse> {
-  const params = new URLSearchParams();
-  params.append('days', days.toString());
+  const params = new URLSearchParams({ days: days.toString() });
   if (startDate) {
     params.append('start_date', startDate);
   }
