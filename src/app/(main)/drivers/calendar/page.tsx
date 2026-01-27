@@ -352,18 +352,26 @@ export default function DriverCalendarPage() {
               
               // Prioritize dropoff_time if available for duration calculation
               if (job.dropoff_time) {
-                // Calculate duration based on dropoff_time
-                const [dropoffHour, dropoffMinute] = job.dropoff_time.split(':').map(Number);
-                const pickupTotalMinutes = pickupHour * 60 + pickupMinute;
-                const dropoffTotalMinutes = dropoffHour * 60 + dropoffMinute;
+                // Validate time format and parse
+                const dropoffParts = job.dropoff_time.split(':');
                 
-                // Handle case where dropoff is on next day (assumed to be same day for now)
-                let durationMinutes = dropoffTotalMinutes - pickupTotalMinutes;
-                if (durationMinutes <= 0) {
-                  durationMinutes += 24 * 60; // Add 24 hours if negative (next day)
+                if (dropoffParts.length === 2) {
+                  const [dropoffHour, dropoffMinute] = dropoffParts.map(Number);
+                  
+                  // Check if parsing was successful
+                  if (!isNaN(dropoffHour) && !isNaN(dropoffMinute)) {
+                    const pickupTotalMinutes = pickupHour * 60 + pickupMinute;
+                    const dropoffTotalMinutes = dropoffHour * 60 + dropoffMinute;
+                    
+                    // For same-day jobs, dropoff must be after pickup
+                    const durationMinutes = dropoffTotalMinutes - pickupTotalMinutes;
+                    if (durationMinutes > 0) {
+                      durationHours = durationMinutes / 60;
+                    } else if (process.env.NODE_ENV === 'development') {
+                      console.warn(`Job ${job.id} has non-positive duration based on times ${job.pickup_time} - ${job.dropoff_time}; using fallback duration.`);
+                    }
+                  }
                 }
-                
-                durationHours = durationMinutes / 60;
               } else if (job.duration_hours) {
                 durationHours = job.duration_hours;
               } else {

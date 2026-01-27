@@ -351,7 +351,7 @@ export const jobSchema = z.object({
   // Dates and Times
   pickup_date: z.string().min(1, 'Pickup date is required'),
   pickup_time: z.string().min(1, 'Pickup time is required'),
-  dropoff_time: z.string().optional(),
+  dropoff_time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format').optional(),
   
   // Locations
   pickup_location: z.string().min(1, 'Pickup location is required'),
@@ -443,10 +443,10 @@ export const jobSchema = z.object({
   path: ['vehicle_id'],
 }).refine((data) => {
   // Validate that dropoff_time is after pickup_time if both are provided
-  if (data.pickup_date && data.pickup_time && data.dropoff_time) {
+  if (data.pickup_date && data.pickup_time && data.dropoff_time && data.dropoff_time.trim()) {
     const pickupDateTime = new Date(`${data.pickup_date}T${data.pickup_time}:00`);
     const dropoffDateTime = new Date(`${data.pickup_date}T${data.dropoff_time}:00`);
-    
+  
     if (!isNaN(pickupDateTime.getTime()) && !isNaN(dropoffDateTime.getTime())) {
       return dropoffDateTime > pickupDateTime;
     }
@@ -477,7 +477,7 @@ export const defaultJobValues: JobFormData = {
   // Dates and Times
   pickup_date: '',
   pickup_time: '',
-  dropoff_time: '',
+  dropoff_time: undefined,
   
   // Locations
   pickup_location: '',

@@ -762,6 +762,7 @@ if (!driverExists) {
         // Dates and Times
         pickup_date: job.pickup_date || '',
         pickup_time: job.pickup_time || '',
+        dropoff_time: job.dropoff_time || undefined,
 
         // Locations
         pickup_location: job.pickup_location || '',
@@ -922,6 +923,7 @@ if (!driverExists) {
         sub_customer_name: job.sub_customer_name || prev.sub_customer_name,
         service_type: job.service_type || prev.service_type,
         vehicle_type: vehicleTypeName,
+        dropoff_time: job.dropoff_time || prev.dropoff_time,
       }));
   setUserModifiedPricing(false);
     }
