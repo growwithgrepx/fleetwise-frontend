@@ -64,8 +64,15 @@ export default function LoginPage() {
 
         // If account is locked and we have the locked_until timestamp, append it to the message
         if (result.locked_until) {
+          // Normalize locked_until to an explicit UTC timestamp if needed
+          const lockedUntilUtc =
+            typeof result.locked_until === 'string'
+              ? (/[zZ]|[+\-]\d{2}:?\d{2}$/.test(result.locked_until)
+                  ? result.locked_until
+                  : `${result.locked_until}Z`)
+              : result.locked_until;
           // Convert UTC time to display timezone for display
-          const displayTime = formatUtcForDisplay(result.locked_until, 'datetime');
+          const displayTime = formatUtcForDisplay(lockedUntilUtc, 'datetime');
           errorMsg += ` (Account locked until: ${displayTime})`;
         }
 

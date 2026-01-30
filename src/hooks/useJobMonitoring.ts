@@ -11,6 +11,7 @@ import {
 import { JobMonitoringAlert as ApiJobMonitoringAlert } from '@/services/api/jobMonitoringApi';
 import { getAlertSettings } from '@/services/api/settingsApi';
 import { toast } from 'react-hot-toast';
+import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
 
 // Convert API alert to store alert format
 const convertApiAlertToStoreFormat = (apiAlert: ApiJobMonitoringAlert, maxAlertReminders: number = 3) => ({
@@ -18,7 +19,7 @@ const convertApiAlertToStoreFormat = (apiAlert: ApiJobMonitoringAlert, maxAlertR
   jobId: apiAlert.job_id,
   driverName: apiAlert.driver_name,
   driverContact: apiAlert.driver_mobile,
-  pickupTime: `${apiAlert.pickup_date}T${apiAlert.pickup_time}:00`, // Combine date and time into ISO string
+  pickupTime: `${apiAlert.pickup_date}T${convertUtcToDisplayTime(apiAlert.pickup_time, apiAlert.pickup_date)}:00`, // Convert UTC to display timezone and combine into ISO string
   passengerDetails: apiAlert.passenger_name,
   elapsedTime: apiAlert.elapsed_minutes,
   createdAt: apiAlert.created_at,

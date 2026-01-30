@@ -7,7 +7,7 @@ import { useUser } from '@/context/UserContext';
 import { Card } from '@/components/atoms/Card';
 import { Button } from '@/components/atoms/Button';
 import { format, addDays, subDays, parseISO, differenceInHours, isSameDay, isToday, isYesterday, startOfDay, isWithinInterval } from 'date-fns';
-import { formatDisplayDate, parseDisplayDate } from '@/utils/timezoneUtils';
+import { parseDisplayDate, convertUtcToDisplayTime } from '@/utils/timezoneUtils';
 import { 
   TruckIcon, 
   UserIcon, 
@@ -207,6 +207,61 @@ export default function DriverCalendarPage() {
     if (process.env.NODE_ENV === 'development') {
       console.log('Calendar data received:', calendarData);
       console.log('Drivers data:', drivers);
+      
+      // Check for specific job ID 64
+      if (calendarData?.calendar_data) {
+        console.log('=== DEBUG: Looking for Job ID 64 ===');
+        Object.entries(calendarData.calendar_data).forEach(([date, driversData]) => {
+          Object.entries(driversData).forEach(([driverId, jobs]) => {
+            const job64 = jobs.find((job: any) => job.id === 64);
+            if (job64) {
+              console.log(`Found Job 64 on ${date} for driver ${driverId}:`, job64);
+            }
+          });
+        });
+        console.log('=== END DEBUG ===');
+        
+        // Check ALL jobs for Job ID 64
+        let foundJob64 = false;
+        Object.entries(calendarData.calendar_data).forEach(([date, driversData]) => {
+          Object.entries(driversData).forEach(([driverId, jobs]) => {
+            jobs.forEach((job: any) => {
+              if (job.id === 64) {
+                console.log(`FOUND Job 64! Date: ${date}, Driver ID: ${driverId}`, job);
+                foundJob64 = true;
+              }
+            });
+          });
+        });
+        
+        if (!foundJob64) {
+          console.log('Job ID 64 NOT FOUND in calendar data');
+          // Show all job IDs to see what exists
+          const allJobIds: number[] = [];
+          const jobDetails: any[] = [];
+          
+          Object.entries(calendarData.calendar_data).forEach(([date, driversData]) => {
+            Object.entries(driversData).forEach(([driverId, jobs]) => {
+              jobs.forEach((job: any) => {
+                if (!allJobIds.includes(job.id)) {
+                  allJobIds.push(job.id);
+                }
+                jobDetails.push({
+                  id: job.id,
+                  date: date,
+                  driverId: driverId,
+                  customer: job.customer_name,
+                  service: job.service_type,
+                  pickup_time: job.pickup_time
+                });
+              });
+            });
+          });
+          
+          console.log('All job IDs in calendar data:', allJobIds.sort((a, b) => a - b));
+          console.log('All jobs details:', jobDetails);
+        }
+      }
     }
     
     // Check if current user is a driver
@@ -223,16 +278,41 @@ export default function DriverCalendarPage() {
     
     // Filter drivers based on user role
     const filteredDrivers = drivers.filter(driver => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Checking driver: ${driver.name} (ID: ${driver.id}, Status: ${driver.status})`);
+      }
+      
       if (isDriver) {
         if (!currentDriverId) {
           console.error('Driver role detected but no driver_id found');
           return false; // Fail secure - show nothing if we can't determine driver ID
         }
-        return driver.id === currentDriverId;
+        const matches = driver.id === currentDriverId;
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Driver filter result for ${driver.name}: ${matches} (currentDriverId: ${currentDriverId})`);
+        }
+        return matches;
       }
       // Otherwise, apply the status filter
-      return driverStatusFilter === 'all' || driver.status?.toLowerCase() === driverStatusFilter;
+      const matches = driverStatusFilter === 'all' || driver.status?.toLowerCase() === driverStatusFilter;
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Status filter result for ${driver.name}: ${matches} (filter: ${driverStatusFilter})`);
+      }
+      return matches;
     });
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Filtered drivers:', filteredDrivers.map(d => ({ name: d.name, id: d.id })));
+      
+      // Look for driver named "Ah Tan" or similar
+      const ahTanDriver = drivers.find(d => d.name?.toLowerCase().includes('ah') && d.name?.toLowerCase().includes('tan'));
+      if (ahTanDriver) {
+        console.log('Found Ah Tan driver:', ahTanDriver);
+      } else {
+        console.log('Ah Tan driver not found in drivers list');
+        console.log('All drivers:', drivers.map(d => ({ name: d.name, id: d.id })));
+      }
+    }
 
     return filteredDrivers
       .map(driver => {
@@ -246,6 +326,24 @@ export default function DriverCalendarPage() {
           
           // Get the day's data from calendar API response
           const dayData = calendarData?.calendar_data?.[dateString]?.[driver.id] || [];
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Driver ${driver.name} (ID: ${driver.id}) on ${dateString}:`, dayData.length, 'jobs');
+            if (dayData.length > 0) {
+              console.log('Job details:', dayData.map((job: any) => ({
+                id: job.id,
+                customer: job.customer_name,
+                service: job.service_type,
+                pickup_time: job.pickup_time
+              })));
+              
+              // Check specifically for Job ID 64
+              const job64 = dayData.find((job: any) => job.id === 64);
+              if (job64) {
+                console.log('*** FOUND JOB 64! ***', job64);
+              }
+            }
+          }
           
           // Extract jobs from the day data
           // Jobs have customer_name property
@@ -281,8 +379,8 @@ export default function DriverCalendarPage() {
             
             // Use timezone-safe date functions
             // Parse the leave dates which come from backend in DD/MM/YYYY format
-            const leaveStartDate = startOfDay(new Date(leave.start_date));
-            const leaveEndDate = startOfDay(new Date(leave.end_date));
+            const leaveStartDate = startOfDay(parseDisplayDate(leave.start_date));
+            const leaveEndDate = startOfDay(parseDisplayDate(leave.end_date));
             const checkDate = startOfDay(date);
             
             return isWithinInterval(checkDate, { start: leaveStartDate, end: leaveEndDate });
@@ -346,9 +444,14 @@ export default function DriverCalendarPage() {
             driverJobs.forEach(job => {
               if (!job.pickup_time) return;
               
-              // Parse pickup time
-              const [pickupHour, pickupMinute] = job.pickup_time.split(':').map(Number);
+              // Parse pickup time - convert from UTC to display timezone first
+              const displayPickupTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
+              const [pickupHour, pickupMinute] = displayPickupTime.split(':').map(Number);
               const startTime = `${pickupHour.toString().padStart(2, '0')}:${pickupMinute.toString().padStart(2, '0')}`;
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`Job ${job.id}: UTC ${job.pickup_time} -> Display ${displayPickupTime} -> Block start ${startTime}`);
+              }
               
               // Calculate job duration with improved validation
               let durationHours = 1; // Default fallback
@@ -1095,7 +1198,7 @@ export default function DriverCalendarPage() {
                     </div>
                     <div className="flex">
                       <span className="text-gray-400 w-32">Time:</span>
-                      <span className="text-white">{selectedJob.pickup_time}</span>
+                      <span className="text-white">{convertUtcToDisplayTime(selectedJob.pickup_time, selectedJob.pickup_date)}</span>
                     </div>
                     <div className="flex">
                       <span className="text-gray-400 w-32">Location:</span>

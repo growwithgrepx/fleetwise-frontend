@@ -1,6 +1,7 @@
 import React from 'react';
 import { HighlightedCell } from '@/components/molecules/HighlightedCell';
 import { EntityTableColumn } from '@/components/organisms/EntityTable';
+import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
 
 export interface ApiJob {
   id: number | string;
@@ -72,7 +73,11 @@ export const getJobTableColumns = (search: string): EntityTableColumn<ApiJob & {
     accessor: 'pickup_time',
     filterable: true,
     stringLabel: 'Pickup Time',
-    render: (job: ApiJob) => <HighlightedCell text={job.pickup_time} searchTerm={search} />
+    render: (job: ApiJob) => {
+      // Convert UTC time from database to display timezone
+      const displayTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
+      return <HighlightedCell text={displayTime} searchTerm={search} />;
+    }
   },
   {
     label: 'Status',
