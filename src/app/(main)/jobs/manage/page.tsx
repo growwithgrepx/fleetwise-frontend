@@ -409,49 +409,49 @@ const ManageJobsPage = () => {
   if (error) return <div>Failed to load jobs. Error: {error.message}</div>;
 
   return (<div>
-     <div className="max-w-7xl mx-auto px-2 py-6 w-full flex flex-col gap-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold text-text-main">Manage Jobs</h1>
-        <div className="flex gap-2 self-start md:self-auto">
+    <div className="w-full flex flex-col gap-4 px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-4 sm:py-6 max-w-full">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-text-main">Manage Jobs</h1>
+        <div className="flex gap-2 self-start lg:self-auto">
           <AnimatedButton 
             onClick={handleBulkCancel}
             disabled={selectedJobs.length === 0}
-            className="flex items-center bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white"
+            className="flex items-center bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white min-w-[200px]"
           >
             <X className="mr-2 h-4 w-4" />
             Cancel Selected ({selectedJobs.length})
           </AnimatedButton>
         </div>
       </div>
-      <div className="flex flex-col md:flex-row md:items-center gap-2 bg-background pt-2 pb-2 rounded-t-xl">
-        <div className="w-full md:w-64">
+      <div className="flex flex-col gap-2 bg-background pt-2 pb-2 rounded-t-xl">
+        <div className="w-full max-w-md">
           <Input
             placeholder="Search jobs..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="bg-background-light border-border-color text-text-main"
+            className="bg-background-light border-border-color text-text-main w-full"
             aria-label="Search jobs"
           />
         </div>
       </div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-2">
         <div className="text-sm text-text-secondary">
           Showing {total === 0 ? 0 : startIdx}-{endIdx} of {total} jobs
         </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="pageSize" className="text-xs text-text-secondary">Rows per page:</label>
+        <div className="flex items-center gap-2 flex-wrap">
+          <label htmlFor="pageSize" className="text-xs text-text-secondary whitespace-nowrap">Rows per page:</label>
           <select
             id="pageSize"
             value={pageSize}
             onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
-            className="bg-background-light border-border-color text-text-main rounded px-2 py-1 text-xs"
+            className="bg-background-light border-border-color text-text-main rounded px-2 py-1 text-xs min-w-[70px]"
           >
             {[10, 20, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
           </select>
         </div>
       </div> 
       <div className="flex-grow rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden">
-        <div className="w-full overflow-x-auto md:overflow-x-visible">
+        <div className="w-full overflow-x-auto">
           <EntityTable
             columns={columns.map(col => ({
               ...col,

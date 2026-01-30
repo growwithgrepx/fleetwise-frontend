@@ -142,28 +142,28 @@ export default function DriversPage() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
       <EntityHeader 
         title="Drivers" 
         onAddClick={() => router.push('/drivers/new')} 
         addLabel="Add Driver" 
         extraActions={
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <AnimatedButton
               onClick={() => router.push('/drivers/leave')}
-              className="bg-gradient-to-r from-blue-500 to-blue-700 hover:opacity-90 text-white rounded-lg px-4 py-2"
+              className="bg-gradient-to-r from-blue-500 to-blue-700 hover:opacity-90 text-white rounded-lg px-4 py-2 w-full sm:w-auto justify-center"
             >
               Leave Management
             </AnimatedButton>
             <AnimatedButton
               onClick={() => router.push('/drivers/leave-overrides')}
-              className="bg-gradient-to-r from-blue-600 to-blue-800 hover:opacity-90 text-white rounded-lg px-4 py-2"
+              className="bg-gradient-to-r from-blue-600 to-blue-800 hover:opacity-90 text-white rounded-lg px-4 py-2 w-full sm:w-auto justify-center"
             >
               Leave Overrides
             </AnimatedButton>
           </div>
         }
-        className="mb-6"
+        className="mb-4"
       />
       {isLoading && <div className="text-gray-400">Loading drivers...</div>}
       {error && <div className="text-red-400">Failed to load drivers.</div>}

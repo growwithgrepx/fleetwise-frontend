@@ -589,8 +589,8 @@ export default function BulkUploadPreviewPage() {
   const categories = getRowsByCategory();
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen w-full" style={{ backgroundColor: 'var(--color-bg)' }}>
+      <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -602,7 +602,7 @@ export default function BulkUploadPreviewPage() {
                 <ArrowLeftIcon className="w-5 h-5" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-main)' }}>
+                <h1 className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--color-text-main)' }}>
                   Bulk Job Upload
                 </h1>
                 <p style={{ color: 'var(--color-text-secondary)' }}>
