@@ -6,6 +6,7 @@ import { getJobsCalendar, rescheduleJob, CalendarJob } from '@/services/api/jobs
 import { Card } from '@/components/atoms/Card';
 import { Spinner } from '@/components/atoms/Spinner';
 import { Button } from '@/components/atoms/Button';
+import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
 import { useRouter } from 'next/navigation';
 import { format, addDays } from 'date-fns';
 import { 
@@ -142,7 +143,7 @@ interface DriverCalendarViewProps {
 const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, className = '' }) => {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [hoveredJob, setHoveredJob] = useState<{ job: CalendarJob; position: { x: number; y: number } } | null>(null);
+  const [hoveredJob, setHoveredJob] = useState<{ job: CalendarJob; date: string; position: { x: number; y: number } } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   
   // Set tomorrow as the default date
@@ -375,7 +376,7 @@ const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, class
 
     if (!hoveredJob) return null;
 
-    const { job, position } = hoveredJob;
+    const { job, date, position } = hoveredJob;
 
     return (
       <div
@@ -395,7 +396,7 @@ const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, class
           </div>
           <div className="flex items-center gap-1">
             <ClockIcon className="w-3 h-3 text-blue-400" />
-            <span>{formatTime(job.pickup_time)}</span>
+            <span>{convertUtcToDisplayTime(job.pickup_time, date)}</span>
           </div>
           <div className="flex items-center gap-1">
             <MapPinIcon className="w-3 h-3 text-blue-400" />
@@ -449,6 +450,7 @@ const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, class
         style={style}
         onMouseEnter={(e) => setHoveredJob({ 
           job, 
+          date,
           position: { x: e.clientX, y: e.clientY } 
         })}
         onMouseLeave={() => setHoveredJob(null)}

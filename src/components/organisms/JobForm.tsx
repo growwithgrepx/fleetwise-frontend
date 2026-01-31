@@ -34,6 +34,7 @@ import PhoneInput from '@/components/molecules/PhoneInput';
 import { useUser } from '@/context/UserContext';
 import { getUserRole } from '@/utils/roleUtils';
 import { useGetVehicleById } from '@/hooks/useVehicles';
+import { convertDisplayToUtc, convertUtcToDisplayTime, formatDisplayDate, formatDisplayTime, formatHtmlDateInput, getDisplayTimezone, parseDisplayDate, formatUtcTime } from '@/utils/timezoneUtils';
 
 import { 
   createJob, 
@@ -57,6 +58,7 @@ export const analytics = {
     console.log(`[Analytics] Event: ${eventName}`, payload || {});
   }
 };
+
 // Default job values
 const defaultJobValues: JobFormData = {
   // Customer Information
@@ -78,6 +80,7 @@ const defaultJobValues: JobFormData = {
   // Dates and Times
   pickup_date: '',
   pickup_time: '',
+  dropoff_time: undefined,
   
   // Locations
   pickup_location: '',
@@ -429,7 +432,12 @@ export interface JobFormProps {
 
 const JobForm: React.FC<JobFormProps> = (props) => {
   const { job, initialData, onSave, onCancel, onDelete, isLoading = false } = props;
-
+  
+  // Debug: log component mount
+  useEffect(() => {
+    console.log('[JobForm] Component mounted with props:', { job, initialData, isLoading });
+  }, []);
+  
   // Debug: log initialData provided to the form (copied job context)
   useEffect(() => {
     // eslint-disable-next-line no-console
@@ -455,6 +463,22 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   
   // State
   const [formData, setFormData] = useState<JobFormData>({ ...defaultJobValues, ...initialData });
+  
+  // Debug: Log formData changes
+  useEffect(() => {
+    console.log('[JobForm] formData updated:', formData);
+    if (formData.dropoff_time !== undefined) {
+      console.log('[JobForm] dropoff_time in formData:', formData.dropoff_time);
+    }
+  }, [formData]);
+  
+  // Debug: Monitor dropoff_time specifically
+  useEffect(() => {
+    console.log('[JobForm] DROP-OFF TIME MONITOR:');
+    console.log('[JobForm]   Current value:', formData.dropoff_time);
+    console.log('[JobForm]   Type:', typeof formData.dropoff_time);
+    console.log('[JobForm]   Truthy:', !!formData.dropoff_time);
+  }, [formData.dropoff_time]);
   const [errors, setErrors] = useState<Partial<Record<keyof JobFormData, string>>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error' | 'conflict'>('idle');
   const [driverConflictWarning, setDriverConflictWarning] = useState<string>('');
@@ -468,12 +492,23 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   const [userModifiedLocationPrices, setUserModifiedLocationPrices] = useState<Set<string>>(new Set());
   const [userDirectlyEditedLocationPrices, setUserDirectlyEditedLocationPrices] = useState<Set<string>>(new Set());
 
-  // Get current date and time for defaults
+  // Get current date and time for defaults in user's configured timezone
   const getCurrentDateTime = () => {
+    // Get the current time
     const now = new Date();
-    const date = now.toISOString().split('T')[0]; // YYYY-MM-DD format
-    const time = now.toTimeString().slice(0, 5); // HH:MM format
-    return { date, time };
+    
+    // Debug: Check what timezone is being used
+    const displayTimezone = getDisplayTimezone();
+    console.log('[JobForm] Current display timezone:', displayTimezone);
+    console.log('[JobForm] Raw localStorage userTimezone:', typeof window !== 'undefined' ? localStorage.getItem('userTimezone') : 'window undefined');
+    
+    // Format date for HTML input (yyyy-MM-dd) and time (HH:MM) in display timezone
+    const datePart = formatHtmlDateInput(now);
+    const timePart = formatDisplayTime(now);
+    
+    console.log('[JobForm] getCurrentDateTime - datePart:', datePart, 'timePart:', timePart);
+    
+    return { date: datePart, time: timePart };
   };
 
   // Normalize incoming initialData.vehicle_type to string if provided as object
@@ -741,6 +776,9 @@ if (!driverExists) {
   // Initialize form data with job data if editing
   useEffect(() => {
     if (job) {
+      // Convert UTC pickup_time to display timezone for editing
+      const displayPickupTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
+      
       const jobData: JobFormData = {
         // Customer Information
         customer_id: job.customer_id,
@@ -761,7 +799,7 @@ if (!driverExists) {
 
         // Dates and Times
         pickup_date: job.pickup_date || '',
-        pickup_time: job.pickup_time || '',
+        pickup_time: displayPickupTime, // Convert UTC to display timezone
         dropoff_time: job.dropoff_time || undefined,
 
         // Locations
@@ -867,6 +905,8 @@ if (!driverExists) {
     } else {
       // Set default values for new job
       const { date, time } = getCurrentDateTime();
+      
+      console.log('[JobForm] Setting default values - date:', date, 'time:', time);
       
       // Create initial form data with default values
       // Normalize any vehicle_type from initialData before merging
@@ -1314,23 +1354,57 @@ if (!driverExists) {
 
   // Handle form submission
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
+    console.log('%%%%%%%%%%%%%%%%%%%% JOB FORM SUBMIT HANDLER CALLED %%%%%%%%%%%%%%%%%%%%');
+    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
+    console.log('[JobForm] handleSubmit START');
     e.preventDefault();
+    console.log('[JobForm] handleSubmit called - event prevented');
+      
     const { pickup_date, pickup_time, ...rest } = formData;
-    const pickupDateTime = new Date(`${pickup_date}T${pickup_time}`);
-
+    console.log('[JobForm] Form data:', { pickup_date, pickup_time, ...rest });
+      
+    // Convert the display date/time to UTC for API submission
+    // Use parseDisplayDate to properly handle timezone-aware parsing
+    console.log('[JobForm] Converting display time to UTC');
+    console.log('[JobForm] Display date:', pickup_date);
+    console.log('[JobForm] Display time:', pickup_time);
+      
+    const displayDateTime = parseDisplayDate(pickup_date, pickup_time);
+    console.log('[JobForm] Display datetime (UTC):', displayDateTime.toISOString());
+      
+    const utcDateTime = convertDisplayToUtc(displayDateTime);
+    console.log('[JobForm] Final UTC datetime:', utcDateTime.toISOString());
+      
+    // Extract date and time in ISO format for backend (YYYY-MM-DD) and display format (HH:MM)
+    const formattedDate = utcDateTime.toISOString().split('T')[0]; // YYYY-MM-DD for backend
+    const formattedTime = formatDisplayTime(utcDateTime); // HH:MM for display
+      
+    console.log('[JobForm] Formatted date (YYYY-MM-DD):', formattedDate);
+    console.log('[JobForm] Formatted time (HH:MM):', formattedTime);
+      
     const submitData = {
-      pickup_date: pickupDateTime.toISOString(),
-      pickup_time,
+      pickup_date: formattedDate,
+      pickup_time: formattedTime,
       ...rest
     };
-
+      
+    console.log('[JobForm] Submit data:', submitData);
+    console.log('[JobForm] ABOUT TO CALL createJob with:', submitData.pickup_time);
+      
     if (job) {
       // Update existing job
+      console.log('[JobForm] Updating existing job:', job.id);
       updateJob(job.id, submitData);
     } else {
       // Create new job
+      console.log('[JobForm] Creating new job');
       createJob(submitData);
     }
+    console.log('[JobForm] handleSubmit END');
+    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
+    console.log('%%%%%%%%%%%%%%%%%%% JOB FORM SUBMIT HANDLER FINISHED %%%%%%%%%%%%%%%%%%%');
+    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
   };
 
   // Reset userModifiedPricing flag when service_type or vehicle_type changes
@@ -1535,6 +1609,9 @@ if (!driverExists) {
   const finalPrice = job?.id ? safeNumber(job.final_price) : calculatedPrice;
   // Handle input changes
   const handleInputChange = (field: keyof JobFormData, value: any) => {
+    console.log(`[JobForm] handleInputChange called for field: ${field}, value:`, value);
+    console.log(`[JobForm] Current formData before update:`, {...formData});
+    
     // Set user modified pricing flag for specific fields
     if (['base_price', 'midnight_surcharge'].includes(field)) {
       setUserModifiedPricing(true);
@@ -2156,6 +2233,9 @@ if (!driverExists) {
 
   // Handle save
   const handleSave = async () => {
+    console.log('------------------------------------------------------------------------');
+    console.log('---------------------- JOB FORM HANDLE SAVE CALLED ---------------------');
+    console.log('------------------------------------------------------------------------');
     console.log('[JobForm] Save button clicked');
     console.log('[JobForm] Current form data:', formData);
     console.log('[JobForm] Current errors before validation:', errors);
@@ -2174,13 +2254,18 @@ if (!driverExists) {
     const isCustomerIdValid = Boolean(formData.customer_id) && formData.customer_id !== 0;
     console.log('[JobForm] Explicit customer ID check:', { 
       customerId: formData.customer_id, 
+      type: typeof formData.customer_id,
       isValid: isCustomerIdValid 
     });
     
     // Force validation failure if customer_id is invalid
     if (!isCustomerIdValid) {
       console.log('[JobForm] FORCING validation failure due to invalid customer_id');
+      console.log('[JobForm] Customer ID value:', formData.customer_id);
       toast.error('Customer is required. Please select a valid customer.');
+      console.log('------------------------------------------------------------------------');
+      console.log('--------------------- JOB FORM HANDLE SAVE FINISHED --------------------');
+      console.log('------------------------------------------------------------------------');
       return;
     }
     
@@ -2190,6 +2275,9 @@ if (!driverExists) {
     if (!isValid || (!finalValidationCheck)) {
       console.log('[JobForm] Form validation failed, not submitting');
       toast.error('Please fix the validation errors before saving.');
+      console.log('------------------------------------------------------------------------');
+      console.log('--------------------- JOB FORM HANDLE SAVE FINISHED --------------------');
+      console.log('------------------------------------------------------------------------');
       return;
     }
     
@@ -2199,17 +2287,123 @@ if (!driverExists) {
     const now = Date.now();
     if (now - lastSaveTime < 1000) {
       console.log('[JobForm] Rate limiting, not submitting');
+      console.log('------------------------------------------------------------------------');
+      console.log('--------------------- JOB FORM HANDLE SAVE FINISHED --------------------');
+      console.log('------------------------------------------------------------------------');
       return;
     }
     setLastSaveTime(now);
 
     setSaveStatus("saving");
     try {
+      // Debug: Log the formData at the start of handleSave
+      console.log('[JobForm] === HANDLE SAVE START ===');
+      console.log('[JobForm] Full formData:', formData);
+      console.log('[JobForm] formData keys:', Object.keys(formData));
+      console.log('[JobForm] formData.pickup_time:', formData.pickup_time);
+      console.log('[JobForm] formData.dropoff_time:', formData.dropoff_time);
+      console.log('[JobForm] Type of dropoff_time:', typeof formData.dropoff_time);
+      console.log('[JobForm] === END HANDLE SAVE START DEBUG ===');
+      
+      // Convert pickup time to UTC before saving
+      console.log('[JobForm] Converting pickup time to UTC before saving');
+      console.log('[JobForm] Original pickup_date:', formData.pickup_date);
+      console.log('[JobForm] Original pickup_time:', formData.pickup_time);
+      console.log('[JobForm] Date format validation:', {
+        type: typeof formData.pickup_date,
+        length: formData.pickup_date?.length,
+        matchesFormat: formData.pickup_date?.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)
+      });
+      
+      // Convert HTML date input format (YYYY-MM-DD) to display format (DD/MM/YYYY)
+      let displayDate = formData.pickup_date;
+      if (formData.pickup_date && formData.pickup_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Convert YYYY-MM-DD to DD/MM/YYYY
+        const [year, month, day] = formData.pickup_date.split('-');
+        displayDate = `${day}/${month}/${year}`;
+        console.log('[JobForm] Converted HTML date format:', displayDate);
+      }
+      
+      const displayDateTime = parseDisplayDate(displayDate, formData.pickup_time);
+      console.log('[JobForm] Display datetime (after parseDisplayDate):', displayDateTime.toISOString());
+      
+      const utcDateTime = convertDisplayToUtc(displayDateTime);
+      console.log('[JobForm] Final UTC datetime (after convertDisplayToUtc):', utcDateTime.toISOString());
+      
+      // Extract date and time in ISO format for backend (YYYY-MM-DD) and display format (HH:MM)
+      const finalFormattedDate = utcDateTime.toISOString().split('T')[0]; // YYYY-MM-DD for backend
+      const finalFormattedTime = formatDisplayTime(utcDateTime); // HH:MM for display
+      
+      console.log('[JobForm] Extracted date (YYYY-MM-DD):', finalFormattedDate);
+      console.log('[JobForm] Extracted time (HH:MM):', finalFormattedTime);
+      
+      // Use the final formatted values
+      const formattedDate = finalFormattedDate;
+      const formattedTime = finalFormattedTime;
+      
+      // Convert dropoff_time to UTC if it exists
+      let formattedDropoffTime = formData.dropoff_time;
+      console.log('[JobForm] === DETAILED DROP-OFF TIME CONVERSION ===');
+      console.log('[JobForm] Input data:');
+      console.log('[JobForm]   formData.dropoff_time:', formData.dropoff_time);
+      console.log('[JobForm]   Type:', typeof formData.dropoff_time);
+      console.log('[JobForm]   Truthy check:', !!formData.dropoff_time);
+      console.log('[JobForm]   Length (if string):', typeof formData.dropoff_time === 'string' ? formData.dropoff_time.length : 'N/A');
+      
+      if (formData.dropoff_time) {
+        console.log('[JobForm] Starting conversion process...');
+        console.log('[JobForm]   User entered time:', formData.dropoff_time);
+        console.log('[JobForm]   Using date:', displayDate);
+        console.log('[JobForm]   Current display timezone:', getDisplayTimezone());
+        
+        // Step 1: Parse the display date/time in user timezone
+        console.log('[JobForm] Step 1: Parsing display datetime...');
+        const dropoffDisplayDateTime = parseDisplayDate(displayDate, formData.dropoff_time);
+        console.log('[JobForm]   Result:', dropoffDisplayDateTime.toISOString());
+        console.log('[JobForm]   getTimezoneOffset():', dropoffDisplayDateTime.getTimezoneOffset());
+        console.log('[JobForm]   getHours():', dropoffDisplayDateTime.getHours());
+        console.log('[JobForm]   getMinutes():', dropoffDisplayDateTime.getMinutes());
+        
+        // Step 2: Convert to UTC
+        console.log('[JobForm] Step 2: Converting to UTC...');
+        const dropoffUtcDateTime = convertDisplayToUtc(dropoffDisplayDateTime);
+        console.log('[JobForm]   Result:', dropoffUtcDateTime.toISOString());
+        console.log('[JobForm]   getTimezoneOffset():', dropoffUtcDateTime.getTimezoneOffset());
+        console.log('[JobForm]   getHours():', dropoffUtcDateTime.getHours());
+        console.log('[JobForm]   getMinutes():', dropoffUtcDateTime.getMinutes());
+        
+        // Step 3: Extract HH:MM from UTC datetime (for backend submission)
+        console.log('[JobForm] Step 3: Extracting HH:MM from UTC datetime...');
+        // Use getUTCHours/getUTCMinutes to get the UTC time components directly
+        const utcHours = dropoffUtcDateTime.getUTCHours().toString().padStart(2, '0');
+        const utcMinutes = dropoffUtcDateTime.getUTCMinutes().toString().padStart(2, '0');
+        formattedDropoffTime = `${utcHours}:${utcMinutes}`;
+        console.log('[JobForm]   Result:', formattedDropoffTime);
+        console.log('[JobForm]   Type:', typeof formattedDropoffTime);
+        
+        // Verification
+        console.log('[JobForm] Verification:');
+        console.log('[JobForm]   UTC hours:', dropoffUtcDateTime.getUTCHours());
+        console.log('[JobForm]   UTC minutes:', dropoffUtcDateTime.getUTCMinutes());
+        console.log('[JobForm]   Manual format:', 
+          `${dropoffUtcDateTime.getUTCHours().toString().padStart(2, '0')}:${dropoffUtcDateTime.getUTCMinutes().toString().padStart(2, '0')}`);
+      } else {
+        console.log('[JobForm] No dropoff_time provided, skipping conversion');
+        console.log('[JobForm]   Keeping value:', formattedDropoffTime);
+      }
+      console.log('[JobForm] === END DETAILED DROP-OFF TIME CONVERSION ===');
+      
+      console.log('[JobForm] Converted date (YYYY-MM-DD):', formattedDate);
+      console.log('[JobForm] Converted time (HH:MM):', formattedTime);
+      
       // Determine the final status before saving
       const finalStatus = determineJobStatus(formData);
       
       const jobData: JobFormData = {
         ...formData,
+        pickup_date: formattedDate,
+        pickup_time: formattedTime,
+        dropoff_time: formattedDropoffTime, // Use UTC-converted dropoff_time
         status: finalStatus, // Use the determined status
         // Ensure all numeric fields are properly converted
         base_price: safeNumber(formData.base_price),
@@ -2233,13 +2427,32 @@ if (!driverExists) {
           : (formData.vehicle_type && ((formData as any).vehicle_type.name || (formData as any).vehicle_type.label)) || '',
         vehicle_type_id: formData.vehicle_type_id
       };
+
+      // Explicitly ensure dropoff_time is included in jobData
+      // This handles the case where formData.dropoff_time might be undefined
+      jobData.dropoff_time = formData.dropoff_time !== undefined ? formData.dropoff_time : null as any;
+      
+      // Debug: Log the final jobData before sending to backend
+      console.log('[JobForm] === FINAL JOBDATA BEFORE SUBMISSION ===');
+      console.log('[JobForm] Final jobData keys:', Object.keys(jobData));
+      console.log('[JobForm] dropoff_time in final jobData:', jobData.dropoff_time);
+      console.log('[JobForm] Type of dropoff_time:', typeof jobData.dropoff_time);
+      console.log('[JobForm] Full jobData:', jobData);
+      console.log('[JobForm] === END FINAL JOBDATA LOG ===');
+      
       // Remove final_price so backend always recalculates
       delete jobData.final_price;
       
-      console.log('[JobForm] Saving job with data:', jobData);
+      console.log('[JobForm] Saving job with UTC-converted data:', jobData);
+      console.log('[JobForm] Dropoff time value:', jobData.dropoff_time);
+      console.log('[JobForm] Original form data dropoff_time:', formData.dropoff_time);
+      console.log('[JobForm] ABOUT TO CALL onSave with converted time:', jobData.pickup_time);
       await onSave(jobData);
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
+      console.log('------------------------------------------------------------------------');
+      console.log('--------------------- JOB FORM HANDLE SAVE FINISHED --------------------');
+      console.log('------------------------------------------------------------------------');
     } catch (error: any) {
       console.error('[JobForm] Save error:', error);
       
@@ -2253,6 +2466,9 @@ if (!driverExists) {
         toast.success('Job saved successfully despite driver schedule conflict.');
         setSaveStatus('success');
         setTimeout(() => setSaveStatus('idle'), 2000);
+        console.log('------------------------------------------------------------------------');
+        console.log('--------------------- JOB FORM HANDLE SAVE FINISHED --------------------');
+        console.log('------------------------------------------------------------------------');
         return;
       }
       
@@ -2279,6 +2495,9 @@ if (!driverExists) {
       // The hook will show appropriate error messages to the user
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("idle"), 3000);
+      console.log('------------------------------------------------------------------------');
+      console.log('--------------------- JOB FORM HANDLE SAVE FINISHED --------------------');
+      console.log('------------------------------------------------------------------------');
     }
   };
 
@@ -3048,9 +3267,13 @@ if (!driverExists) {
                     <TimePicker24Hour
                       value={formData.dropoff_time || ''}
                       onChange={(value) => {
+                        console.log('[JobForm] Dropoff TimePicker onChange called with:', value);
+                        console.log('[JobForm] fieldsLocked:', fieldsLocked);
                         // Only allow changes if fields are not locked
                         if (!fieldsLocked) {
                           handleInputChange('dropoff_time', value);
+                        } else {
+                          console.log('[JobForm] Dropoff time change blocked - fields are locked');
                         }
                       }}
                       readOnly={fieldsLocked}

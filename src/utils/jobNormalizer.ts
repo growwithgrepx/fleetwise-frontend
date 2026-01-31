@@ -1,4 +1,5 @@
 import { ApiJob, NormalizedJobDisplay } from '@/types/job';
+import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
 
 /**
  * Safely extracts a string value from unknown data
@@ -61,7 +62,7 @@ export function normalizeJobForDisplay(apiJob: ApiJob): NormalizedJobDisplay {
     pickupLocation: apiJob.pickup_location ?? '',
     dropoffLocation: apiJob.dropoff_location ?? '',
     pickupDate: apiJob.pickup_date ?? '',
-    pickupTime: apiJob.pickup_time ?? '',
+    pickupTime: apiJob.pickup_time ? convertUtcToDisplayTime(apiJob.pickup_time, apiJob.pickup_date) : '',
     passengerName: apiJob.passenger_name ? `${apiJob.passenger_name}${apiJob.passenger_mobile ? ` (${apiJob.passenger_mobile})` : ''}`: '',
 
     // Pricing

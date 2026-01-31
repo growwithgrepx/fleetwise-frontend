@@ -13,6 +13,7 @@ const TimePicker24Hour: React.FC<TimePicker24HourProps> = ({
   readOnly = false,
   className = ''
 }) => {
+  console.log('[TimePicker24Hour] Component rendered with:', { value, readOnly, className });
   const [isOpen, setIsOpen] = useState(false);
   const [hours, setHours] = useState('00');
   const [minutes, setMinutes] = useState('00');
@@ -20,11 +21,18 @@ const TimePicker24Hour: React.FC<TimePicker24HourProps> = ({
 
   // Parse initial value
   useEffect(() => {
-    if (value) {
-      const [h, m] = value.split(':');
-      if (h && m) {
-        setHours(h.padStart(2, '0'));
-        setMinutes(m.padStart(2, '0'));
+    console.log('[TimePicker24Hour] useEffect called with value:', value);
+    if (value !== undefined && value !== null) {
+      if (value) {
+        const [h, m] = value.split(':');
+        if (h && m) {
+          setHours(h.padStart(2, '0'));
+          setMinutes(m.padStart(2, '0'));
+        }
+      } else {
+        // Reset to default when value is empty string
+        setHours('00');
+        setMinutes('00');
       }
     }
   }, [value]);
@@ -44,24 +52,34 @@ const TimePicker24Hour: React.FC<TimePicker24HourProps> = ({
   }, []);
 
   const handleHourChange = (hour: string) => {
+    console.log('[TimePicker24Hour] handleHourChange called with:', hour);
     const newHours = hour.padStart(2, '0');
     setHours(newHours);
-    onChange(`${newHours}:${minutes}`);
+    const newValue = `${newHours}:${minutes}`;
+    console.log('[TimePicker24Hour] Calling onChange with:', newValue);
+    onChange(newValue);
   };
 
   const handleMinuteChange = (minute: string) => {
+    console.log('[TimePicker24Hour] handleMinuteChange called with:', minute);
     const newMinutes = minute.padStart(2, '0');
     setMinutes(newMinutes);
-    onChange(`${hours}:${newMinutes}`);
+    const newValue = `${hours}:${newMinutes}`;
+    console.log('[TimePicker24Hour] Calling onChange with:', newValue);
+    onChange(newValue);
   };
 
   const handleHourClick = (hour: number) => {
+    console.log('[TimePicker24Hour] handleHourClick called with:', hour);
     const hourStr = hour.toString().padStart(2, '0');
+    console.log('[TimePicker24Hour] Converted to string:', hourStr);
     handleHourChange(hourStr);
   };
 
   const handleMinuteClick = (minute: number) => {
+    console.log('[TimePicker24Hour] handleMinuteClick called with:', minute);
     const minuteStr = minute.toString().padStart(2, '0');
+    console.log('[TimePicker24Hour] Converted to string:', minuteStr);
     handleMinuteChange(minuteStr);
   };
 

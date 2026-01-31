@@ -629,6 +629,12 @@ export default function SettingsPage() {
     };
     try {
       await saveUserSettings({ preferences });
+      
+      // Sync timezone to localStorage so the frontend timezone utilities can use it
+      // Always update localStorage with the current timezone value
+      localStorage.setItem('userTimezone', timezone);
+      console.log('Saved timezone to localStorage:', timezone);
+      
       toast.success('General settings saved!');
     } catch (err) {
       toast.error('Failed to save general settings');
@@ -739,6 +745,13 @@ export default function SettingsPage() {
         setEmail(general?.email_id || "");
         setContactNumber(general?.contact_number || "");
         setTimezone(general?.timezone || "SGT");
+        
+        // Sync timezone to localStorage so the frontend timezone utilities can use it
+        if (general?.timezone) {
+          localStorage.setItem('userTimezone', general.timezone);
+          console.log('Loaded timezone from backend to localStorage:', general.timezone);
+        }
+        
         setLanguage(general?.language || "English");
         const savedDarkMode = !!general?.dark_mode;
         // Sync with theme context
