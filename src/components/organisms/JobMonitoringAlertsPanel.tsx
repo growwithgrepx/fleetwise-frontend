@@ -87,15 +87,15 @@ const JobMonitoringAlertsPanel = () => {
           </div>
 
           <span className="px-3 py-1 bg-red-600/15 text-red-300 text-sm font-medium rounded-full border border-red-600/25">
-            {alerts.length} alerts
+            {alerts.filter(alert => !alert.dismissed).length} alerts
           </span>
         </div>
 
         {/* Alerts */}
-        {alerts && alerts.length > 0 ? (
+        {alerts && alerts.filter(alert => !alert.dismissed).length > 0 ? (
           <div className="max-h-[410px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800/30">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {alerts.map((alert) => {
+              {alerts.filter(alert => !alert.dismissed).map((alert) => {
                 const elapsed = Math.floor(alert.elapsedTime);
 
                 return (
@@ -198,6 +198,8 @@ const JobMonitoringAlertsPanel = () => {
                           setDismissingAlerts(prev => new Set(prev).add(alert.id));
                           try {
                             await dismissAlert(alert.id);
+                          } catch (error) {
+                            console.error('Error dismissing alert:', error);
                           } finally {
                             setDismissingAlerts(prev => {
                               const newSet = new Set(prev);

@@ -3,10 +3,13 @@ import { useJobMonitoring } from '@/hooks/useJobMonitoring';
 import { playAudioNotification } from '@/utils/audioNotification';
 
 const GlobalAlertMonitor = () => {
-  const { alerts } = useJobMonitoring();
+  const { alerts, isLoading } = useJobMonitoring();
   const previousAlertsRef = useRef<number[]>([]);
 
   useEffect(() => {
+    // Skip if still loading
+    if (isLoading) return;
+
     // Get current alert IDs
     const currentAlertIds = alerts.map(alert => alert.id);
     
@@ -22,7 +25,7 @@ const GlobalAlertMonitor = () => {
     
     // Update the ref with current alert IDs
     previousAlertsRef.current = currentAlertIds;
-  }, [alerts]);
+  }, [alerts, isLoading]);
 
   return null; // This component doesn't render anything
 };

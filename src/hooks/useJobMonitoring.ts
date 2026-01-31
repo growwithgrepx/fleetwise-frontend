@@ -63,7 +63,10 @@ export const useJobMonitoring = () => {
       
       if (newAlerts.length > 0) {
         // Only play notification if we have actual new alerts
-        playAudioNotification();
+        // Check if audio notifications are enabled in settings
+        if (alertSettingsData?.alert_settings?.enable_audio_notifications ?? true) {
+          playAudioNotification();
+        }
       }
       
       // Update store if alerts have changed
@@ -79,18 +82,23 @@ export const useJobMonitoring = () => {
         updateAlerts(storeAlerts);
       }
     }
-  }, [apiAlertsData, alerts, updateAlerts, maxAlertReminders]);
+  }, [apiAlertsData, alerts, updateAlerts, maxAlertReminders, alertSettingsData]);
 
   // Mutation to dismiss an alert
   const dismissAlertMutation = useMutation({
     mutationFn: (alertId: number) => dismissJobMonitoringAlert(alertId),
     onSuccess: (_, alertId) => {
-      // Update local store
+      // Update local store immediately for better UX
       dismissAlert(alertId);
       
       // Invalidate and refetch to sync with server
       queryClient.invalidateQueries({ queryKey: ['job-monitoring-alerts'] });
     },
+    onError: (error, alertId) => {
+      console.error('Failed to dismiss alert:', error);
+      // Still try to invalidate queries to refresh from server
+      queryClient.invalidateQueries({ queryKey: ['job-monitoring-alerts'] });
+    }
   });
 
   // Mutation to start a trip (update job status to OTW)
