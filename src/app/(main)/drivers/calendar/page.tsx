@@ -87,6 +87,25 @@ const getStatusLabel = (status: string) => {
   return labels[status?.toLowerCase()] || status;
 };
 
+// Helper function to calculate job duration in hours
+const calculateJobDuration = (pickupTime: string, dropoffTime: string): number => {
+  try {
+    const [pickupHours, pickupMinutes] = pickupTime.split(':').map(Number);
+    const [dropoffHours, dropoffMinutes] = dropoffTime.split(':').map(Number);
+    
+    const pickupTotalMinutes = pickupHours * 60 + pickupMinutes;
+    const dropoffTotalMinutes = dropoffHours * 60 + dropoffMinutes;
+    
+    // Handle same-day jobs
+    const durationMinutes = dropoffTotalMinutes - pickupTotalMinutes;
+    
+    // Convert to hours with 2 decimal places
+    return Math.max(0, durationMinutes / 60);
+  } catch (e) {
+    return 0.75; // Default 45 minutes
+  }
+};
+
 const getLeaveTypeColor = (leaveType: string) => {
   const colors: Record<string, string> = {
     'sick_leave': 'bg-orange-500',
@@ -1050,14 +1069,31 @@ export default function DriverCalendarPage() {
                             const [endHour, endMinute] = block.endTime.split(':').map(Number);
                             const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
                             
-                            // Calculate percentage of 24-hour day (1440 minutes)
-                            const durationPercentage = (durationMinutes / 1440) * 100;
+                            // Business Rule: One calendar cell = 120 minutes
+                            // Default trip duration = 45 minutes (0.375 cells)
+                            // Minimum visible block = 45 minutes
+                            const CELL_TIME_SPAN = 120; // minutes per cell
+                            const MIN_VISIBLE_DURATION = 45; // minimum minutes for visibility
                             
-                            // Use accurate width, let CSS handle overflow
-                            const widthPercent = Math.max(0.5, durationPercentage); // Minimum 0.5% for visibility
+                            // Calculate width as percentage of cell time span
+                            // Block height calculation: (duration in minutes / 120) * cell height
+                            const durationPercentage = (durationMinutes / CELL_TIME_SPAN) * 100;
+                            
+                            // If duration < 45 min, use 45 min for display purposes (minimum block size)
+                            const displayDurationMinutes = Math.max(MIN_VISIBLE_DURATION, durationMinutes);
+                            const displayWidthPercent = (displayDurationMinutes / CELL_TIME_SPAN) * 100;
+                            
+                            // Use display width for actual rendering, but keep actual duration for calculations
+                            const widthPercent = Math.max(3.75, displayWidthPercent); // 3.75% = 45min/120min * 100
                             
                             if (process.env.NODE_ENV === 'development') {
-                              console.log(`Block ${block.type} (${block.job?.id || block.leave?.id || 'N/A'}): ${durationMinutes} mins = ${durationPercentage.toFixed(1)}%, final width: ${widthPercent.toFixed(1)}%`);
+                              console.log(`Block ${block.type} (${block.job?.id || block.leave?.id || 'N/A'}):`);
+                              console.log(`  Actual duration: ${durationMinutes} mins`);
+                              console.log(`  Display duration: ${displayDurationMinutes} mins (min: ${MIN_VISIBLE_DURATION})`);
+                              console.log(`  Cell time span: ${CELL_TIME_SPAN} mins`);
+                              console.log(`  Actual percentage: ${durationPercentage.toFixed(1)}%`);
+                              console.log(`  Display percentage: ${displayWidthPercent.toFixed(1)}%`);
+                              console.log(`  Final width: ${widthPercent.toFixed(1)}%`);
                               if (block.type === 'leave') {
                                 console.log(`LEAVE BLOCK DEBUG: startTime=${block.startTime}, endTime=${block.endTime}, duration=${durationMinutes}mins, width=${widthPercent}%`);
                               }
@@ -1211,6 +1247,14 @@ export default function DriverCalendarPage() {
                   <h3 className="font-semibold text-gray-300 mb-2">Dropoff Information</h3>
                   <div className="space-y-2">
                     <div className="flex">
+                      <span className="text-gray-400 w-32">Time:</span>
+                      <span className="text-white">
+                        {selectedJob.dropoff_time 
+                          ? convertUtcToDisplayTime(selectedJob.dropoff_time, selectedJob.pickup_date)
+                          : 'Auto-calculated (45 min after pickup)'}
+                      </span>
+                    </div>
+                    <div className="flex">
                       <span className="text-gray-400 w-32">Location:</span>
                       <span className="text-white">{selectedJob.dropoff_location}</span>
                     </div>
@@ -1222,6 +1266,14 @@ export default function DriverCalendarPage() {
                       <span className="text-gray-400 w-32">Contact:</span>
                       <span className="text-white">{selectedJob.passenger_mobile}</span>
                     </div>
+                    {selectedJob.dropoff_time && (
+                      <div className="flex">
+                        <span className="text-gray-400 w-32">Duration:</span>
+                        <span className="text-white">
+                          {calculateJobDuration(selectedJob.pickup_time, selectedJob.dropoff_time).toFixed(2)} hours
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

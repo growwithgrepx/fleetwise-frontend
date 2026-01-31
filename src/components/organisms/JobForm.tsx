@@ -2094,6 +2094,50 @@ if (!driverExists) {
     }
   }, [contractorPricing, formData.contractor_id, formData.service_type, formData.service_id, userModifiedPricing, job, refetchPricing]);
 
+  // Auto-calculate default dropoff time (pickup_time + 45 minutes)
+  useEffect(() => {
+    // Only auto-calculate if:
+    // 1. pickup_time is set
+    // 2. dropoff_time is not already set (user hasn't overridden it)
+    // 3. This is a new job (not editing existing)
+    const isEditing = job && job.id;
+    
+    if (!isEditing && formData.pickup_time && !formData.dropoff_time) {
+      try {
+        // Parse pickup time
+        const [pickupHours, pickupMinutes] = formData.pickup_time.split(':').map(Number);
+        
+        if (!isNaN(pickupHours) && !isNaN(pickupMinutes)) {
+          // Add 45 minutes
+          let totalMinutes = pickupHours * 60 + pickupMinutes + 45;
+          
+          // Handle day overflow
+          if (totalMinutes >= 24 * 60) {
+            totalMinutes = totalMinutes % (24 * 60);
+          }
+          
+          const newDropoffHours = Math.floor(totalMinutes / 60);
+          const newDropoffMinutes = totalMinutes % 60;
+          
+          const newDropoffTime = `${newDropoffHours.toString().padStart(2, '0')}:${newDropoffMinutes.toString().padStart(2, '0')}`;
+          
+          console.log('[JobForm] Auto-calculating default dropoff time:', {
+            pickupTime: formData.pickup_time,
+            calculatedDropoffTime: newDropoffTime,
+            durationMinutes: 45
+          });
+          
+          setFormData(prev => ({
+            ...prev,
+            dropoff_time: newDropoffTime
+          }));
+        }
+      } catch (error) {
+        console.warn('[JobForm] Failed to auto-calculate dropoff time:', error);
+      }
+    }
+  }, [formData.pickup_time, job]);
+
   // Auto-calculate contractor claim based on service, vehicle type, and contractor
   useEffect(() => {
     if (role === "customer") {
