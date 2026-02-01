@@ -409,50 +409,49 @@ const ManageJobsPage = () => {
   if (error) return <div>Failed to load jobs. Error: {error.message}</div>;
 
   return (<div>
-     <div className="max-w-7xl mx-auto px-2 py-6 w-full flex flex-col gap-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold text-text-main">Manage Jobs</h1>
-        <div className="flex gap-2 self-start md:self-auto">
+    <div className="w-full flex flex-col gap-4 px-4 sm:px-6 py-4 sm:py-6 max-w-full">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-text-main">Manage Jobs</h1>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <AnimatedButton 
             onClick={handleBulkCancel}
             disabled={selectedJobs.length === 0}
-            className="flex items-center bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white"
+            className="flex items-center justify-center w-full sm:w-auto bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-sm sm:text-base px-4 py-2 max-w-full sm:max-w-none"
           >
             <X className="mr-2 h-4 w-4" />
             Cancel Selected ({selectedJobs.length})
           </AnimatedButton>
         </div>
       </div>
-      <div className="flex flex-col md:flex-row md:items-center gap-2 bg-background pt-2 pb-2 rounded-t-xl">
-        <div className="w-full md:w-64">
-          <Input
-            placeholder="Search jobs..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="bg-background-light border-border-color text-text-main"
-            aria-label="Search jobs"
-          />
-        </div>
+      <div className="w-full px-2 sm:px-0">
+        <Input
+          placeholder="Search jobs..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="bg-background-light border-border-color text-text-main max-w-md sm:max-w-lg md:max-w-xl w-full"
+          aria-label="Search jobs"
+        />
       </div>
-      <div className="flex items-center justify-between mb-2">
+      <div className="hidden md:flex items-center justify-end gap-2">
         <div className="text-sm text-text-secondary">
           Showing {total === 0 ? 0 : startIdx}-{endIdx} of {total} jobs
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor="pageSize" className="text-xs text-text-secondary">Rows per page:</label>
+          <label htmlFor="pageSize" className="text-xs text-text-secondary whitespace-nowrap">Rows per page:</label>
           <select
             id="pageSize"
             value={pageSize}
             onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
-            className="bg-background-light border-border-color text-text-main rounded px-2 py-1 text-xs"
+            className="bg-background-light border-border-color text-text-main rounded px-2 py-1 text-xs min-w-[70px]"
           >
             {[10, 20, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
           </select>
         </div>
       </div> 
-      <div className="flex-grow rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden">
-        <div className="w-full overflow-x-auto md:overflow-x-visible">
-          <EntityTable
+      <div className="flex-grow rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden flex flex-col">
+        <div className="w-full flex-grow table-responsive">
+          <div className="min-w-[700px]">
+            <EntityTable
             columns={columns.map(col => ({
               ...col,
               label: (
@@ -513,7 +512,8 @@ const ManageJobsPage = () => {
             onSelectionChange={(selectedIds) => setSelectedJobs(selectedIds.map(id => Number(id)))}
           />
         </div>
-      </div> 
+      </div>
+    </div> 
       
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -550,8 +550,8 @@ const ManageJobsPage = () => {
       {/* Cancel Single Job Dialog */}
       {cancelDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-background-light border border-border-color rounded-lg shadow-xl p-6 w-full max-w-md mx-4 animate-fade-in" role="dialog" aria-modal="true">
-            <h2 className="text-lg font-bold text-text-main mb-2">Cancel Job</h2>
+          <div className="w-full max-w-md mx-3 sm:mx-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-background-light border border-border-color rounded-lg shadow-xl animate-fade-in" role="dialog" aria-modal="true">
+            <h2 className="text-base sm:text-lg font-bold text-text-main mb-2">Cancel Job</h2>
             <p className="text-text-secondary mb-4">Are you sure you want to cancel this job? Please select a reason for cancellation.</p>
             
             <div className="mb-4">
@@ -568,15 +568,15 @@ const ManageJobsPage = () => {
               </select>
             </div>
             
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 w-full sm:w-auto">
               <button
-                className="px-4 py-2 rounded bg-background-light border border-border-color text-text-main hover:bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                className="px-4 py-2 rounded bg-background-light border border-border-color text-text-main hover:bg-background focus:outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto"
                 onClick={() => { setCancelDialogOpen(false); setJobToProcess(null); setCancellationReason(''); }}
               >
                 Close
               </button>
               <button
-                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 w-full sm:w-auto"
                 onClick={confirmCancel}
                 disabled={!cancellationReason}
               >
@@ -601,8 +601,8 @@ const ManageJobsPage = () => {
       {/* Bulk Cancel Dialog */}
       {bulkCancelDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-background-light border border-border-color rounded-lg shadow-xl p-6 w-full max-w-md mx-4 animate-fade-in" role="dialog" aria-modal="true">
-            <h2 className="text-lg font-bold text-text-main mb-2">Cancel Selected Jobs</h2>
+          <div className="w-full max-w-md mx-3 sm:mx-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-background-light border border-border-color rounded-lg shadow-xl animate-fade-in" role="dialog" aria-modal="true">
+            <h2 className="text-base sm:text-lg font-bold text-text-main mb-2">Cancel Selected Jobs</h2>
             <p className="text-text-secondary mb-4">Are you sure you want to cancel {selectedJobs.length} selected job(s)? Please select a reason for cancellation.</p>
             
             <div className="mb-4">
@@ -619,15 +619,15 @@ const ManageJobsPage = () => {
               </select>
             </div>
             
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 w-full sm:w-auto">
               <button
-                className="px-4 py-2 rounded bg-background-light border border-border-color text-text-main hover:bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                className="px-4 py-2 rounded bg-background-light border border-border-color text-text-main hover:bg-background focus:outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto"
                 onClick={() => { setBulkCancelDialogOpen(false); setCancellationReason(''); }}
               >
                 Close
               </button>
               <button
-                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 w-full sm:w-auto"
                 onClick={confirmBulkCancel}
                 disabled={!cancellationReason}
               >

@@ -32,9 +32,9 @@ export const CreateJobFromTextModal: React.FC<CreateJobFromTextModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-background-light border border-border-color rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 animate-fade-in" role="dialog" aria-modal="true">
+      <div className="w-full max-w-md sm:max-w-lg mx-3 sm:mx-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-background-light border border-border-color rounded-lg shadow-xl animate-fade-in" role="dialog" aria-modal="true">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-text-main">Create Job from Text</h2>
+          <h2 className="text-base sm:text-xl font-bold text-text-main">Create Job from Text</h2>
           <button
             className="text-text-secondary hover:text-text-main"
             onClick={onClose}
@@ -62,18 +62,19 @@ export const CreateJobFromTextModal: React.FC<CreateJobFromTextModalProps> = ({
           </p>
         </div>
         
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-col sm:flex-row justify-end gap-2 w-full sm:w-auto">
           <AnimatedButton
             variant="outline"
             onClick={onClose}
             disabled={isLoading}
+            className="w-full sm:w-auto"
           >
             Cancel
           </AnimatedButton>
           <AnimatedButton
             onClick={handleSubmit}
             disabled={isLoading || !text.trim()}
-            className="flex items-center"
+            className="flex items-center w-full sm:w-auto"
           >
             {isLoading ? (
               <>
