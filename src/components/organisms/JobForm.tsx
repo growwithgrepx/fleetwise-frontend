@@ -779,6 +779,11 @@ if (!driverExists) {
       // Convert UTC pickup_time to display timezone for editing
       const displayPickupTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
       
+      // Convert UTC dropoff_time to display timezone for editing (if exists)
+      const displayDropoffTime = job.dropoff_time 
+        ? convertUtcToDisplayTime(job.dropoff_time, job.pickup_date) 
+        : undefined;
+      
       const jobData: JobFormData = {
         // Customer Information
         customer_id: job.customer_id,
@@ -800,7 +805,7 @@ if (!driverExists) {
         // Dates and Times
         pickup_date: job.pickup_date || '',
         pickup_time: displayPickupTime, // Convert UTC to display timezone
-        dropoff_time: job.dropoff_time || undefined,
+        dropoff_time: displayDropoffTime, // Convert UTC to display timezone
 
         // Locations
         pickup_location: job.pickup_location || '',
@@ -957,13 +962,19 @@ if (!driverExists) {
           vehicleTypeName = '';
         }
       }
+      
+      // Convert UTC dropoff_time to display timezone for editing (if exists)
+      const displayDropoffTime = job.dropoff_time 
+        ? convertUtcToDisplayTime(job.dropoff_time, job.pickup_date) 
+        : undefined;
+      
       setFormData(prev => ({
         ...prev,
         customer_id: job.customer_id || prev.customer_id,
         sub_customer_name: job.sub_customer_name || prev.sub_customer_name,
         service_type: job.service_type || prev.service_type,
         vehicle_type: vehicleTypeName,
-        dropoff_time: job.dropoff_time || prev.dropoff_time,
+        dropoff_time: displayDropoffTime || prev.dropoff_time,
       }));
   setUserModifiedPricing(false);
     }
