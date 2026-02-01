@@ -1,22 +1,37 @@
 // Utility for playing audio notifications
 let audioContext: AudioContext | null = null;
 
-export const playAudioNotification = async () => {
+export const playAudioNotification = async (settings?: any) => {
   try {
-    // Check if audio notifications are enabled in settings
-    // We'll fetch the settings and check if audio is enabled
-    const response = await fetch('/api/job-monitoring/monitoring-settings', { 
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-    
     let audioEnabled = true; // Default to true if settings can't be fetched
-    if (response.ok) {
-      const settingsData = await response.json();
-      const settings = settingsData.alert_settings || settingsData.settings;
+    let volume = 0.3; // Default volume
+    
+    // Use provided settings or fetch them
+    if (settings) {
+      // Use passed settings
       audioEnabled = settings?.enable_audio_notifications ?? true;
+      const volumeSetting = settings?.alert_volume;
+      if (typeof volumeSetting === 'number') {
+        volume = volumeSetting / 100; // Convert percentage to 0-1 range
+      }
+    } else {
+      // Fetch settings from API if not provided
+      const response = await fetch('/api/job-monitoring/monitoring-settings', { 
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (response.ok) {
+        const settingsData = await response.json();
+        const alertSettings = settingsData.alert_settings || settingsData.settings;
+        audioEnabled = alertSettings?.enable_audio_notifications ?? true;
+        const volumeSetting = alertSettings?.alert_volume;
+        if (typeof volumeSetting === 'number') {
+          volume = volumeSetting / 100; // Convert percentage to 0-1 range
+        }
+      }
     }
     
     if (!audioEnabled) {
@@ -42,17 +57,6 @@ export const playAudioNotification = async () => {
     
     oscillator.type = 'sine';
     oscillator.frequency.value = 800; // Frequency in Hz
-    
-    // Get volume from settings or default to 0.3
-    let volume = 0.3;
-    if (response.ok) {
-      const settingsData = await response.json();
-      const settings = settingsData.alert_settings || settingsData.settings;
-      const volumeSetting = settings?.alert_volume;
-      if (typeof volumeSetting === 'number') {
-        volume = volumeSetting / 100; // Convert percentage to 0-1 range
-      }
-    }
     gainNode.gain.value = volume;
     
     // Set up the envelope for the beep

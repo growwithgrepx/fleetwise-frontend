@@ -670,14 +670,14 @@ export default function DashboardPage() {
           )}
         </div>
 
-   <div className="mb-8">
-  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full">
-    <div className="lg:col-span-3 flex flex-col px-8">
-      <JobMonitoringAlertsPanel />
-    </div>
-  </div>
-</div>
-
+        {/* Job Monitoring Alerts Panel - Positioned above Today's Jobs Timeline */}
+        <div className="mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full">
+            <div className="lg:col-span-3 flex flex-col px-8">
+              <JobMonitoringAlertsPanel />
+            </div>
+          </div>
+        </div>
 
         {/* TODAY'S JOBS TIMELINE (FULL WIDTH) */}
         <motion.div 

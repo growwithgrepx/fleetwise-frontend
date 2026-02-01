@@ -65,7 +65,7 @@ export const useJobMonitoring = () => {
         // Only play notification if we have actual new alerts
         // Check if audio notifications are enabled in settings
         if (alertSettingsData?.alert_settings?.enable_audio_notifications ?? true) {
-          playAudioNotification();
+          playAudioNotification(alertSettingsData?.alert_settings);
         }
       }
       
