@@ -22,10 +22,10 @@ export const CustomerFilterButtons: React.FC<CustomerFilterButtonsProps> = ({
     <div className="flex flex-col gap-4 bg-background pt-4 pb-4 rounded-t-xl mt-4">
       <div className="px-4">
         <h3 className="font-bold text-text-main mb-3">Filter by customer</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-[200px] overflow-y-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-2 max-h-[200px] overflow-y-auto">
           <button
             onClick={() => onChange('')}
-            className={`px-3 py-2 rounded-lg text-sm transition-all text-center flex flex-col items-center justify-center
+            className={`px-2 py-3 sm:px-3 sm:py-2 rounded-lg text-sm transition-all text-center flex flex-col items-center justify-center
               ${selectedCustomer === ''
                 ? 'bg-primary text-white shadow-lg'
                 : 'bg-transparent text-text-main border border-border-color hover:border-primary'}`}
@@ -39,7 +39,7 @@ export const CustomerFilterButtons: React.FC<CustomerFilterButtonsProps> = ({
             <button
               key={customer.id}
               onClick={() => onChange(customer.name)}
-              className={`px-3 py-2 rounded-lg text-sm transition-all text-center flex flex-col items-center justify-center
+              className={`px-2 py-3 sm:px-3 sm:py-2 rounded-lg text-sm transition-all text-center flex flex-col items-center justify-center
                 ${selectedCustomer === customer.name
                   ? 'bg-primary text-white shadow-lg'
                   : 'bg-transparent text-text-main border border-border-color hover:border-primary'}`}

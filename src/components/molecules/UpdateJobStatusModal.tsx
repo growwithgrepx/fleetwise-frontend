@@ -434,8 +434,8 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-background-light border border-border-color rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto animate-fade-in" role="dialog" aria-modal="true">
-        <h2 className="text-lg font-bold text-text-main mb-2">
+      <div className="w-full max-w-md sm:max-w-2xl mx-3 sm:mx-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-background-light border border-border-color rounded-lg shadow-xl animate-fade-in" role="dialog" aria-modal="true">
+        <h2 className="text-base sm:text-lg font-bold text-text-main mb-2">
           {isCanceled ? `Job Status - Canceled (Job #${job.id})` : `Update Job Status (Job #${job.id})`}
         </h2>
         
@@ -481,7 +481,8 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
                 </div>
                 
                 <div className="border border-border-color rounded-lg overflow-hidden">
-                  <table className="w-full">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-[700px] w-full">
                     <thead className="bg-background-light/50">
                       <tr>
                         <th className="text-left p-2 w-10">
@@ -579,20 +580,22 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
                   </table>
                 </div>
               </div>
+              </div>
               
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-col sm:flex-row justify-end gap-2 w-full sm:w-auto">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={onClose}
                   disabled={isSubmitting}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={!hasSelectedTransitions || isSubmitting}
-                  className="bg-primary hover:bg-primary-dark"
+                  className="bg-primary hover:bg-primary-dark w-full sm:w-auto"
                 >
                   {isSubmitting ? 'Updating...' : `Update Status${hasSelectedTransitions ? ` (${transitions.filter(t => t.selected).length})` : ''}`}
                 </Button>
@@ -602,11 +605,12 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
         )}
         
         {isCanceled && (
-          <div className="flex justify-end gap-2 mt-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 w-full sm:w-auto mt-4">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
+              className="w-full sm:w-auto"
             >
               Close
             </Button>

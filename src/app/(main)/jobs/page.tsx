@@ -300,8 +300,9 @@ const JobsPage = () => {
 
       {/* Jobs Table */}
       <div className="flex-grow rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden flex flex-col">
-        <div className="w-full overflow-x-auto flex-grow">
-          <EntityTable
+        <div className="w-full flex-grow table-responsive">
+          <div className="min-w-[900px]">
+            <EntityTable
             data={paginationInfo.paginatedJobs}
             columns={columns.map(col => ({
               ...col,
@@ -352,10 +353,11 @@ const JobsPage = () => {
             onFilterChange={handleFilterChange}
           />
         </div>
+      </div>
 
         {/* Page Navigation - Inside Table Container */}
         {paginationInfo.totalPages > 1 && (
-          <div className="flex items-center justify-end gap-1 py-4 border-t border-border-color px-4">
+          <div className="hidden md:flex items-center justify-end gap-1 py-4 border-t border-border-color px-4">
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
@@ -390,7 +392,7 @@ const JobsPage = () => {
       {/* Modals */}
       {showEditModal && editJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-background-light rounded-xl shadow-2xl max-w-7xl w-full mx-4 p-6 relative">
+          <div className="w-full max-w-md sm:max-w-2xl mx-3 sm:mx-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-background-light rounded-xl shadow-2xl relative">
             <button
               className="absolute top-4 right-4 text-text-secondary hover:text-text-main"
               onClick={handleCancelEdit}
