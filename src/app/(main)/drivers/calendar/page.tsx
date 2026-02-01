@@ -97,13 +97,43 @@ const calculateJobDuration = (pickupTime: string, dropoffTime: string): number =
     const dropoffTotalMinutes = dropoffHours * 60 + dropoffMinutes;
     
     // Handle same-day jobs
-    const durationMinutes = dropoffTotalMinutes - pickupTotalMinutes;
+    let durationMinutes = dropoffTotalMinutes - pickupTotalMinutes;
+    
+    // Handle overnight jobs (dropoff time is next day)
+    if (durationMinutes <= 0) {
+      durationMinutes = durationMinutes + (24 * 60); // Add 24 hours in minutes
+    }
     
     // Convert to hours with 2 decimal places
     return Math.max(0, durationMinutes / 60);
   } catch (e) {
     return 0.75; // Default 45 minutes
   }
+};
+
+// Helper function to calculate auto-dropoff time (pickup + 45 minutes)
+const calculateAutoDropoffTime = (pickupTime: string): string => {
+  try {
+    const [pickupHours, pickupMinutes] = pickupTime.split(':').map(Number);
+    
+    if (!isNaN(pickupHours) && !isNaN(pickupMinutes)) {
+      // Add 45 minutes
+      let totalMinutes = pickupHours * 60 + pickupMinutes + 45;
+      
+      // Handle day overflow
+      if (totalMinutes >= 24 * 60) {
+        totalMinutes = totalMinutes % (24 * 60);
+      }
+      
+      const newDropoffHours = Math.floor(totalMinutes / 60);
+      const newDropoffMinutes = totalMinutes % 60;
+      
+      return `${newDropoffHours.toString().padStart(2, '0')}:${newDropoffMinutes.toString().padStart(2, '0')}`;
+    }
+  } catch (error) {
+    console.warn('Error calculating auto dropoff time:', error);
+  }
+  return '00:45'; // Default fallback
 };
 
 const getLeaveTypeColor = (leaveType: string) => {
@@ -455,6 +485,7 @@ export default function DriverCalendarPage() {
             
             // Clear any existing job blocks for this day since driver is on leave
             // This prevents overlapping/conflicting blocks
+            console.warn(`Jobs ignored due to leave for driver ${driver.id} on ${dateString}`);
             return; // Skip job processing for this date
           } 
           
@@ -529,7 +560,7 @@ export default function DriverCalendarPage() {
               
               // Validate times
               if (endHour >= 24) {
-                console.warn(`Job ${job.id} ends after midnight (${endHour}:${endMinute}), clamping to 24:00`);
+                console.warn(`Job ${job.id} ends after midnight (${endHour}:${endMinute}), clamping to 23:59`);
                 // For jobs extending past midnight, clamp to end of day
                 // In a real implementation, you might want to split these across days
               }
@@ -538,7 +569,7 @@ export default function DriverCalendarPage() {
               availabilityBlocksForDate.push({
                 type: 'job',
                 startTime,
-                endTime: endHour >= 24 ? '24:00' : endTime,
+                endTime: endHour >= 24 ? '23:59' : endTime,
                 job,
                 driverId: driver.id,
                 date: dateString
@@ -551,18 +582,39 @@ export default function DriverCalendarPage() {
             
             // Fill remaining hours with available blocks
             // Create an occupancy map to optimize from O(n²) to O(n)
-            const occupiedHours = new Set<number>();
+            // Track occupied minutes instead of just hours for better precision
+            const occupiedMinutes = new Set<number>();
             availabilityBlocksForDate.forEach(block => {
-              const blockStartHour = parseInt(block.startTime.split(':')[0]);
-              const blockEndHour = parseInt(block.endTime.split(':')[0]);
-              for (let h = blockStartHour; h < blockEndHour && h < 24; h++) {
-                occupiedHours.add(h);
+              const [startHour, startMinute] = block.startTime.split(':').map(Number);
+              const [endHour, endMinute] = block.endTime.split(':').map(Number);
+              
+              const startTotalMinutes = startHour * 60 + startMinute;
+              const endTotalMinutes = endHour * 60 + endMinute;
+              
+              // Mark each minute as occupied (or each 60-minute block for performance)
+              for (let min = startTotalMinutes; min < endTotalMinutes; min++) {
+                if (min < 24 * 60) { // Only mark minutes within the same day
+                  occupiedMinutes.add(min);
+                }
               }
             });
             
             // Iterate through hours once and add available blocks for unoccupied hours
+            // Since we're dealing with hourly granularity for available blocks, we need to check if any minutes in each hour are occupied
             for (let hour = 0; hour < 24; hour++) {
-              if (!occupiedHours.has(hour)) {
+              const hourStartMinute = hour * 60;
+              const hourEndMinute = (hour + 1) * 60;
+              
+              // Check if this hour is occupied by checking if any minute in the hour range is occupied
+              let hourIsOccupied = false;
+              for (let min = hourStartMinute; min < hourEndMinute; min++) {
+                if (occupiedMinutes.has(min)) {
+                  hourIsOccupied = true;
+                  break;
+                }
+              }
+              
+              if (!hourIsOccupied) {
                 const startTime = `${hour.toString().padStart(2, '0')}:00`;
                 const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
                 availabilityBlocksForDate.push({
@@ -578,10 +630,7 @@ export default function DriverCalendarPage() {
           
           // Log all blocks created for this driver/date
           if (process.env.NODE_ENV === 'development') {
-            console.log(`  Created ${availabilityBlocksForDate.length} blocks for ${driver.name} on ${dateString}:`);
-            availabilityBlocksForDate.forEach((block, idx) => {
-              console.log(`    Block ${idx + 1}: ${block.type} ${block.startTime}-${block.endTime}${block.job ? ` (Job ${block.job.id})` : ''}${block.leave ? ` (Leave ${block.leave.id})` : ''}`);
-            });
+            console.log(`  Created ${availabilityBlocksForDate.length} blocks for ${driver.name} on ${dateString}`);
           }
           
           // Sort blocks by start time and type to ensure proper rendering order
@@ -1067,7 +1116,18 @@ export default function DriverCalendarPage() {
                             
                             // Calculate width based on duration
                             const [endHour, endMinute] = block.endTime.split(':').map(Number);
-                            const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+                            let durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+                            
+                            // Handle overnight jobs (end time is next day)
+                            if (durationMinutes <= 0) {
+                              durationMinutes = durationMinutes + (24 * 60); // Add 24 hours in minutes
+                            }
+                            
+                            // Ensure minimum visible duration for UI consistency
+                            const MIN_VISIBLE_DURATION_WIDTH = 45; // minimum minutes for visibility (same as calendar rule)
+                            if (durationMinutes < MIN_VISIBLE_DURATION_WIDTH) {
+                              durationMinutes = MIN_VISIBLE_DURATION_WIDTH;
+                            }
                             
                             // Business Rule: One calendar cell = 120 minutes
                             // Default trip duration = 45 minutes (0.375 cells)
@@ -1084,7 +1144,9 @@ export default function DriverCalendarPage() {
                             const displayWidthPercent = (displayDurationMinutes / CELL_TIME_SPAN) * 100;
                             
                             // Use display width for actual rendering, but keep actual duration for calculations
-                            const widthPercent = Math.max(3.75, displayWidthPercent); // 3.75% = 45min/120min * 100
+                            const widthPercent = Math.max(37.5, displayWidthPercent); // 37.5% = (45 / 120) * 100
+                            
+                            // Block width calculation: (duration in minutes / 120) * cell width
                             
                             if (process.env.NODE_ENV === 'development') {
                               console.log(`Block ${block.type} (${block.job?.id || block.leave?.id || 'N/A'}):`);
@@ -1251,7 +1313,7 @@ export default function DriverCalendarPage() {
                       <span className="text-white">
                         {selectedJob.dropoff_time 
                           ? convertUtcToDisplayTime(selectedJob.dropoff_time, selectedJob.pickup_date)
-                          : 'Auto-calculated (45 min after pickup)'}
+                          : `Auto: ${calculateAutoDropoffTime(selectedJob.pickup_time)}`}
                       </span>
                     </div>
                     <div className="flex">

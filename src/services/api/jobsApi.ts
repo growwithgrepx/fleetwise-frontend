@@ -1,6 +1,6 @@
 import { Job, JobFormData, ApiJob } from '@/types/job';
 import { api } from '@/lib/api';
-import { getDisplayTimezone, convertDisplayToUtc } from '@/utils/timezoneUtils';
+import { getDisplayTimezone } from '@/utils/timezoneUtils';
 
 export interface JobFilters {
   search?: string;
@@ -219,38 +219,8 @@ export async function createJob(data: JobFormData): Promise<Job> {
     // Midnight surcharge
     midnight_surcharge: Number(data.midnight_surcharge) || 0
   };
-
-  // Convert dropoff_time to UTC if it exists and pickup_date is available
-  if (dbData.dropoff_time && dbData.pickup_date) {
-    try {
-      // Parse the date and time in the user's timezone (SGT)
-      // pickup_date is in YYYY-MM-DD format
-      const [year, month, day] = dbData.pickup_date.split('-').map(Number);
-      const [hours, minutes] = dbData.dropoff_time.split(':').map(Number);
-      
-      // Create a date object representing the local time in SGT
-      // Since we're dealing with time-only values, we'll create a proper date in the user's timezone
-      const localDate = new Date(year, month - 1, day, hours, minutes);
-      
-      // Convert from SGT (UTC+8) to UTC by subtracting 8 hours (8 * 60 * 60 * 1000 ms)
-      // This is a direct conversion: SGT = UTC + 8 hours, so UTC = SGT - 8 hours
-      const utcDate = new Date(localDate.getTime() - (8 * 60 * 60 * 1000));
-      
-      // Format as HH:MM in UTC
-      const utcHours = utcDate.getUTCHours().toString().padStart(2, '0');
-      const utcMinutes = utcDate.getUTCMinutes().toString().padStart(2, '0');
-      dbData.dropoff_time = `${utcHours}:${utcMinutes}`;
-      
-      console.log('[jobsApi] Converted dropoff_time to UTC (direct conversion):', {
-        original: data.dropoff_time,
-        converted: dbData.dropoff_time,
-        date: dbData.pickup_date,
-        originalLocalTime: `${hours}:${minutes}`
-      });
-    } catch (error) {
-      console.error('[jobsApi] Error converting dropoff_time to UTC:', error);
-    }
-  }
+  // Note: dropoff_time is already converted to UTC by JobForm before reaching here
+  // No additional conversion needed in API layer
 
   console.log('[jobsApi] === SENDING DATA TO BACKEND ===');
   console.log('[jobsApi] dbData keys:', Object.keys(dbData));

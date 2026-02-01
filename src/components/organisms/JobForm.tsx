@@ -2136,7 +2136,7 @@ if (!driverExists) {
         console.warn('[JobForm] Failed to auto-calculate dropoff time:', error);
       }
     }
-  }, [formData.pickup_time, job]);
+  }, [formData.pickup_time, formData.dropoff_time, job]);
 
   // Auto-calculate contractor claim based on service, vehicle type, and contractor
   useEffect(() => {
@@ -2400,37 +2400,42 @@ if (!driverExists) {
         console.log('[JobForm]   Using date:', displayDate);
         console.log('[JobForm]   Current display timezone:', getDisplayTimezone());
         
-        // Step 1: Parse the display date/time in user timezone
-        console.log('[JobForm] Step 1: Parsing display datetime...');
-        const dropoffDisplayDateTime = parseDisplayDate(displayDate, formData.dropoff_time);
-        console.log('[JobForm]   Result:', dropoffDisplayDateTime.toISOString());
-        console.log('[JobForm]   getTimezoneOffset():', dropoffDisplayDateTime.getTimezoneOffset());
-        console.log('[JobForm]   getHours():', dropoffDisplayDateTime.getHours());
-        console.log('[JobForm]   getMinutes():', dropoffDisplayDateTime.getMinutes());
+        // Parse the date and time in the user's timezone (dynamic)
+        // displayDate is in DD/MM/YYYY format
+        const [day, month, year] = displayDate.split('/').map(Number);
+        const [hours, minutes] = formData.dropoff_time.split(':').map(Number);
         
-        // Step 2: Convert to UTC
-        console.log('[JobForm] Step 2: Converting to UTC...');
-        const dropoffUtcDateTime = convertDisplayToUtc(dropoffDisplayDateTime);
-        console.log('[JobForm]   Result:', dropoffUtcDateTime.toISOString());
-        console.log('[JobForm]   getTimezoneOffset():', dropoffUtcDateTime.getTimezoneOffset());
-        console.log('[JobForm]   getHours():', dropoffUtcDateTime.getHours());
-        console.log('[JobForm]   getMinutes():', dropoffUtcDateTime.getMinutes());
+        // Get the display timezone (same as used for pickup_time)
+        const displayTimezone = getDisplayTimezone();
         
-        // Step 3: Extract HH:MM from UTC datetime (for backend submission)
-        console.log('[JobForm] Step 3: Extracting HH:MM from UTC datetime...');
-        // Use getUTCHours/getUTCMinutes to get the UTC time components directly
-        const utcHours = dropoffUtcDateTime.getUTCHours().toString().padStart(2, '0');
-        const utcMinutes = dropoffUtcDateTime.getUTCMinutes().toString().padStart(2, '0');
+        // Create date string with dynamic timezone offset
+        // This correctly represents the time in the user's configured timezone
+        const displayDateTimeString = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+        
+        // Parse as display timezone date
+        const displayDateObj = new Date(displayDateTimeString);
+        
+        // Convert to UTC using the same timezone conversion logic as pickup_time
+        const utcDate = convertDisplayToUtc(displayDateObj);
+        
+        console.log('[JobForm] Display datetime string:', displayDateTimeString);
+        console.log('[JobForm] Display date object:', displayDateObj.toISOString());
+        console.log('[JobForm] Display timezone:', displayTimezone);
+        
+        // Extract UTC time components
+        const utcHours = utcDate.getUTCHours().toString().padStart(2, '0');
+        const utcMinutes = utcDate.getUTCMinutes().toString().padStart(2, '0');
         formattedDropoffTime = `${utcHours}:${utcMinutes}`;
-        console.log('[JobForm]   Result:', formattedDropoffTime);
-        console.log('[JobForm]   Type:', typeof formattedDropoffTime);
         
-        // Verification
-        console.log('[JobForm] Verification:');
-        console.log('[JobForm]   UTC hours:', dropoffUtcDateTime.getUTCHours());
-        console.log('[JobForm]   UTC minutes:', dropoffUtcDateTime.getUTCMinutes());
-        console.log('[JobForm]   Manual format:', 
-          `${dropoffUtcDateTime.getUTCHours().toString().padStart(2, '0')}:${dropoffUtcDateTime.getUTCMinutes().toString().padStart(2, '0')}`);
+        console.log('[JobForm] Converted dropoff_time to UTC (dynamic timezone):', {
+          original: formData.dropoff_time,
+          converted: formattedDropoffTime,
+          date: displayDate,
+          originalLocalTime: `${hours}:${minutes}`,
+          displayTimezone: displayTimezone,
+          displayDateTimeString: displayDateTimeString,
+          utcDate: utcDate.toISOString()
+        });
       } else {
         console.log('[JobForm] No dropoff_time provided, skipping conversion');
         console.log('[JobForm]   Keeping value:', formattedDropoffTime);

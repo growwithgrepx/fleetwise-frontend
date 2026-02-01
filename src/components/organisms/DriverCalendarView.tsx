@@ -92,51 +92,6 @@ const getTimePosition = (time: string): number => {
   }
 };
 
-// Helper to calculate job block width based on duration
-const calculateJobBlockWidth = (pickupTime: string, dropoffTime?: string): number => {
-  try {
-    // Business Rule: One calendar cell = 120 minutes
-    // Default trip duration = 45 minutes (0.375 cells)
-    // Minimum visible block = 45 minutes
-    const CELL_TIME_SPAN = 120; // minutes per cell
-    const MIN_VISIBLE_DURATION = 45; // minimum minutes for visibility
-    
-    let durationMinutes: number;
-    
-    if (dropoffTime) {
-      // Calculate actual duration from pickup to dropoff
-      const [pickupHours, pickupMinutes] = pickupTime.split(':').map(Number);
-      const [dropoffHours, dropoffMinutes] = dropoffTime.split(':').map(Number);
-      
-      const pickupTotalMinutes = pickupHours * 60 + pickupMinutes;
-      const dropoffTotalMinutes = dropoffHours * 60 + dropoffMinutes;
-      
-      // Handle same-day jobs (dropoff after pickup)
-      durationMinutes = dropoffTotalMinutes - pickupTotalMinutes;
-      
-      // If negative or zero, use default 45 minutes
-      if (durationMinutes <= 0) {
-        durationMinutes = 45;
-      }
-    } else {
-      // No dropoff time specified, use default 45 minutes
-      durationMinutes = 45;
-    }
-    
-    // Apply minimum visible duration
-    const displayDurationMinutes = Math.max(MIN_VISIBLE_DURATION, durationMinutes);
-    
-    // Calculate width as percentage of cell time span
-    const widthPercent = (displayDurationMinutes / CELL_TIME_SPAN) * 100;
-    
-    // Return minimum 3.75% (45min/120min) for visibility
-    return Math.max(3.75, widthPercent);
-  } catch (e) {
-    // Fallback to default 45 minutes (3.75% of 120-minute cell)
-    return 3.75;
-  }
-};
-
 // Helper to get initials from name
 const getInitials = (name: string): string => {
   return name
