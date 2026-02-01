@@ -178,6 +178,11 @@ const JobsPage = () => {
     setPage(1);
   }, [filters, handleFilterChange, updateFilters]);
 
+  const handleClearFilter = useCallback((col: string) => {
+    handleFilterChange(col, '');
+    setPage(1);
+  }, [handleFilterChange]);
+
   const confirmDelete = async () => {
     if (pendingDeleteId == null) return;
     setDeletingId(pendingDeleteId);
@@ -222,7 +227,7 @@ const JobsPage = () => {
   if (["driver"].includes(role)) return <NotAuthorizedPage />;
 
   return (
-    <div className="max-w-7xl mx-auto px-2 py-6 w-full flex flex-col gap-4">
+    <div className="mx-auto px-4 py-6 w-full flex flex-col gap-4">
       {!["driver"].includes(role) && (
         <EntityHeader
           title="Jobs"
@@ -294,9 +299,10 @@ const JobsPage = () => {
       </div>
 
       {/* Jobs Table */}
-      <div className="flex-grow rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden">
-        <div className="w-full overflow-x-auto">
-          <EntityTable
+      <div className="flex-grow rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden flex flex-col">
+        <div className="w-full flex-grow table-responsive">
+          <div className="min-w-[900px]">
+            <EntityTable
             data={paginationInfo.paginatedJobs}
             columns={columns.map(col => ({
               ...col,
@@ -307,6 +313,30 @@ const JobsPage = () => {
                     sortDir === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />
                   ) : null}
                 </span>
+              ),
+              filterable: true,
+              stringLabel: col.stringLabel,
+              renderFilter: (value: string, onChange: (v: string) => void) => (
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    className="w-full bg-background-light border border-border-color text-text-main placeholder-text-secondary focus:ring-2 focus:ring-primary rounded px-2 py-1 text-xs mt-1 pr-6"
+                    placeholder={`Filter ${(col.stringLabel || col.accessor).toString().toLowerCase()}...`}
+                    value={value}
+                    onChange={e => onChange(e.target.value)}
+                  />
+                  {value && (
+                    <button
+                      type="button"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-text-secondary hover:text-red-500 text-xs"
+                      onClick={() => handleClearFilter(col.accessor as string)}
+                      tabIndex={-1}
+                      aria-label="Clear filter"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               ),
             }))}
             isLoading={isLoading}
@@ -319,47 +349,50 @@ const JobsPage = () => {
             rowClassName={(job) => expandedJobId === job.id ? 'bg-primary/10' : ''}
             onRowClick={(job) => setExpandedJobId(expandedJobId === job.id ? null : job.id)}
             expandedRowId={expandedJobId}
+            filters={localFilters}
+            onFilterChange={handleFilterChange}
           />
         </div>
       </div>
 
-      {/* Page Navigation */}
-      {paginationInfo.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page === 1}
-            className="px-3 py-2 text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
-          >
-            Previous
-          </button>
-          {Array.from({ length: paginationInfo.totalPages }, (_, i) => i + 1).map((pageNum) => (
+        {/* Page Navigation - Inside Table Container */}
+        {paginationInfo.totalPages > 1 && (
+          <div className="hidden md:flex items-center justify-end gap-1 py-4 border-t border-border-color px-4">
             <button
-              key={pageNum}
-              onClick={() => setPage(pageNum)}
-              className={`px-3 py-2 text-sm rounded-lg font-medium transition-colors ${
-                pageNum === page
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-              }`}
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page === 1}
+              className="px-2 py-1 text-sm rounded-lg font-medium transition-colors border border-border-color text-text-main hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {pageNum}
+              &lt;
             </button>
-          ))}
-          <button
-            onClick={() => setPage(Math.min(paginationInfo.totalPages, page + 1))}
-            disabled={page === paginationInfo.totalPages}
-            className="px-3 py-2 text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      )}
+            {Array.from({ length: paginationInfo.totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <button
+                key={pageNum}
+                onClick={() => setPage(pageNum)}
+                className={`px-2 py-1 text-sm rounded-lg font-medium transition-colors ${
+                  pageNum === page
+                    ? 'bg-primary text-white'
+                    : 'border border-border-color text-text-main hover:border-primary'
+                }`}
+              >
+                {pageNum}
+              </button>
+            ))}
+            <button
+              onClick={() => setPage(Math.min(paginationInfo.totalPages, page + 1))}
+              disabled={page === paginationInfo.totalPages}
+              className="px-2 py-1 text-sm rounded-lg font-medium transition-colors border border-border-color text-text-main hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              &gt;
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Modals */}
       {showEditModal && editJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-background-light rounded-xl shadow-2xl max-w-7xl w-full mx-4 p-6 relative">
+          <div className="w-full max-w-md sm:max-w-2xl mx-3 sm:mx-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-background-light rounded-xl shadow-2xl relative">
             <button
               className="absolute top-4 right-4 text-text-secondary hover:text-text-main"
               onClick={handleCancelEdit}
