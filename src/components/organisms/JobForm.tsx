@@ -779,6 +779,11 @@ if (!driverExists) {
       // Convert UTC pickup_time to display timezone for editing
       const displayPickupTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
       
+      // Convert UTC dropoff_time to display timezone for editing (if exists)
+      const displayDropoffTime = job.dropoff_time 
+        ? convertUtcToDisplayTime(job.dropoff_time, job.pickup_date) 
+        : undefined;
+      
       const jobData: JobFormData = {
         // Customer Information
         customer_id: job.customer_id,
@@ -800,7 +805,7 @@ if (!driverExists) {
         // Dates and Times
         pickup_date: job.pickup_date || '',
         pickup_time: displayPickupTime, // Convert UTC to display timezone
-        dropoff_time: job.dropoff_time || undefined,
+        dropoff_time: displayDropoffTime, // Convert UTC to display timezone
 
         // Locations
         pickup_location: job.pickup_location || '',
@@ -957,13 +962,19 @@ if (!driverExists) {
           vehicleTypeName = '';
         }
       }
+      
+      // Convert UTC dropoff_time to display timezone for editing (if exists)
+      const displayDropoffTime = job.dropoff_time 
+        ? convertUtcToDisplayTime(job.dropoff_time, job.pickup_date) 
+        : undefined;
+      
       setFormData(prev => ({
         ...prev,
         customer_id: job.customer_id || prev.customer_id,
         sub_customer_name: job.sub_customer_name || prev.sub_customer_name,
         service_type: job.service_type || prev.service_type,
         vehicle_type: vehicleTypeName,
-        dropoff_time: job.dropoff_time || prev.dropoff_time,
+        dropoff_time: displayDropoffTime || prev.dropoff_time,
       }));
   setUserModifiedPricing(false);
     }
@@ -2368,15 +2379,16 @@ if (!driverExists) {
         console.log('[JobForm] Converted HTML date format:', displayDate);
       }
       
-      const displayDateTime = parseDisplayDate(displayDate, formData.pickup_time);
-      console.log('[JobForm] Display datetime (after parseDisplayDate):', displayDateTime.toISOString());
+      // parseDisplayDate already returns a UTC date, no need for additional conversion
+      const utcDateTime = parseDisplayDate(displayDate, formData.pickup_time);
+      console.log('[JobForm] UTC datetime (from parseDisplayDate):', utcDateTime.toISOString());
       
-      const utcDateTime = convertDisplayToUtc(displayDateTime);
-      console.log('[JobForm] Final UTC datetime (after convertDisplayToUtc):', utcDateTime.toISOString());
-      
-      // Extract date and time in ISO format for backend (YYYY-MM-DD) and display format (HH:MM)
+      // Extract date and time in ISO format for backend (YYYY-MM-DD) and UTC time (HH:MM)
       const finalFormattedDate = utcDateTime.toISOString().split('T')[0]; // YYYY-MM-DD for backend
-      const finalFormattedTime = formatDisplayTime(utcDateTime); // HH:MM for display
+      // Extract UTC time directly from the UTC date object
+      const utcHours = utcDateTime.getUTCHours().toString().padStart(2, '0');
+      const utcMinutes = utcDateTime.getUTCMinutes().toString().padStart(2, '0');
+      const finalFormattedTime = `${utcHours}:${utcMinutes}`; // HH:MM in UTC for backend
       
       console.log('[JobForm] Extracted date (YYYY-MM-DD):', finalFormattedDate);
       console.log('[JobForm] Extracted time (HH:MM):', finalFormattedTime);
@@ -2400,41 +2412,19 @@ if (!driverExists) {
         console.log('[JobForm]   Using date:', displayDate);
         console.log('[JobForm]   Current display timezone:', getDisplayTimezone());
         
-        // Parse the date and time in the user's timezone (dynamic)
-        // displayDate is in DD/MM/YYYY format
-        const [day, month, year] = displayDate.split('/').map(Number);
-        const [hours, minutes] = formData.dropoff_time.split(':').map(Number);
-        
-        // Get the display timezone (same as used for pickup_time)
-        const displayTimezone = getDisplayTimezone();
-        
-        // Create date string with dynamic timezone offset
-        // This correctly represents the time in the user's configured timezone
-        const displayDateTimeString = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-        
-        // Parse as display timezone date
-        const displayDateObj = new Date(displayDateTimeString);
-        
-        // Convert to UTC using the same timezone conversion logic as pickup_time
-        const utcDate = convertDisplayToUtc(displayDateObj);
-        
-        console.log('[JobForm] Display datetime string:', displayDateTimeString);
-        console.log('[JobForm] Display date object:', displayDateObj.toISOString());
-        console.log('[JobForm] Display timezone:', displayTimezone);
-        
+        // parseDisplayDate already returns a UTC date, no need for additional conversion
+        const utcDropoffDateTime = parseDisplayDate(displayDate, formData.dropoff_time);
+        console.log('[JobForm] Dropoff UTC datetime (from parseDisplayDate):', utcDropoffDateTime.toISOString());
         // Extract UTC time components
-        const utcHours = utcDate.getUTCHours().toString().padStart(2, '0');
-        const utcMinutes = utcDate.getUTCMinutes().toString().padStart(2, '0');
+        const utcHours = utcDropoffDateTime.getUTCHours().toString().padStart(2, '0');
+        const utcMinutes = utcDropoffDateTime.getUTCMinutes().toString().padStart(2, '0');
         formattedDropoffTime = `${utcHours}:${utcMinutes}`;
         
-        console.log('[JobForm] Converted dropoff_time to UTC (dynamic timezone):', {
+        console.log('[JobForm] Converted dropoff_time to UTC (identical to pickup_time logic):', {
           original: formData.dropoff_time,
           converted: formattedDropoffTime,
           date: displayDate,
-          originalLocalTime: `${hours}:${minutes}`,
-          displayTimezone: displayTimezone,
-          displayDateTimeString: displayDateTimeString,
-          utcDate: utcDate.toISOString()
+          utcDateTime: utcDropoffDateTime.toISOString()
         });
       } else {
         console.log('[JobForm] No dropoff_time provided, skipping conversion');
@@ -2477,9 +2467,8 @@ if (!driverExists) {
         vehicle_type_id: formData.vehicle_type_id
       };
 
-      // Explicitly ensure dropoff_time is included in jobData
-      // This handles the case where formData.dropoff_time might be undefined
-      jobData.dropoff_time = formData.dropoff_time !== undefined ? formData.dropoff_time : null as any;
+      // dropoff_time is already set in the jobData construction above (line 2438)
+      // No need to override it here as it would undo the UTC conversion
       
       // Debug: Log the final jobData before sending to backend
       console.log('[JobForm] === FINAL JOBDATA BEFORE SUBMISSION ===');

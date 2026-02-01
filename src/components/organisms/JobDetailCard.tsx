@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { ApiJob } from '@/types/job';
 import { normalizeJobForDisplay } from '@/utils/jobNormalizer';
+import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
 import { DetailSection } from '@/components/molecules/DetailSection';
 import { DetailItem } from '@/components/molecules/DetailItem';
 import { Button } from '@/components/atoms/Button';
@@ -96,7 +97,7 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
               <DetailItem label="Drop-off" value={normalized.dropoffLocation} />
               <DetailItem label="Date & Time" value={normalized.pickupDate && normalized.pickupTime ? `${normalized.pickupDate} at ${normalized.pickupTime}` : (normalized.pickupDate || '')} />
               {job.dropoff_time && (
-                <DetailItem label="Drop-off Time" value={job.dropoff_time} />
+                <DetailItem label="Drop-off Time" value={convertUtcToDisplayTime(job.dropoff_time, job.pickup_date)} />
               )}
           </DetailSection>
 
