@@ -200,7 +200,7 @@ export default function DriverJobHistoryReport() {
   const totalPages = data?.total ? Math.ceil(data.total / pageSize) : 0;
   
   return (
-    <div className="min-h-screen bg-[#0E1621] p-6 font-['Inter']">
+    <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 bg-[#0E1621] font-['Inter']">
       <div className="max-w-[1400px] mx-auto space-y-6">
         {/* Page Title */}
         <div className="flex items-center justify-between">
