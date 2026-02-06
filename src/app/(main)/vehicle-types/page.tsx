@@ -141,7 +141,7 @@ export default function VehicleTypesPage() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
       <EntityHeader 
         title="Vehicle Types" 
         onAddClick={() => router.push('/vehicle-types/new')} 

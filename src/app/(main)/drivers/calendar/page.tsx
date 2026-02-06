@@ -909,7 +909,7 @@ export default function DriverCalendarPage() {
   };
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
       <div className="max-w-full mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">

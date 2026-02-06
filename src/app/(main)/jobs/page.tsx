@@ -227,7 +227,7 @@ const JobsPage = () => {
   if (["driver"].includes(role)) return <NotAuthorizedPage />;
 
   return (
-    <div className="mx-auto px-4 py-6 w-full flex flex-col gap-4">
+    <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
       {!["driver"].includes(role) && (
         <EntityHeader
           title="Jobs"

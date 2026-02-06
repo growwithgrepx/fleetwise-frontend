@@ -705,7 +705,7 @@ const ContractorBillingPage = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-2 py-6 w-full flex flex-col gap-4">
+    <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Contractor Payment Management</h1>
