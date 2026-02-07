@@ -59,9 +59,9 @@ const Card: React.FC<{ title: string; value: string; sub?: string; tone: "green"
     tone === "pink"  ? "from-fuchsia-700 to-fuchsia-600" :
                        "from-amber-600 to-amber-500";
   return (
-    <div className={classNames("rounded-xl p-5 text-white bg-gradient-to-br shadow-lg", toneCls)}>
-      <div className="text-sm/5 opacity-90">{title}</div>
-      <div className="text-3xl font-semibold mt-1">{value}</div>
+    <div className={classNames("rounded-lg sm:rounded-xl p-4 sm:p-5 text-white bg-gradient-to-br shadow-lg", toneCls)}>
+      <div className="text-xs sm:text-sm/5 opacity-90">{title}</div>
+      <div className="text-2xl sm:text-3xl font-semibold mt-1">{value}</div>
       {sub ? <div className="text-xs/5 mt-1 opacity-80">{sub}</div> : null}
     </div>
   );
@@ -357,20 +357,20 @@ const avgInvoice = filtered.length
   );
 
   return (
-    <div className="max-w-[1200px] mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-[1200px] mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Title + Export */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-white">Billing History</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-white">Billing History</h1>
         <button
           onClick={handleExport}
-          className="px-3 py-2 rounded-lg text-sm bg-background-light border border-border-color text-text-main hover:bg-primary hover:text-white transition"
+          className="px-3 py-2 rounded-lg text-xs sm:text-sm bg-background-light border border-border-color text-text-main hover:bg-primary hover:text-white transition w-full sm:w-auto"
         >
           Export Report
         </button>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <Card
   title="Total Revenue"
   value={money(totalRevenue30d)}
@@ -393,16 +393,16 @@ const avgInvoice = filtered.length
       </div>
 
       {/* Filters */}
-      <div className="bg-background-light/60 border border-border-color rounded-xl p-4">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+      <div className="bg-background-light/60 border border-border-color rounded-lg sm:rounded-xl p-3 sm:p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           <input
-            className="flex-1 px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary"
+            className="w-full px-2 sm:px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm"
             placeholder="Invoice ID"
             value={invoiceId}
             onChange={(e) => setInvoiceId(e.target.value)}
           />
           <input
-            className="flex-1 px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary"
+            className="w-full px-2 sm:px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm"
             placeholder="Customer name…"
             value={customer}
             onChange={(e) => setCustomer(e.target.value)}
@@ -410,7 +410,7 @@ const avgInvoice = filtered.length
           <input
             type="number"
             min={0}
-            className="flex-1 px-3 py-2 rounded-lg bg-background border border-border-color text-text-main"
+            className="w-full px-2 sm:px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm"
             placeholder="Min amount"
             value={minAmount}
             onChange={(e) => setMinAmount(e.target.value)}
@@ -418,37 +418,36 @@ const avgInvoice = filtered.length
           <input
             type="number"
             min={0}
-            className="flex-1 px-3 py-2 rounded-lg bg-background border border-border-color text-text-main"
+            className="w-full px-2 sm:px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm"
             placeholder="Max amount"
             value={maxAmount}
             onChange={(e) => setMaxAmount(e.target.value)}
           />
-          <div className="flex gap-2 col-span-2">
-  <input
-    type="date"
-    className="flex-1 px-3 py-2 rounded-lg bg-background border border-border-color text-text-main"
-    value={startDate}
-    onChange={(e) => setStartDate(e.target.value)}
-  />
-  <input
-    type="date"
-    className="flex-1 px-3 py-2 rounded-lg bg-background border border-border-color text-text-main"
-    value={endDate}
-    onChange={(e) => setEndDate(e.target.value)}
-  />
-</div>
-
+          <div className="flex gap-2 col-span-1 sm:col-span-2 md:col-span-2 lg:col-span-2">
+            <input
+              type="date"
+              className="flex-1 px-2 sm:px-3 py-2 rounded-lg bg-background border border-border-color text-text-main text-xs sm:text-sm"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+            <input
+              type="date"
+              className="flex-1 px-2 sm:px-3 py-2 rounded-lg bg-background border border-border-color text-text-main text-xs sm:text-sm"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className="flex gap-2 mt-4 justify-end">
+        <div className="flex flex-col sm:flex-row gap-2 mt-3 sm:mt-4 sm:justify-end">
           <button
-            className="px-4 py-2 rounded-lg bg-primary text-white hover:opacity-90 transition"
+            className="w-full sm:w-auto px-3 sm:px-4 py-2 rounded-lg bg-primary text-white hover:opacity-90 transition text-xs sm:text-sm"
             onClick={() => {/* no-op: query auto-runs via params */}}
           >
             Apply Filters
           </button>
           <button
-            className="px-4 py-2 rounded-lg bg-background border border-border-color text-text-main hover:bg-background/80 transition"
+            className="w-full sm:w-auto px-3 sm:px-4 py-2 rounded-lg bg-background border border-border-color text-text-main hover:bg-background/80 transition text-xs sm:text-sm"
             onClick={() => {
               setInvoiceId(""); setCustomer(""); setStatus("");
               setMinAmount(""); setMaxAmount(""); setStartDate(""); setEndDate("");
@@ -461,24 +460,24 @@ const avgInvoice = filtered.length
       </div>
 
       {/* Table */}
-      <div className="bg-background-light rounded-xl shadow-lg border border-border-color overflow-hidden">
+      <div className="bg-background-light rounded-lg sm:rounded-xl shadow-lg border border-border-color overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-xs sm:text-sm">
             <thead className="bg-background-light/50 text-text-main">
-              <tr className="[&>th]:px-4 [&>th]:py-3 text-left">
+              <tr className="[&>th]:px-2 sm:[&>th]:px-3 md:[&>th]:px-4 [&>th]:py-2 sm:[&>th]:py-3 text-left">
                 <th>{headerCell("Invoice ID", "id")}</th>
                 <th>{headerCell("Customer", "customer_name")}</th>
                 <th>{headerCell("Invoice Date", "date")}</th>
                 <th>{headerCell("Amount", "total_amount")}</th>
                 <th>{headerCell("Status", "status")}</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="text-text-main/90">
               {isLoading ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-text-secondary">Loading…</td></tr>
+                <tr><td colSpan={6} className="px-2 sm:px-3 md:px-4 py-4 sm:py-8 text-center text-text-secondary">Loading…</td></tr>
               ) : current.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-text-secondary">No invoices found.</td></tr>
+                <tr><td colSpan={6} className="px-2 sm:px-3 md:px-4 py-4 sm:py-8 text-center text-text-secondary">No invoices found.</td></tr>
               ) : (
                 current
                  .filter((inv) =>
@@ -490,26 +489,26 @@ const avgInvoice = filtered.length
                 .map((inv) => (
                      <React.Fragment key={inv.id}>
                   <tr key={inv.id} className="border-t border-border-color hover:bg-background/40">
-                    <td className="px-4 py-3">
+                    <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3">
                       <button
                         onClick={() => handleUnpaidInvoiceDownload(inv.id)}
-                        className="text-primary hover:underline"
+                        className="text-primary hover:underline text-xs sm:text-sm"
                         title="Open invoice PDF"
                         >
                       {`INV-${String(inv.id).padStart(6, "0")}`}
                       </button>
                      
                     </td>
-                    <td className="px-4 py-3">{inv.customer_name ?? `#${inv.customer_id}`}</td>
-                    <td className="px-4 py-3">{new Date(inv.date).toISOString().slice(0,10)}</td>
-                    <td className="px-4 py-3">{money(inv.total_amount)}</td>
-                    <td className="px-4 py-3"><Badge status={inv.status} /></td>
+                    <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-xs sm:text-sm">{inv.customer_name ?? `#${inv.customer_id}`}</td>
+                    <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-xs sm:text-sm">{new Date(inv.date).toISOString().slice(0,10)}</td>
+                    <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-xs sm:text-sm">{money(inv.total_amount)}</td>
+                    <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3"><Badge status={inv.status} /></td>
                     
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
+                    <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3">
+                      <div className="flex gap-1 sm:gap-2">
                         <button
                         onClick={() => handleViewInvoice(inv)}
-                        className="px-2 py-1 rounded-md border border-border-color hover:bg-background"
+                        className="px-1.5 sm:px-2 py-1 rounded-md border border-border-color hover:bg-background text-xs sm:text-sm"
                         title="View"
                         >
                         👁
@@ -521,7 +520,7 @@ const avgInvoice = filtered.length
                               handleUnpaidInvoiceDownload(inv.id);
                             } 
                            }}
-                        className="px-2 py-1 rounded-md border border-border-color hover:bg-background"
+                        className="px-1.5 sm:px-2 py-1 rounded-md border border-border-color hover:bg-background text-xs sm:text-sm"
                         title="Download"
                         aria-label="Download Invoice"
                         >
@@ -529,7 +528,7 @@ const avgInvoice = filtered.length
                       </button>
                       <button
       onClick={() => openPaymentHistory(inv.id)}
-      className="px-2 py-1 rounded-md border border-border-color hover:bg-background"
+      className="px-1.5 sm:px-2 py-1 rounded-md border border-border-color hover:bg-background text-xs sm:text-sm"
       title="Payment History"
       aria-label="Payment History"
     >
@@ -540,33 +539,33 @@ const avgInvoice = filtered.length
                   </tr>
 {expandedInvoiceId === inv.id && (
   <tr>
-    <td colSpan={6} className="bg-background-light/40 p-3">
-      <div className="rounded-2xl border border-border-color bg-background-light overflow-hidden">
-        <table className="min-w-full text-sm">
+    <td colSpan={6} className="bg-background-light/40 p-2 sm:p-3">
+      <div className="rounded-lg sm:rounded-2xl border border-border-color bg-background-light overflow-hidden">
+        <table className="min-w-full text-xs sm:text-sm">
           <thead className="bg-background/60">
             <tr>
-              <th className="px-3 py-2 text-left font-semibold">Job ID</th>
-              <th className="px-3 py-2 text-left font-semibold">Service</th>
-              <th className="px-3 py-2 text-left font-semibold">Pickup</th>
-              <th className="px-3 py-2 text-left font-semibold">Drop-off</th>
-              <th className="px-3 py-2 text-left font-semibold">Pickup Date</th>
-              <th className="px-3 py-2 text-left font-semibold">Amount</th>
+              <th className="px-2 sm:px-3 py-2 text-left font-semibold text-xs sm:text-sm">Job ID</th>
+              <th className="px-2 sm:px-3 py-2 text-left font-semibold text-xs sm:text-sm">Service</th>
+              <th className="px-2 sm:px-3 py-2 text-left font-semibold text-xs sm:text-sm">Pickup</th>
+              <th className="px-2 sm:px-3 py-2 text-left font-semibold text-xs sm:text-sm">Drop-off</th>
+              <th className="px-2 sm:px-3 py-2 text-left font-semibold text-xs sm:text-sm">Pickup Date</th>
+              <th className="px-2 sm:px-3 py-2 text-left font-semibold text-xs sm:text-sm">Amount</th>
             </tr>
           </thead>
           <tbody>
             {(expandedJobsByInvoice[inv.id] ?? []).length > 0 ? (
               expandedJobsByInvoice[inv.id].map(job => (
-                <tr key={job.id} className="hover:bg-background/40">
-                  <td className="px-3 py-2">{job.id}</td>
-                  <td className="px-3 py-2">{"service_type" in job ? job.service_type : "—"}</td>
-                  <td className="px-3 py-2">{"pickup_location" in job ? job.pickup_location : "—"}</td>
-                  <td className="px-3 py-2">{"dropoff_location" in job ? job.dropoff_location : "—"}</td>
-                  <td className="px-3 py-2">
+                <tr key={job.id} className="hover:bg-background/40 border-t border-border-color">
+                  <td className="px-2 sm:px-3 py-2 text-xs sm:text-sm">{job.id}</td>
+                  <td className="px-2 sm:px-3 py-2 text-xs sm:text-sm">{"service_type" in job ? job.service_type : "—"}</td>
+                  <td className="px-2 sm:px-3 py-2 text-xs sm:text-sm">{"pickup_location" in job ? job.pickup_location : "—"}</td>
+                  <td className="px-2 sm:px-3 py-2 text-xs sm:text-sm">{"dropoff_location" in job ? job.dropoff_location : "—"}</td>
+                  <td className="px-2 sm:px-3 py-2 text-xs sm:text-sm">
                     {"pickup_date" in job && job.pickup_date
                       ? new Date(job.pickup_date).toISOString().slice(0, 10)
                       : "—"}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 sm:px-3 py-2 text-xs sm:text-sm">
                     {"final_price" in job && typeof job.final_price === "number"
                       ? `$${job.final_price.toFixed(2)}`
                       : "—"}
@@ -575,7 +574,7 @@ const avgInvoice = filtered.length
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="text-center py-4 text-text-secondary">
+                <td colSpan={6} className="text-center py-4 text-text-secondary text-xs sm:text-sm">
                   No jobs for this invoice.
                 </td>
               </tr>
@@ -607,33 +606,35 @@ const avgInvoice = filtered.length
 )}
 
         {/* Footer: pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border-color text-sm">
-          <div className="text-text-secondary">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center sm:justify-between px-2 sm:px-3 md:px-4 py-3 border-t border-border-color text-xs sm:text-sm">
+          <div className="text-text-secondary text-xs sm:text-sm">
             Showing {totalRows === 0 ? 0 : (page - 1) * rowsPerPage + 1}–
             {Math.min(page * rowsPerPage, totalRows)} of {totalRows} invoices
           </div>
 
-          <div className="flex items-center gap-3">
-            <label className="text-xs text-text-secondary">Rows per page</label>
-            <select
-              className="px-2 py-1 rounded-md bg-background border border-border-color text-text-main"
-              value={rowsPerPage}
-              onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(1); }}
-            >
-              {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-text-secondary whitespace-nowrap">Rows per page</label>
+              <select
+                className="px-2 py-1 rounded-md bg-background border border-border-color text-text-main text-xs sm:text-sm"
+                value={rowsPerPage}
+                onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(1); }}
+              >
+                {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
-                className="px-2 py-1 rounded-md border border-border-color hover:bg-background disabled:opacity-40"
+                className="px-2 py-1 rounded-md border border-border-color hover:bg-background disabled:opacity-40 text-xs sm:text-sm"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
               >
                 ‹ Prev
               </button>
-              <span className="px-2">{page} / {totalPages}</span>
+              <span className="px-2 text-xs sm:text-sm">{page} / {totalPages}</span>
               <button
-                className="px-2 py-1 rounded-md border border-border-color hover:bg-background disabled:opacity-40"
+                className="px-2 py-1 rounded-md border border-border-color hover:bg-background disabled:opacity-40 text-xs sm:text-sm"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
               >

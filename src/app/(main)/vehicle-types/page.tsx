@@ -141,12 +141,13 @@ export default function VehicleTypesPage() {
   });
 
   return (
-    <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
+    <div className="w-full flex flex-col gap-4 sm:gap-6 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
       <EntityHeader 
         title="Vehicle Types" 
+        subtitle="Manage vehicle types and pricing tiers"
         onAddClick={() => router.push('/vehicle-types/new')} 
         addLabel="Add Vehicle Type" 
-        className="mb-6"
+        className="mb-2"
       />
       {isLoading && <div className="text-gray-400">Loading vehicle types...</div>}
       {error && <div className="text-red-400">Failed to load vehicle types.</div>}

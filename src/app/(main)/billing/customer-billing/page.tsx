@@ -1110,7 +1110,7 @@ const Card: React.FC<{
       tabIndex={onClick ? 0 : -1}
       onClick={onClick}
       className={classNames(
-        "rounded-xl p-5 text-white bg-gradient-to-br shadow-lg select-none transition",
+        "rounded-lg sm:rounded-xl p-4 sm:p-5 text-white bg-gradient-to-br shadow-lg select-none transition",
         "focus:outline-none hover:brightness-110",
         // equal, neutral outline so blue ≈ pink visually
         active ? "ring-2 ring-white/25" : "ring-1 ring-white/10",
@@ -1118,8 +1118,8 @@ const Card: React.FC<{
         className
       )}
     >
-      <div className="text-sm/5 opacity-90">{title}</div>
-      <div className="text-3xl font-semibold mt-1">{value}</div>
+      <div className="text-xs sm:text-sm/5 opacity-90">{title}</div>
+      <div className="text-2xl sm:text-3xl font-semibold mt-1">{value}</div>
       {sub ? <div className="text-xs/5 mt-1 opacity-80">{sub}</div> : null}
     </div>
   );
@@ -1158,18 +1158,18 @@ const Card: React.FC<{
 
   return (
     <BillingErrorBoundary>
-        <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="w-full flex flex-col gap-3 sm:gap-4 md:gap-6 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         {/* Updated header without Generate Invoice button */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Payment Management</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold">Payment Management</h1>
           {billingState.currentTab === "unbilled" && (
-            <div className="text-sm text-text-secondary">
+            <div className="text-xs sm:text-sm text-text-secondary">
               {/* Button moved to table header */}
             </div>
           )}
         </div>
 
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
   {/* Jobs Not Invoiced */}
   <CountFetcher
     apiUrl="/api/jobs/unbilled"
@@ -1205,9 +1205,9 @@ const Card: React.FC<{
 
 
 {/* Customer filter chips bar */}
-<div className="bg-background pt-2 pb-2 px-4 rounded-t-xl">
+<div className="bg-background pt-2 pb-2 px-2 sm:px-4 rounded-t-lg sm:rounded-t-xl">
   <div className="flex items-center justify-between gap-2 mb-2">
-    <h2 className="text-sm font-semibold text-white/80">Filter by Customer</h2>
+    <h2 className="text-xs sm:text-sm font-semibold text-white/80">Filter by Customer</h2>
   </div>
 
   {/*
@@ -1221,21 +1221,21 @@ const Card: React.FC<{
     const cappedChips = customerChips.slice(0, MAX_VISIBLE_CUSTOMERS);
 
     return (
-      <div className="grid grid-cols-8 gap-1.5">
+      <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
         {/* All Customers cell */}
         <button
           onClick={() => {
             setSelectedCustomerId(null);
             setTableFilters({});
           }}
-          className={`w-full px-2 py-3 min-h-12
+          className={`w-full px-1.5 sm:px-2 py-2 sm:py-3 min-h-10 sm:min-h-12
             flex flex-col items-center justify-center text-center gap-0.5
-            rounded-lg border transition break-words
+            rounded-lg border transition break-words text-xs sm:text-sm
             ${selectedCustomerId == null
               ? "bg-primary text-white border-primary"
               : "bg-background-light text-white/90 border-border-color hover:bg-primary/30"}`}
         >
-          <span className="text-[13px] font-medium leading-tight">All Customers</span>
+          <span className="text-[11px] sm:text-[13px] font-medium leading-tight">All</span>
           <span className="text-xs opacity-70 mt-0.5">({totalCustomers})</span>
         </button>
 
@@ -1243,7 +1243,6 @@ const Card: React.FC<{
         {cappedChips
         .filter((c) => {
     const count = Number(c.count) || 0;
-    console.log(`Customer ${c.name}: count=${count}, type=${typeof c.count}`); // Debug logging
     return count > 0;
   })
         .map((c) => (
@@ -1254,14 +1253,14 @@ const Card: React.FC<{
               setTableFilters({});
             }}
             title={c.name}
-            className={`w-full px-2 py-3 min-h-12
+            className={`w-full px-1.5 sm:px-2 py-2 sm:py-3 min-h-10 sm:min-h-12
               flex flex-col items-center justify-center text-center gap-0.5
-              rounded-lg border transition break-words
+              rounded-lg border transition break-words text-xs sm:text-sm
               ${selectedCustomerId === c.id
                 ? "bg-primary text-white border-primary"
                 : "bg-background-light text-white/90 border-border-color hover:bg-primary/30"}`}
           >
-            <span className="text-[13px] font-medium leading-tight">{c.name}</span>
+            <span className="text-[11px] sm:text-[13px] font-medium leading-tight truncate">{c.name}</span>
             <span className="text-xs opacity-70 mt-0.5">({c.count})</span>
           </button>
         ))}
@@ -1272,17 +1271,17 @@ const Card: React.FC<{
 
 
         
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center sm:justify-between mb-2">
           {billingState.currentTab === "unbilled" ? (
-            <div className="text-sm text-text-secondary">
+            <div className="text-xs sm:text-sm text-text-secondary">
               Showing {total === 0 ? 0 : startIdx}-{endIdx} of {total} jobs
             </div>
           ) : (
-            <div className="text-sm text-text-secondary">
+            <div className="text-xs sm:text-sm text-text-secondary">
               Showing {total === 0 ? 0 : startIdx}-{endIdx} of {total} jobs
             </div>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
             {showResetFilter && (
               <button 
                 onClick={() => {
@@ -1293,35 +1292,37 @@ const Card: React.FC<{
                   setExpandedJobId(null);
                   setUnpaidExpandedInvoiceId(null);
                 }}
-                className="ml-4 text-blue-400 hover:text-blue-300 underline"
+                className="text-xs sm:text-sm text-blue-400 hover:text-blue-300 underline"
               >
                 Reset filters
               </button>
             )}
-            <label htmlFor="pageSize" className="text-xs text-text-secondary">
-              Rows per page:
-            </label>
-            <select
-              id="pageSize"
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="bg-background-light border-border-color text-text-main rounded px-2 py-1 text-xs md:w-20"
-            >
-              {[10, 20, 50, 100].map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <label htmlFor="pageSize" className="text-xs sm:text-sm text-text-secondary whitespace-nowrap">
+                Rows per page:
+              </label>
+              <select
+                id="pageSize"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="bg-background-light border-border-color text-text-main rounded px-2 py-1 text-xs"
+              >
+                {[10, 20, 50, 100].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
 
-        <div className="flex-grow rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden">
-          <div className="w-full overflow-x-auto md:overflow-x-visible">
+        <div className="flex-grow rounded-lg sm:rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden">
+          <div className="w-full overflow-x-auto">
             {billingState.currentTab === "unbilled" ? (
               <JobEntityTable
                 columns={unBillColumns.map((col) => ({
