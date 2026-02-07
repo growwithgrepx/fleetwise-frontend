@@ -391,20 +391,30 @@ const JobsPage = () => {
 
       {/* Modals */}
       {showEditModal && editJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="w-full max-w-md sm:max-w-2xl mx-3 sm:mx-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-background-light rounded-xl shadow-2xl relative">
-            <button
-              className="absolute top-4 right-4 text-text-secondary hover:text-text-main"
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 overflow-y-auto py-4">
+          <div className="w-[95vw] bg-background-light rounded-xl shadow-2xl relative flex flex-col" style={{ maxHeight: "90vh" }}>
+            {/* <button
+              className="absolute top-4 right-4 text-text-secondary hover:text-text-main text-2xl font-light leading-none"
               onClick={handleCancelEdit}
               aria-label="Close edit modal"
             >
-              &times;
-            </button>
+              ×
+            </button> */}
+            <button
+  className="absolute right-4 top-[0px] text-text-secondary hover:text-text-main leading-[2rem] font-light"
+  onClick={handleCancelEdit}
+  aria-label="Close edit modal"
+>
+  ×
+</button>
+
+                
             <JobForm
               job={editJob}
               onSave={handleSaveEdit}
               onCancel={handleCancelEdit}
               isLoading={false}
+              isModal={true}
             />
           </div>
         </div>
