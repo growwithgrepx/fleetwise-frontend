@@ -395,13 +395,6 @@ const JobsPage = () => {
       {showEditModal && editJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 overflow-y-auto py-4">
           <div className="w-[95vw] bg-background-light rounded-xl shadow-2xl relative flex flex-col" style={{ maxHeight: "90vh" }}>
-            {/* <button
-              className="absolute top-4 right-4 text-text-secondary hover:text-text-main text-2xl font-light leading-none"
-              onClick={handleCancelEdit}
-              aria-label="Close edit modal"
-            >
-              ×
-            </button> */}
             <button
   className="absolute right-4 top-[0px] text-text-secondary hover:text-text-main leading-[2rem] font-light"
   onClick={handleCancelEdit}

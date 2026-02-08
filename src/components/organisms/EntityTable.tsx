@@ -297,7 +297,7 @@ export function EntityTable<
                     {columns.map((col) => (
                       <td
                         key={String(col.accessor) + "-" + row.id}
-                        className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 align-middle overflow-hidden text-ellipsis"
+                        className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 align-middle overflow-hidden truncate"
                         style={col.width ? { width: col.width, minWidth: col.width } : { minWidth: '120px' }}
                         title={col.render ? undefined : String(row[col.accessor as keyof T])}
                       >

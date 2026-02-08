@@ -9,10 +9,12 @@ import { useState, useEffect } from 'react';
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const [sidebarState, setSidebarState] = useState({ isCollapsed: false, isMobileOpen: false });
 
-  // Track viewport width to reliably compute main content margin
-  const [viewportWidth, setViewportWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 0);
+  // Track if component is mounted to avoid SSR mismatch
+  const [mounted, setMounted] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState<number>(0);
 
   useEffect(() => {
+    setMounted(true);
     const onResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener('resize', onResize);
     onResize();
@@ -20,7 +22,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   }, []);
 
   // Compute margin-left in px so it always lines up with the sidebar
-  const marginLeftPx = viewportWidth >= 768 ? (sidebarState.isCollapsed ? 80 : 288) : 0;
+  const marginLeftPx = mounted && viewportWidth >= 768 ? (sidebarState.isCollapsed ? 80 : 288) : 0;
 
   return (
     <AuthGuard>

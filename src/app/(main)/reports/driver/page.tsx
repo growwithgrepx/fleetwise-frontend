@@ -7,9 +7,8 @@ import { EntityTable, EntityTableColumn } from "@/components/organisms/EntityTab
 import { Button } from "@/components/ui/button";
 import { useGetAllDrivers } from "@/hooks/useDrivers";
 import { Job } from "@/types/job";
-import { EyeIcon, XIcon, DownloadIcon, SearchIcon, CalendarIcon } from "lucide-react";
+import { DownloadIcon, SearchIcon, CalendarIcon, XIcon } from "lucide-react";
 import { Card } from '@/components/atoms/Card';
-import { useRouter } from "next/navigation";
 
 // CSV generation utility
 const toCSV = (rows: Record<string, any>[]) => {
@@ -34,8 +33,6 @@ export default function DriverJobHistoryReport() {
   const [pageSize, setPageSize] = useState<number>(50);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [selectedRows, setSelectedRows] = useState<(string | number)[]>([]);
-  
-  const router = useRouter();
   
   // Fetch drivers
   const { data: drivers = [], isLoading: driversLoading } = useGetAllDrivers();
@@ -192,9 +189,6 @@ export default function DriverJobHistoryReport() {
       alert("Failed to generate report. Please try again.");
     }
   };
-  
-  // Calculate total pages
-  const totalPages = data?.total ? Math.ceil(data.total / pageSize) : 0;
   
   return (
     <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
