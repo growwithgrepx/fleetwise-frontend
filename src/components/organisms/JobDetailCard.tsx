@@ -69,19 +69,19 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
 
   return (
     <>
-      <div className="bg-background-light p-6 rounded-lg">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+      <div className="bg-background-light p-4 sm:p-6 rounded-lg overflow-x-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 min-w-fit">
           <div>
-            <h2 className="text-2xl font-bold text-text-main">
+            <h2 className="text-xl sm:text-2xl font-bold text-text-main">
               Job Details{' '}
               {normalized.status && <StatusBadge status={String(normalized.status)} />}
             </h2>
           </div>
-          <Button variant="primary" onClick={handleGenerateText}>
+          <Button variant="primary" onClick={handleGenerateText} className="text-xs sm:text-sm">
             Generate Text
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 sm:gap-x-8 gap-y-6 sm:gap-y-8 min-w-fit">
 
           <DetailSection title="Customer Info">
               <DetailItem label="Name" value={normalized.customerName} />

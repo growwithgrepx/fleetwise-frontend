@@ -165,7 +165,7 @@ export function EntityTable<
         )}
         style={{ overflowX: 'auto' }}
       >
-        <table className="w-full text-xs sm:text-sm text-left text-text-main">
+        <table className="text-xs sm:text-sm text-left text-text-main border-collapse" style={{ width: '100%', tableLayout: 'auto' }}>
           <thead
             className={clsx(
               "text-xs font-medium text-text-secondary bg-background-light/95 backdrop-blur-md sticky top-0 z-10 transition-all duration-200",
@@ -174,7 +174,7 @@ export function EntityTable<
             style={{ position: 'sticky', top: 0 }}
           >
             <tr className="border-b border-border-color">
-              <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 w-8 sm:w-10 bg-inherit sticky left-0 z-10" style={{ position: 'sticky', left: 0, zIndex: 10 }}>
+              <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 w-8 sm:w-10" style={{ minWidth: '2.5rem' }}>
                 <input
                   type="checkbox"
                   onChange={handleSelectAll}
@@ -182,23 +182,22 @@ export function EntityTable<
                   className="form-checkbox h-3 w-3 sm:h-4 sm:w-4 text-primary bg-background-light border-border-color rounded-md focus:ring-1 sm:focus:ring-2 focus:ring-primary/40 focus:ring-offset-0"
                 />
               </th>
-              {renderExpandedRow && !disableRowExpansion && <th className="px-1 sm:px-2 py-2 sm:py-3 w-8 sm:w-10 sticky left-8 sm:left-10 bg-inherit z-10" style={{ position: 'sticky', left: 'calc(2rem + 1px)', zIndex: 10 }}></th>}
+              {renderExpandedRow && !disableRowExpansion && <th className="px-1 sm:px-2 py-2 sm:py-3 w-8 sm:w-10" style={{ minWidth: '2.5rem' }}></th>}
               {columns.map((col) => (
                 <th
                   key={String(col.accessor)}
-                  className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 min-w-[100px] sm:min-w-[120px] whitespace-normal break-words"
-                  style={col.width ? { width: col.width } : {}}
+                  className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 align-top"
+                  style={col.width ? { width: col.width, minWidth: col.width } : { minWidth: '120px' }}
                 >
-                  <div className="font-bold text-xs sm:text-sm text-text-main whitespace-normal break-words">
+                  <div className="font-bold text-xs sm:text-sm text-text-main mb-1">
                     {col.label}
                   </div>
                   {col.filterable && onFilterChange && (
                     <input
                       type="text"
-                      className="w-full bg-background-light border border-border-color text-text-main placeholder-text-secondary focus:ring-1 sm:focus:ring-2 focus:ring-primary rounded px-1 sm:px-2 py-0.5 sm:py-1 text-xs mt-1"
-                      placeholder={`Filter ${(col.stringLabel || col.accessor)
-                        .toString()
-                        .toLowerCase()}...`}
+                      className="w-full bg-background-light border border-border-color text-text-main placeholder-text-secondary focus:ring-1 sm:focus:ring-2 focus:ring-primary rounded px-1 sm:px-2 py-1 text-xs" 
+                      placeholder={`Filter...`}
+                      title={`Filter ${(col.stringLabel || col.accessor).toString().toLowerCase()}`}
                       value={filters[col.accessor as string] || ""}
                       onChange={(e) =>
                         onFilterChange(col.accessor as string, e.target.value)
@@ -208,7 +207,7 @@ export function EntityTable<
                 </th>
               ))}
               {actions.length > 0 && (
-                <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 min-w-[80px] sm:min-w-[120px] whitespace-normal break-words sticky right-0 bg-inherit z-10" style={{ position: 'sticky', right: 0, zIndex: 10 }}>
+                <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 min-w-[100px] sm:min-w-[140px] whitespace-normal break-words" style={{ minWidth: '100px' }}>
                   <div className="font-bold text-xs sm:text-sm text-text-secondary flex justify-end">
                     Actions
                   </div>
@@ -264,7 +263,7 @@ export function EntityTable<
                       }
                     }}
                   >
-                    <td className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 w-8 sm:w-10 sticky left-0 bg-inherit z-10" style={{ position: 'sticky', left: 0, zIndex: 10 }}>
+                    <td className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 w-8 sm:w-10 align-middle" style={{ minWidth: '2.5rem' }}>
                       <input
                         type="checkbox"
                         checked={selectedRows.includes(row.id)}
@@ -274,7 +273,7 @@ export function EntityTable<
                       />
                     </td>
                     {renderExpandedRow && !disableRowExpansion && (
-                      <td className="px-1 sm:px-2 py-2 sm:py-3 w-8 sm:w-10 sticky left-8 sm:left-10 bg-inherit z-10" style={{ position: 'sticky', left: 'calc(2rem + 1px)', zIndex: 10 }}>
+                      <td className="px-1 sm:px-2 py-2 sm:py-3 w-8 sm:w-10 align-middle" style={{ minWidth: '2.5rem' }}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -298,8 +297,9 @@ export function EntityTable<
                     {columns.map((col) => (
                       <td
                         key={String(col.accessor) + "-" + row.id}
-                        className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 whitespace-normal break-words max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg"
-                        style={col.width ? { width: col.width } : {}}
+                        className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 align-middle overflow-hidden text-ellipsis"
+                        style={col.width ? { width: col.width, minWidth: col.width } : { minWidth: '120px' }}
+                        title={col.render ? undefined : String(row[col.accessor as keyof T])}
                       >
                         {col.render
                           ? col.render(row)
@@ -307,7 +307,7 @@ export function EntityTable<
                       </td>
                     ))}
                     {actions && actions.length > 0 && (
-                      <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 whitespace-normal break-words sticky right-0 bg-inherit z-10 min-w-[80px] sm:min-w-[120px]" style={{ position: 'sticky', right: 0, zIndex: 10 }}>
+                      <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 align-middle min-w-[100px] sm:min-w-[140px]" style={{ minWidth: '100px' }}>
                         <div className="flex gap-1 sm:gap-2 items-center justify-end w-full">
                           {typeof actions === 'function' ? (
                             // Handle dynamic actions per row
@@ -456,11 +456,11 @@ export function EntityTable<
                             }}
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.3, ease: "easeInOut" }}
-                            className="overflow-hidden"
+                            className="overflow-x-auto overflow-y-hidden"
                           >
                             <div
                               ref={setContentRef(row.id)}
-                              className="pl-6 sm:pl-12 md:pl-16 pr-3 sm:pr-4 md:pr-6 py-3 sm:py-4 border-l-2 border-primary/30 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent"
+                              className="pl-2 sm:pl-6 md:pl-12 lg:pl-16 pr-2 sm:pr-3 md:pr-4 lg:pr-6 py-3 sm:py-4 border-l-2 border-primary/30 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent"
                             >
                               {renderExpandedRow(row)}
                             </div>

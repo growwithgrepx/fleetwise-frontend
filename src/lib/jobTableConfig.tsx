@@ -78,6 +78,7 @@ export const getJobTableColumns = (search: string): EntityTableColumn<ApiJob & {
     accessor: 'pickup_time',
     filterable: true,
     stringLabel: 'Pickup Time',
+    width: '100px',
     render: (job: ApiJob) => {
       // Convert UTC time from database to display timezone
       const displayTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);

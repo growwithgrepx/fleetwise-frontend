@@ -312,7 +312,7 @@ export function JobEntityTable<
                 </th>
               ))}
               {actions.length > 0 && (
-                <th className="px-4 py-3 sticky right-0 bg-inherit text-right">
+                <th className="px-4 py-3 min-w-[100px] sm:min-w-[140px] text-right" style={{ minWidth: '100px' }}>
                   <div className="font-bold text-base text-text-secondary">
                     Actions
                   </div>
@@ -428,7 +428,7 @@ export function JobEntityTable<
                       </td>
                     ))}
                     {actions.length > 0 && (
-                      <td className="px-4 py-3 sticky right-0">
+                      <td className="px-4 py-3 min-w-[100px] sm:min-w-[140px] align-middle" style={{ minWidth: '100px' }}>
                         <div className="flex gap-2 items-center justify-end opacity-80 group-hover:opacity-100 transition-opacity">
                           {actions.map((action) => {
                             const isDisabled = action.disabled
