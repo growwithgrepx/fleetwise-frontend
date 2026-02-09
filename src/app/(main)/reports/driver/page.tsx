@@ -7,8 +7,8 @@ import { EntityTable, EntityTableColumn } from "@/components/organisms/EntityTab
 import { Button } from "@/components/ui/button";
 import { useGetAllDrivers } from "@/hooks/useDrivers";
 import { Job } from "@/types/job";
-import { EyeIcon, XIcon, DownloadIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { DownloadIcon, SearchIcon, CalendarIcon, XIcon } from "lucide-react";
+import { Card } from '@/components/atoms/Card';
 
 // CSV generation utility
 const toCSV = (rows: Record<string, any>[]) => {
@@ -27,7 +27,6 @@ export default function DriverJobHistoryReport() {
   const [jobIds, setJobIds] = useState<string>("");
   const [customerName, setCustomerName] = useState<string>("");
   const [contractorName, setContractorName] = useState<string>("");
-  const [driverName, setDriverName] = useState<string>("");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [page, setPage] = useState<number>(1);
@@ -35,14 +34,12 @@ export default function DriverJobHistoryReport() {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [selectedRows, setSelectedRows] = useState<(string | number)[]>([]);
   
-  const router = useRouter();
-  
   // Fetch drivers
   const { data: drivers = [], isLoading: driversLoading } = useGetAllDrivers();
   
   // Fetch job data
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["driver-jobs", driverId, jobIds, customerName, contractorName, driverName, startDate, endDate, page, pageSize],
+    queryKey: ["driver-jobs", driverId, jobIds, customerName, contractorName, startDate, endDate, page, pageSize],
     queryFn: async () => {
       if (!driverId) return { items: [], total: 0 };
       
@@ -56,7 +53,6 @@ export default function DriverJobHistoryReport() {
       if (jobIds) params.job_ids = jobIds;
       if (customerName) params.customer_name = customerName;
       if (contractorName) params.contractor_name = contractorName;
-      if (driverName) params.driver_name = driverName;
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
       
@@ -91,7 +87,6 @@ export default function DriverJobHistoryReport() {
     setJobIds("");
     setCustomerName("");
     setContractorName("");
-    setDriverName("");
     setStartDate("");
     setEndDate("");
     setFilters({});
@@ -153,7 +148,6 @@ export default function DriverJobHistoryReport() {
         if (jobIds) params.job_ids = jobIds;
         if (customerName) params.customer_name = customerName;
         if (contractorName) params.contractor_name = contractorName;
-        if (driverName) params.driver_name = driverName;
         if (startDate) params.start_date = startDate;
         if (endDate) params.end_date = endDate;
         
@@ -196,126 +190,182 @@ export default function DriverJobHistoryReport() {
     }
   };
   
-  // Calculate total pages
-  const totalPages = data?.total ? Math.ceil(data.total / pageSize) : 0;
-  
   return (
-    <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 bg-[#0E1621] font-['Inter']">
-      <div className="max-w-[1400px] mx-auto space-y-6">
-        {/* Page Title */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-white">Reports & Analytics</h1>
-          <Button 
-            className="bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-90 transition-all"
-            onClick={handleGenerateReport}
-            disabled={!driverId || isLoading}
-          >
-            <DownloadIcon className="w-4 h-4" />
-            Driver Report
-          </Button>
+    <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Driver Job History</h1>
+          <p className="text-muted-foreground text-sm">
+            View and export detailed job history for drivers
+          </p>
         </div>
-        
-        {/* Filter Bar */}
-        <div className="bg-[#1a2436] rounded-xl p-6 border border-[#2a3a5a] shadow-lg">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Job ID (comma separated)
+        <Button 
+          className="bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-90 transition-all mt-4 md:mt-0 w-full md:w-auto"
+          onClick={handleGenerateReport}
+          disabled={!driverId || isLoading}
+        >
+          <DownloadIcon className="w-4 h-4" />
+          Export Report
+        </Button>
+      </div>
+      
+      {/* Filter Card */}
+      <Card>
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+            <h2 className="text-lg font-semibold">Filters</h2>
+            {(jobIds || customerName || contractorName || startDate || endDate) && (
+              <Button
+                onClick={handleClearFilters}
+                variant="outline"
+                size="sm"
+                className="mt-3 md:mt-0 border-red-300 text-red-700 hover:bg-red-50"
+              >
+                <XIcon className="w-4 h-4 mr-2" />
+                Clear All
+              </Button>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+            <div className="space-y-2">
+              <label htmlFor="driver" className="block text-sm font-medium">
+                Driver
               </label>
-              <input
-                type="text"
-                value={jobIds}
-                onChange={(e) => setJobIds(e.target.value)}
-                className="w-full bg-[#0E1621] border border-[#2a3a5a] text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Job IDs..."
-              />
+              <select
+                id="driver"
+                value={driverId}
+                onChange={(e) => setDriverId(e.target.value)}
+                className="w-full bg-background-light border border-border-color text-text-main rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={driversLoading}
+              >
+                <option value="">Select a driver...</option>
+                {drivers.map((driver) => (
+                  <option key={driver.id} value={String(driver.id)}>
+                    {driver.name}
+                  </option>
+                ))}
+              </select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Customer name
+            <div className="space-y-2">
+              <label htmlFor="jobIds" className="block text-sm font-medium">
+                Job ID (comma separated)
+              </label>
+              <div className="relative">
+                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  id="jobIds"
+                  type="text"
+                  value={jobIds}
+                  onChange={(e) => setJobIds(e.target.value)}
+                  className="w-full bg-background-light border border-border-color text-text-main rounded-lg px-3 py-2 pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Job IDs..."
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="customer" className="block text-sm font-medium">
+                Customer Name
               </label>
               <input
+                id="customer"
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full bg-[#0E1621] border border-[#2a3a5a] text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Customer name..."
+                className="w-full bg-background-light border border-border-color text-text-main rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Customer..."
               />
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Contractor name
+            <div className="space-y-2">
+              <label htmlFor="contractor" className="block text-sm font-medium">
+                Contractor Name
               </label>
               <input
+                id="contractor"
                 type="text"
                 value={contractorName}
                 onChange={(e) => setContractorName(e.target.value)}
-                className="w-full bg-[#0E1621] border border-[#2a3a5a] text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Contractor name..."
+                className="w-full bg-background-light border border-border-color text-text-main rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Contractor..."
               />
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Driver name
-              </label>
-              <input
-                type="text"
-                value={driverName}
-                onChange={(e) => setDriverName(e.target.value)}
-                className="w-full bg-[#0E1621] border border-[#2a3a5a] text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Driver name..."
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+            <div className="space-y-2">
+              <label htmlFor="fromDate" className="block text-sm font-medium">
                 From
               </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-[#0E1621] border border-[#2a3a5a] text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <div className="relative">
+                <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  id="fromDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full bg-background-light border border-border-color text-text-main rounded-lg px-3 py-2 pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+            <div className="space-y-2">
+              <label htmlFor="toDate" className="block text-sm font-medium">
                 To
               </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-[#0E1621] border border-[#2a3a5a] text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <div className="relative">
+                <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  id="toDate"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full bg-background-light border border-border-color text-text-main rounded-lg px-3 py-2 pl-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
             </div>
           </div>
           
-          <div className="flex justify-end gap-3 mt-4">
-            <Button
-              onClick={handleClearFilters}
-              variant="outline"
-              className="bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-90 transition-all border-none"
-            >
-              <XIcon className="w-4 h-4" />
-              Clear All
-            </Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-end">
             <Button
               onClick={handleApplyFilters}
-              className="bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-lg px-4 py-2 flex items-center gap-2 hover:opacity-90 transition-all"
+              className="bg-gradient-to-r from-blue-500 to-blue-700 text-white rounded-lg px-4 py-2 hover:opacity-90 transition-all"
             >
               Apply Filters
             </Button>
           </div>
         </div>
-        
-        {/* Results */}
-        {driverId && (
-          <div className="bg-[#1a2436] rounded-xl p-6 border border-[#2a3a5a] shadow-lg">
+      </Card>
+      
+      {/* Results Card */}
+      {driverId && (
+        <Card>
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+              <h2 className="text-lg font-semibold">Job History</h2>
+              <div className="flex items-center gap-2">
+                <label htmlFor="pageSize" className="text-xs text-text-secondary">Rows per page:</label>
+                <select
+                  id="pageSize"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="bg-background-light border-border-color text-text-main rounded px-2 py-1 text-xs"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="text-sm text-text-secondary mb-4">
+              Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data?.total || 0)} of {data?.total || 0}
+            </div>
+            
             <EntityTable
               columns={columns}
               data={data?.items || []}
@@ -327,70 +377,23 @@ export default function DriverJobHistoryReport() {
               filters={filters}
               onFilterChange={handleFilterChange}
               onSelectionChange={handleSelectionChange}
-              className="bg-[#0E1621] border border-[#2a3a5a]"
-              containerClassName="rounded-lg"
-              headerClassName="bg-[#1a2436]"
+              disableRowExpansion={true}
             />
-            
-            {/* Pagination Controls - Always visible when data is available */}
-            <div className="flex justify-between items-center mt-4 px-4 py-3 bg-[#0E1621] rounded-lg border border-[#2a3a5a]">
-              <div className="text-sm text-gray-400">
-                Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, data?.total || 0)} of {data?.total || 0}
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-400">Rows per page</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setPage(1); // Reset to first page when changing page size
-                    }}
-                    className="bg-[#1a2436] border border-[#2a3a5a] text-gray-300 rounded px-2 py-1 text-sm"
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
-                
-                <Button
-                  onClick={() => setPage(prev => Math.max(1, prev - 1))}
-                  disabled={page === 1}
-                  variant="outline"
-                  className="border-gray-500 text-gray-300 hover:bg-gray-700"
-                >
-                  ‹ Prev
-                </Button>
-                
-                <div className="text-sm text-gray-400">
-                  {page} / {Math.max(1, totalPages)}
-                </div>
-                
-                <Button
-                  onClick={() => setPage(prev => Math.min(Math.max(1, totalPages), prev + 1))}
-                  disabled={page === Math.max(1, totalPages)}
-                  variant="outline"
-                  className="border-gray-500 text-gray-300 hover:bg-gray-700"
-                >
-                  Next ›
-                </Button>
-              </div>
-            </div>
           </div>
-        )}
-        
-        {!driverId && (
-          <div className="bg-[#1a2436] rounded-xl p-12 border border-[#2a3a5a] shadow-lg text-center">
+        </Card>
+      )}
+      
+      {!driverId && (
+        <Card>
+          <div className="p-8 sm:p-12 text-center">
             <div className="text-5xl mb-4">📊</div>
-            <h3 className="text-xl font-semibold text-white mb-2">Select a Driver to View Report</h3>
-            <p className="text-gray-400">
-              Choose a driver from the dropdown above to view their job history within the selected date range.
+            <h3 className="text-lg sm:text-xl font-semibold text-text-main mb-2">Select a Driver to View Report</h3>
+            <p className="text-text-secondary text-sm sm:text-base">
+              Choose a driver from the filters above to view their job history within the selected date range.
             </p>
           </div>
-        )}
-      </div>
+        </Card>
+      )}
     </div>
   );
 }

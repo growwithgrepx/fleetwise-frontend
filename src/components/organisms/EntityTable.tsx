@@ -145,13 +145,13 @@ export function EntityTable<
   return (
     <div
       className={clsx(
-        "bg-background-light backdrop-blur-sm rounded-xl shadow-2xl overflow-hidden border border-border-color h-full",
+        "bg-background-light backdrop-blur-sm rounded-lg sm:rounded-xl shadow-lg sm:shadow-2xl overflow-hidden border border-border-color h-full",
         className
       )}
     >
       {selectedRows.length > 0 && (
-        <div className="px-6 py-3 bg-primary/10 border-b border-primary/20 flex justify-between items-center">
-          <div className="text-sm font-medium text-primary">
+        <div className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 bg-primary/10 border-b border-primary/20 flex justify-between items-center gap-2">
+          <div className="text-xs sm:text-sm font-medium text-primary">
             {selectedRows.length} {selectedRows.length === 1 ? "item" : "items"}{" "}
             selected
           </div>
@@ -165,7 +165,7 @@ export function EntityTable<
         )}
         style={{ overflowX: 'auto' }}
       >
-        <table className="w-full text-sm text-left text-text-main">
+        <table className="text-xs sm:text-sm text-left text-text-main border-collapse" style={{ width: '100%', tableLayout: 'auto' }}>
           <thead
             className={clsx(
               "text-xs font-medium text-text-secondary bg-background-light/95 backdrop-blur-md sticky top-0 z-10 transition-all duration-200",
@@ -174,31 +174,30 @@ export function EntityTable<
             style={{ position: 'sticky', top: 0 }}
           >
             <tr className="border-b border-border-color">
-              <th className="px-6 py-3 w-10 bg-inherit sticky left-0 z-10" style={{ position: 'sticky', left: 0, zIndex: 10 }}>
+              <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 w-8 sm:w-10" style={{ minWidth: '2.5rem' }}>
                 <input
                   type="checkbox"
                   onChange={handleSelectAll}
                   checked={isAllSelected}
-                  className="form-checkbox h-4 w-4 text-primary bg-background-light border-border-color rounded-md focus:ring-2 focus:ring-primary/40 focus:ring-offset-0"
+                  className="form-checkbox h-3 w-3 sm:h-4 sm:w-4 text-primary bg-background-light border-border-color rounded-md focus:ring-1 sm:focus:ring-2 focus:ring-primary/40 focus:ring-offset-0"
                 />
               </th>
-              {renderExpandedRow && !disableRowExpansion && <th className="px-2 py-3 w-10 sticky left-10 bg-inherit z-10" style={{ position: 'sticky', left: '2.5rem', zIndex: 10 }}></th>}
+              {renderExpandedRow && !disableRowExpansion && <th className="px-1 sm:px-2 py-2 sm:py-3 w-8 sm:w-10" style={{ minWidth: '2.5rem' }}></th>}
               {columns.map((col) => (
                 <th
                   key={String(col.accessor)}
-                  className="px-4 py-3 min-w-[120px] whitespace-normal break-words"
-                  style={col.width ? { width: col.width } : {}}
+                  className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 align-top"
+                  style={col.width ? { width: col.width, minWidth: col.width } : { minWidth: '120px' }}
                 >
-                  <div className="font-bold text-base text-text-main whitespace-normal break-words">
+                  <div className="font-bold text-xs sm:text-sm text-text-main mb-1">
                     {col.label}
                   </div>
                   {col.filterable && onFilterChange && (
                     <input
                       type="text"
-                      className="w-full bg-background-light border-border-color text-text-main placeholder-text-secondary focus:ring-2 focus:ring-primary rounded px-2 py-1 text-xs mt-1"
-                      placeholder={`Filter ${(col.stringLabel || col.accessor)
-                        .toString()
-                        .toLowerCase()}...`}
+                      className="w-full bg-background-light border border-border-color text-text-main placeholder-text-secondary focus:ring-1 sm:focus:ring-2 focus:ring-primary rounded px-1 sm:px-2 py-1 text-xs" 
+                      placeholder={`Filter...`}
+                      title={`Filter ${(col.stringLabel || col.accessor).toString().toLowerCase()}`}
                       value={filters[col.accessor as string] || ""}
                       onChange={(e) =>
                         onFilterChange(col.accessor as string, e.target.value)
@@ -208,8 +207,8 @@ export function EntityTable<
                 </th>
               ))}
               {actions.length > 0 && (
-                <th className="px-4 py-3 min-w-[120px] whitespace-normal break-words sticky right-0 bg-inherit z-10" style={{ position: 'sticky', right: 0, zIndex: 10 }}>
-                  <div className="font-bold text-base text-text-secondary flex justify-end">
+                <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 min-w-[100px] sm:min-w-[140px] whitespace-normal break-words" style={{ minWidth: '100px' }}>
+                  <div className="font-bold text-xs sm:text-sm text-text-secondary flex justify-end">
                     Actions
                   </div>
                 </th>
@@ -264,23 +263,23 @@ export function EntityTable<
                       }
                     }}
                   >
-                    <td className="px-6 py-3.5 w-10 sticky left-0 bg-inherit z-10" style={{ position: 'sticky', left: 0, zIndex: 10 }}>
+                    <td className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 w-8 sm:w-10 align-middle" style={{ minWidth: '2.5rem' }}>
                       <input
                         type="checkbox"
                         checked={selectedRows.includes(row.id)}
                         onChange={() => handleSelectRow(row.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="form-checkbox h-4 w-4 text-primary bg-background-light border-border-color rounded focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:ring-offset-background"
+                        className="form-checkbox h-3 w-3 sm:h-4 sm:w-4 text-primary bg-background-light border-border-color rounded focus:ring-1 sm:focus:ring-2 focus:ring-offset-1 sm:focus:ring-offset-2 focus:ring-primary focus:ring-offset-background"
                       />
                     </td>
                     {renderExpandedRow && !disableRowExpansion && (
-                      <td className="px-2 py-3 w-10 sticky left-10 bg-inherit z-10" style={{ position: 'sticky', left: '2.5rem', zIndex: 10 }}>
+                      <td className="px-1 sm:px-2 py-2 sm:py-3 w-8 sm:w-10 align-middle" style={{ minWidth: '2.5rem' }}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRowToggle(row.id);
                           }}
-                          className="rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background text-text-secondary hover:text-white hover:bg-background-light/50 transition-colors"
+                          className="rounded-full p-0.5 sm:p-1 focus:outline-none focus:ring-1 sm:focus:ring-2 focus:ring-primary focus:ring-offset-1 sm:focus:ring-offset-2 focus:ring-offset-background text-text-secondary hover:text-white hover:bg-background-light/50 transition-colors"
                           aria-label={
                             expandedRowId === row.id
                               ? "Collapse row"
@@ -288,9 +287,9 @@ export function EntityTable<
                           }
                         >
                           {expandedRowId === row.id ? (
-                            <ChevronDownIcon className="w-5 h-5" />
+                            <ChevronDownIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                           ) : (
-                            <ChevronRightIcon className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                            <ChevronRightIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 transition-transform" />
                           )}
                         </button>
                       </td>
@@ -298,8 +297,9 @@ export function EntityTable<
                     {columns.map((col) => (
                       <td
                         key={String(col.accessor) + "-" + row.id}
-                        className="px-4 py-3 whitespace-normal break-words max-w-xs md:max-w-sm lg:max-w-md"
-                        style={col.width ? { width: col.width } : {}}
+                        className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 align-middle overflow-hidden truncate"
+                        style={col.width ? { width: col.width, minWidth: col.width } : { minWidth: '120px' }}
+                        title={col.render ? undefined : String(row[col.accessor as keyof T])}
                       >
                         {col.render
                           ? col.render(row)
@@ -307,8 +307,8 @@ export function EntityTable<
                       </td>
                     ))}
                     {actions && actions.length > 0 && (
-                      <td className="px-4 py-3 whitespace-normal break-words sticky right-0 bg-inherit z-10 min-w-[120px]" style={{ position: 'sticky', right: 0, zIndex: 10 }}>
-                        <div className="flex gap-2 items-center justify-end w-full">
+                      <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 align-middle min-w-[100px] sm:min-w-[140px]" style={{ minWidth: '100px' }}>
+                        <div className="flex gap-1 sm:gap-2 items-center justify-end w-full">
                           {typeof actions === 'function' ? (
                             // Handle dynamic actions per row
                             (actions as (row: T) => EntityTableAction<T>[])(row).map((action) => {
@@ -331,7 +331,7 @@ export function EntityTable<
                                   variant="ghost"
                                   size="sm"
                                   className={clsx(
-                                    "p-1.5 rounded-lg hover:scale-105 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center justify-center",
+                                    "p-1 sm:p-1.5 rounded-lg hover:scale-105 active:scale-95 transition-all focus:outline-none focus:ring-1 sm:focus:ring-2 focus:ring-primary/50 flex items-center justify-center text-xs sm:text-sm",
                                     isDisabled
                                       ? "opacity-50 cursor-not-allowed hover:scale-100"
                                       : "",
@@ -395,7 +395,7 @@ export function EntityTable<
                                   variant="ghost"
                                   size="sm"
                                   className={clsx(
-                                    "p-1.5 rounded-lg hover:scale-105 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center justify-center",
+                                    "p-1 sm:p-1.5 rounded-lg hover:scale-105 active:scale-95 transition-all focus:outline-none focus:ring-1 sm:focus:ring-2 focus:ring-primary/50 flex items-center justify-center text-xs sm:text-sm",
                                     isDisabled
                                       ? "opacity-50 cursor-not-allowed hover:scale-100"
                                       : "",
@@ -456,11 +456,11 @@ export function EntityTable<
                             }}
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ duration: 0.3, ease: "easeInOut" }}
-                            className="overflow-hidden"
+                            className="overflow-x-auto overflow-y-hidden"
                           >
                             <div
                               ref={setContentRef(row.id)}
-                              className="pl-16 pr-6 py-4 border-l-2 border-primary/30 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent"
+                              className="pl-2 sm:pl-6 md:pl-12 lg:pl-16 pr-2 sm:pr-3 md:pr-4 lg:pr-6 py-3 sm:py-4 border-l-2 border-primary/30 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent"
                             >
                               {renderExpandedRow(row)}
                             </div>
@@ -476,9 +476,9 @@ export function EntityTable<
         </table>
       </div>
       {totalPages > 1 && onPageChange && (
-        <div className="flex justify-end items-center gap-2 mt-4 px-4">
+        <div className="flex justify-end items-center gap-1 sm:gap-2 mt-3 sm:mt-4 px-2 sm:px-4 py-2 sm:py-3">
           <button
-            className="px-3 py-1 rounded bg-background-light border-border-color text-text-secondary hover:bg-background-dark disabled:opacity-50"
+            className="px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm rounded bg-background-light border border-border-color text-text-secondary hover:bg-background-dark disabled:opacity-50"
             onClick={() => onPageChange(page - 1)}
             disabled={page === 1}
           >
@@ -487,10 +487,10 @@ export function EntityTable<
           {Array.from({ length: totalPages }, (_, i) => (
             <button
               key={i + 1}
-              className={`px-3 py-1 rounded ${
+              className={`px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm rounded ${
                 page === i + 1
-                  ? "bg-primary text-white"
-                  : "bg-background-light border-border-color text-text-secondary hover:bg-background-dark"
+                  ? "bg-primary text-white border border-primary"
+                  : "bg-background-light border border-border-color text-text-secondary hover:bg-background-dark"
               }`}
               onClick={() => onPageChange(i + 1)}
               disabled={page === i + 1}
@@ -499,7 +499,7 @@ export function EntityTable<
             </button>
           ))}
           <button
-            className="px-3 py-1 rounded bg-background-light border-border-color text-text-secondary hover:bg-background-dark disabled:opacity-50"
+            className="px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm rounded bg-background-light border border-border-color text-text-secondary hover:bg-background-dark disabled:opacity-50"
             onClick={() => onPageChange(page + 1)}
             disabled={page === totalPages}
           >

@@ -70,52 +70,52 @@ const JobMonitoringAlertsPanel = () => {
 
   return (
     <>
-      <div className="col-span-3 px-8">
-        <div className="bg-gray-800/60 border border-gray-700 rounded-2xl p-5 shadow-xl">
+      <div className="col-span-full sm:col-span-3 px-2 sm:px-4 md:px-6 lg:px-8">
+        <div className="bg-gray-800/60 border border-gray-700 rounded-lg sm:rounded-2xl p-3 sm:p-4 md:p-5 shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-3 w-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3 sm:mb-4 md:mb-5">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-red-500"></span>
             </span>
             <div>
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-base sm:text-lg font-semibold text-white">
                 Active Monitoring Alerts
               </h3>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs sm:text-xs text-gray-400">
                 Jobs requiring immediate attention
               </p>
             </div>
           </div>
 
-          <span className="px-3 py-1 bg-red-600/15 text-red-300 text-sm font-medium rounded-full border border-red-600/25">
+          <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-red-600/15 text-red-300 text-xs sm:text-sm font-medium rounded-full border border-red-600/25 whitespace-nowrap">
             {activeAlerts.length} alerts
           </span>
         </div>
 
         {/* Alerts */}
         {activeAlerts && activeAlerts.length > 0 ? (
-          <div className="max-h-[410px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800/30">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="max-h-[300px] sm:max-h-[350px] md:max-h-[410px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800/30">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               {activeAlerts.map((alert) => {
                 const elapsed = Math.floor(alert.elapsedTime);
 
                 return (
                   <div
                     key={alert.id}
-                    className="rounded-xl border border-gray-700 bg-gray-900/40 hover:bg-gray-900/60 transition-colors p-4"
+                    className="rounded-lg sm:rounded-xl border border-gray-700 bg-gray-900/40 hover:bg-gray-900/60 transition-colors p-3 sm:p-4"
                   >
                     {/* Top Row */}
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-2 sm:gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-white font-semibold">
+                          <span className="text-white font-semibold text-sm sm:text-base">
                             Job #{alert.jobId}
                           </span>
 
                           <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${getTimingTagStyle(
+                            className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full ${getTimingTagStyle(
                               elapsed
                             )}`}
                           >
@@ -168,10 +168,10 @@ const JobMonitoringAlertsPanel = () => {
                       <button
                         onClick={() => {
                           setSelectedJobId(alert.jobId);
-                          setSelectedJobData(alert.jobData); // Store the job data when opening
+                          setSelectedJobData(alert.jobData);
                           setIsJobDetailsModalOpen(true);
                         }}
-                        className="flex-1 text-xs bg-blue-600/90 hover:bg-blue-600 text-white px-3 py-2 rounded-lg transition font-medium"
+                        className="flex-1 text-xs sm:text-sm bg-blue-600/90 hover:bg-blue-600 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition font-medium"
                         title="View Job Details"
                       >
                         View Details
@@ -191,7 +191,7 @@ const JobMonitoringAlertsPanel = () => {
                           }
                         }}
                         disabled={startingTripAlerts.has(alert.id)}
-                        className="flex-1 text-xs bg-green-600/90 hover:bg-green-600 text-white px-3 py-2 rounded-lg transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 text-xs sm:text-sm bg-green-600/90 hover:bg-green-600 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {startingTripAlerts.has(alert.id) ? "Starting..." : "Start Trip"}
                       </button>
@@ -212,7 +212,7 @@ const JobMonitoringAlertsPanel = () => {
                           }
                         }}
                         disabled={dismissingAlerts.has(alert.id)}
-                        className="text-xs bg-red-600/90 hover:bg-red-600 text-white px-3 py-2 rounded-lg transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-xs sm:text-sm bg-red-600/90 hover:bg-red-600 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Dismiss Alert"
                       >
                         ✕

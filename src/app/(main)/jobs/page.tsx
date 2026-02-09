@@ -227,7 +227,7 @@ const JobsPage = () => {
   if (["driver"].includes(role)) return <NotAuthorizedPage />;
 
   return (
-    <div className="w-full flex flex-col gap-4 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
+    <div className="w-full flex flex-col gap-3 sm:gap-4 md:gap-6 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
       {!["driver"].includes(role) && (
         <EntityHeader
           title="Jobs"
@@ -235,27 +235,27 @@ const JobsPage = () => {
           addLabel="Add Job"
           extraActions={
             <>
-              <AnimatedButton onClick={() => router.push('/jobs/bulk-upload')} variant="outline" className="flex items-center">
+              <AnimatedButton onClick={() => router.push('/jobs/bulk-upload')} variant="outline" className="flex items-center text-xs sm:text-sm">
                 <Upload className="mr-2 h-4 w-4" />
                 Bulk Upload
               </AnimatedButton>
-              <AnimatedButton onClick={() => setOpenCreateFromTextModal(true)} variant="outline" className="flex items-center">
+              <AnimatedButton onClick={() => setOpenCreateFromTextModal(true)} variant="outline" className="flex items-center text-xs sm:text-sm">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Create from Text
               </AnimatedButton>
             </>
           }
-          className="mb-4"
+          className="mb-2 sm:mb-4"
         />
       )}
 
       {/* Search Bar */}
-      <div className="mb-4">
+      <div className="mb-2 sm:mb-4">
         <Input
           placeholder="Search jobs..."
           value={search}
           onChange={(e) => setSearch(e.target.value.trim())}
-          className="max-w-md"
+          className="max-w-md text-sm sm:text-base"
         />
       </div>
 
@@ -278,12 +278,12 @@ const JobsPage = () => {
       )}
 
       {/* Pagination Info */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm text-text-secondary">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center sm:justify-between mb-2">
+        <div className="text-xs sm:text-sm text-text-secondary">
           Showing {paginationInfo.total === 0 ? 0 : paginationInfo.startIdx}-{paginationInfo.endIdx} of {paginationInfo.total}
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor="pageSize" className="text-xs text-text-secondary">Rows per page:</label>
+          <label htmlFor="pageSize" className="text-xs sm:text-sm text-text-secondary whitespace-nowrap">Rows per page:</label>
           <select
             id="pageSize"
             value={pageSize}
@@ -299,9 +299,9 @@ const JobsPage = () => {
       </div>
 
       {/* Jobs Table */}
-      <div className="flex-grow rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden flex flex-col">
-        <div className="w-full flex-grow table-responsive">
-          <div className="min-w-[900px]">
+      <div className="flex-grow rounded-lg sm:rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden flex flex-col">
+        <div className="w-full flex-grow flex flex-col min-w-0">
+          <div className="overflow-x-auto flex-grow" style={{ WebkitOverflowScrolling: 'touch' }}>
             <EntityTable
             data={paginationInfo.paginatedJobs}
             columns={columns.map(col => ({
@@ -357,54 +357,59 @@ const JobsPage = () => {
 
         {/* Page Navigation - Inside Table Container */}
         {paginationInfo.totalPages > 1 && (
-          <div className="hidden md:flex items-center justify-end gap-1 py-4 border-t border-border-color px-4">
-            <button
-              onClick={() => setPage(Math.max(1, page - 1))}
-              disabled={page === 1}
-              className="px-2 py-1 text-sm rounded-lg font-medium transition-colors border border-border-color text-text-main hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              &lt;
-            </button>
-            {Array.from({ length: paginationInfo.totalPages }, (_, i) => i + 1).map((pageNum) => (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 py-3 sm:py-4 border-t border-border-color px-2 sm:px-4">
+            <div className="flex items-center justify-center sm:justify-end gap-1">
               <button
-                key={pageNum}
-                onClick={() => setPage(pageNum)}
-                className={`px-2 py-1 text-sm rounded-lg font-medium transition-colors ${
-                  pageNum === page
-                    ? 'bg-primary text-white'
-                    : 'border border-border-color text-text-main hover:border-primary'
-                }`}
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page === 1}
+                className="px-2 py-1 text-xs sm:text-sm rounded-lg font-medium transition-colors border border-border-color text-text-main hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {pageNum}
+                &lt;
               </button>
-            ))}
-            <button
-              onClick={() => setPage(Math.min(paginationInfo.totalPages, page + 1))}
-              disabled={page === paginationInfo.totalPages}
-              className="px-2 py-1 text-sm rounded-lg font-medium transition-colors border border-border-color text-text-main hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              &gt;
-            </button>
+              {Array.from({ length: paginationInfo.totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className={`px-2 py-1 text-xs sm:text-sm rounded-lg font-medium transition-colors ${
+                    pageNum === page
+                      ? 'bg-primary text-white'
+                      : 'border border-border-color text-text-main hover:border-primary'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+              <button
+                onClick={() => setPage(Math.min(paginationInfo.totalPages, page + 1))}
+                disabled={page === paginationInfo.totalPages}
+                className="px-2 py-1 text-xs sm:text-sm rounded-lg font-medium transition-colors border border-border-color text-text-main hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                &gt;
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       {/* Modals */}
       {showEditModal && editJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="w-full max-w-md sm:max-w-2xl mx-3 sm:mx-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-background-light rounded-xl shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 overflow-y-auto py-4">
+          <div className="w-[95vw] bg-background-light rounded-xl shadow-2xl relative flex flex-col" style={{ maxHeight: "90vh" }}>
             <button
-              className="absolute top-4 right-4 text-text-secondary hover:text-text-main"
-              onClick={handleCancelEdit}
-              aria-label="Close edit modal"
-            >
-              &times;
-            </button>
+  className="absolute right-4 top-[0px] text-text-secondary hover:text-text-main leading-[2rem] font-light"
+  onClick={handleCancelEdit}
+  aria-label="Close edit modal"
+>
+  ×
+</button>
+
+                
             <JobForm
               job={editJob}
               onSave={handleSaveEdit}
               onCancel={handleCancelEdit}
               isLoading={false}
+              isModal={true}
             />
           </div>
         </div>

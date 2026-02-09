@@ -616,17 +616,17 @@ export default function DashboardPage() {
 
         {/* Top KPI Ribbon */}
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8 px-8 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 mb-8 px-4 sm:px-6 lg:px-8 w-full">
           {jobsLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <Card key={i} className="h-32 animate-pulse bg-background-light mx-2" />
             ))
           ) : jobsError ? (
-            <Card className="col-span-5 text-center text-red-400 mx-2">Failed to load data.</Card>
+            <Card className="col-span-full text-center text-red-400">Failed to load data.</Card>
           ) : (
             <>
-              <div className="mx-2"><PriorityDashboard alerts={priorityAlerts} /></div>
-              <Card className="flex flex-col justify-center p-5 md:p-6 min-h-[8rem] shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300 mx-2">
+              <div><PriorityDashboard alerts={priorityAlerts} /></div>
+              <Card className="flex flex-col justify-center p-4 sm:p-5 md:p-6 min-h-[8rem] shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300">
                 {kpiStats.inProgress.value === 0 ? (
                   <EmptyState
                     message="No jobs in progress today"
@@ -636,7 +636,7 @@ export default function DashboardPage() {
                   <KpiCard title="Jobs In Progress" value={kpiStats.inProgress.value} trendData={kpiStats.inProgress.trendData} previousValue={kpiStats.inProgress.trendData[0]?.value} targetValue={0} />
                 )}
               </Card>
-              <Card className="flex flex-col items-center justify-center p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300 mx-2">
+              <Card className="flex flex-col items-center justify-center p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300">
                 {kpiStats.jobsCompleted.value === 0 ? (
                   <EmptyState
                     message="No jobs completed today"
@@ -646,7 +646,7 @@ export default function DashboardPage() {
                   <KpiCard title="Jobs Completed" value={kpiStats.jobsCompleted.value} trendData={kpiStats.jobsCompleted.trendData} previousValue={kpiStats.jobsCompleted.trendData[0]?.value} targetValue={kpiStats.todaysScheduled.value} />
                 )}
               </Card>
-              <Card className="flex flex-col items-center justify-center p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300 mx-2">
+              <Card className="flex flex-col items-center justify-center p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300">
                 {kpiStats.unassignedJobs.value === 0 ? (
                   <EmptyState
                     message="No unassigned jobs"
@@ -656,7 +656,7 @@ export default function DashboardPage() {
                   <KpiCard title="Unassigned Jobs" value={kpiStats.unassignedJobs.value} trendData={kpiStats.unassignedJobs.trendData} previousValue={kpiStats.unassignedJobs.trendData[0]?.value} targetValue={0} />
                 )}
               </Card>
-              <Card className="flex flex-col items-center justify-center p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300 mx-2">
+              <Card className="flex flex-col items-center justify-center p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300">
                 {kpiStats.pendingInvoices.value === 0 ? (
                   <EmptyState
                     message="No pending invoices"
@@ -672,8 +672,8 @@ export default function DashboardPage() {
 
         {/* Job Monitoring Alerts Panel - Positioned above Today's Jobs Timeline */}
         <div className="mb-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full">
-            <div className="lg:col-span-3 flex flex-col px-8">
+          <div className="grid grid-cols-1 gap-6 sm:gap-8 w-full">
+            <div className="flex flex-col px-4 sm:px-6 lg:px-8">
               <JobMonitoringAlertsPanel />
             </div>
           </div>
@@ -684,35 +684,34 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16 w-full"
+          className="grid grid-cols-1 gap-6 sm:gap-8 mb-16 w-full"
         >
-          <div className="lg:col-span-3 flex flex-col pr-8 pl-8">
-            <Card className="p-8 shadow-2xl border border-gray-700 bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm min-h-[32rem] flex flex-col overflow-visible">
+          <div className="flex flex-col px-4 sm:px-6 lg:px-8">
+            <Card className="p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-700 bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm min-h-[32rem] flex flex-col overflow-visible">
               {/* Header with title and filters */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 gap-6">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col gap-4 sm:gap-6 mb-6 sm:mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                   <div className="w-1 h-8 bg-gradient-to-b from-blue-400 to-blue-600 rounded-full"></div>
-                  <h2 className="text-2xl font-bold text-white">Today&apos;s Jobs Timeline</h2>
-                  <span className="px-3 py-1 bg-blue-600/20 text-blue-300 text-sm font-medium rounded-full border border-blue-600/30">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">Today&apos;s Jobs Timeline</h2>
+                  <span className="px-3 py-1 bg-blue-600/20 text-blue-300 text-xs sm:text-sm font-medium rounded-full border border-blue-600/30 w-fit">
                     {filteredJobs.length} jobs
                   </span>
                 </div>
                 
                 {/* Enhanced Filter buttons */}
-                <div className="flex flex-wrap gap-3">
-                  <div className="flex gap-2">
-                    {[
-                      { key: 'all', label: 'All Status', count: todayJobsData.length },
-                      { key: 'scheduled', label: 'Scheduled', count: todayJobsData.filter(j => ['new', 'pending', 'confirmed'].includes((j.status || '').toLowerCase())).length },
-                      { key: 'in-progress', label: 'In Progress', count: todayJobsData.filter(j => ['otw', 'ots', 'pob'].includes((j.status || '').toLowerCase())).length },
-                      { key: 'completed', label: 'Completed', count: todayJobsData.filter(j => ['jc', 'sd'].includes((j.status || '').toLowerCase())).length },
-                      { key: 'delayed', label: 'Delayed', count: todayJobsData.filter(j => j.pickupDateTime < new Date() && !['jc', 'sd', 'canceled'].includes((j.status || '').toLowerCase())).length }
-                    ].map(({ key, label, count }) => (
-                      <motion.button
-                        key={key}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className={`px-4 py-2 text-sm font-medium rounded-xl border transition-all duration-300 ${
+                <div className="flex flex-wrap gap-2 overflow-x-auto">
+                  {[
+                    { key: 'all', label: 'All Status', count: todayJobsData.length },
+                    { key: 'scheduled', label: 'Scheduled', count: todayJobsData.filter(j => ['new', 'pending', 'confirmed'].includes((j.status || '').toLowerCase())).length },
+                    { key: 'in-progress', label: 'In Progress', count: todayJobsData.filter(j => ['otw', 'ots', 'pob'].includes((j.status || '').toLowerCase())).length },
+                    { key: 'completed', label: 'Completed', count: todayJobsData.filter(j => ['jc', 'sd'].includes((j.status || '').toLowerCase())).length },
+                    { key: 'delayed', label: 'Delayed', count: todayJobsData.filter(j => j.pickupDateTime < new Date() && !['jc', 'sd', 'canceled'].includes((j.status || '').toLowerCase())).length }
+                  ].map(({ key, label, count }) => (
+                    <motion.button
+                      key={key}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-xl border transition-all duration-300 whitespace-nowrap ${
                           statusFilter === key
                             ? 'bg-blue-600/90 border-blue-500/60 text-white shadow-lg shadow-blue-600/25'
                             : 'bg-slate-800/80 border-slate-700/60 text-slate-300 hover:bg-slate-700/80 hover:border-slate-600/60'
@@ -731,10 +730,9 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 </div>
-              </div>
               
-              {/* Timeline container - Fixed height, no scrollbar with extra padding for tooltips */}
-              <div className="flex-1 overflow-visible bg-slate-900/40 rounded-2xl border border-slate-700/50 backdrop-blur-sm mx-[-2rem] px-[2rem]">
+              {/* Timeline container - Fixed height with horizontal scroll on mobile */}
+              <div className="flex-1 overflow-x-auto overflow-y-visible bg-slate-900/40 rounded-2xl border border-slate-700/50 backdrop-blur-sm mx-[-1rem] sm:mx-[-2rem] px-[1rem] sm:px-[2rem]">
                 {todayJobsData.length === 0 ? (
                   <motion.div 
                     initial={{ opacity: 0 }}
@@ -754,9 +752,9 @@ export default function DashboardPage() {
                     </motion.button>
                   </motion.div>
                 ) : (
-                  <div className="flex flex-col h-full p-6 pt-12">
-                    {/* Timeline header with hours */}
-                    <div className="relative h-12 border-b border-slate-700/60 mb-6">
+                  <div className="flex flex-col h-full p-4 sm:p-6 pt-8 sm:pt-12 min-w-full sm:min-w-fit">
+                    {/* Timeline header with hours - responsive font size */}
+                    <div className="relative h-10 sm:h-12 border-b border-slate-700/60 mb-6">
                       {/* Hour markers */}
                       {Array.from({ length: 25 }).map((_, i) => (
                         <div 
@@ -764,8 +762,8 @@ export default function DashboardPage() {
                           className="absolute top-0 flex flex-col items-center"
                           style={{ left: `${(i / 24) * 100}%` }}
                         >
-                          <div className="h-3 w-px bg-slate-600"></div>
-                          <span className="text-xs text-slate-300 font-semibold mt-2">
+                          <div className="h-2 sm:h-3 w-px bg-slate-600"></div>
+                          <span className="text-[10px] sm:text-xs text-slate-300 font-semibold mt-1 sm:mt-2">
                             {i.toString().padStart(2, '0')}:00
                           </span>
                         </div>
@@ -947,8 +945,8 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     
-                    {/* Enhanced Timeline legend */}
-                    <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-slate-700/60">
+                    {/* Enhanced Timeline legend - responsive for mobile */}
+                    <div className="flex items-center justify-center flex-wrap gap-3 sm:gap-6 mt-4 pt-4 border-t border-slate-700/60">
                       {[
                         { color: '#3b82f6', label: 'Scheduled' },
                         { color: '#f59e42', label: 'In Progress' },
@@ -956,13 +954,13 @@ export default function DashboardPage() {
                         { color: '#ef4444', label: 'Delayed' }
                       ].map(({ color, label }) => (
                         <div key={label} className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-sm shadow-sm" style={{ backgroundColor: color }}></div>
-                          <span className="text-xs text-slate-300 font-medium">{label}</span>
+                          <div className="w-2 sm:w-3 h-2 sm:h-3 rounded-sm shadow-sm" style={{ backgroundColor: color }}></div>
+                          <span className="text-[10px] sm:text-xs text-slate-300 font-medium">{label}</span>
                         </div>
                       ))}
-                      <div className="flex items-center gap-2 ml-4 pl-4 border-l border-slate-700/60">
-                        <div className="w-px h-3 bg-red-500 shadow-sm"></div>
-                        <span className="text-xs text-slate-300 font-medium">Current Time</span>
+                      <div className="flex items-center gap-2 ml-2 sm:ml-4 pl-2 sm:pl-4 border-l border-slate-700/60">
+                        <div className="w-px h-2 sm:h-3 bg-red-500 shadow-sm"></div>
+                        <span className="text-[10px] sm:text-xs text-slate-300 font-medium">Current Time</span>
                       </div>
                     </div>
                   </div>
@@ -980,41 +978,41 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8 w-full"
+          className="grid grid-cols-1 gap-6 sm:gap-8 mb-8 w-full"
         >
-          <div className="lg:col-span-3 flex flex-col pr-8 pl-8">
-            <Card className="p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark h-full flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Revenue Intelligence</h2>
+          <div className="flex flex-col px-4 sm:px-6 lg:px-8">
+            <Card className="p-4 sm:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark h-full flex flex-col justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-white">Revenue Intelligence</h2>
                 <ActionButton onClick={() => router.push('/jobs')} variant="secondary">View All</ActionButton>
               </div>
               <div className="flex flex-col h-full">
                 {/* KPI Metrics */}
-                <div className="grid grid-cols-4 gap-3 mb-6">
-                  <div className="text-center p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-2xl font-bold text-green-400">${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
-                    <div className="text-sm text-gray-400">Total Revenue</div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-6">
+                  <div className="text-center p-2 sm:p-3 bg-background-light rounded-lg border border-gray-600">
+                    <div className="text-lg sm:text-2xl font-bold text-green-400">${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
+                    <div className="text-xs sm:text-sm text-gray-400">Total Revenue</div>
                   </div>
-                  <div className="text-center p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-2xl font-bold text-blue-400">${paidRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
-                    <div className="text-sm text-gray-400">Paid</div>
+                  <div className="text-center p-2 sm:p-3 bg-background-light rounded-lg border border-gray-600">
+                    <div className="text-lg sm:text-2xl font-bold text-blue-400">${paidRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
+                    <div className="text-xs sm:text-sm text-gray-400">Paid</div>
                   </div>
-                  <div className="text-center p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-2xl font-bold text-orange-400">${pendingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
-                    <div className="text-sm text-gray-400">Pending</div>
+                  <div className="text-center p-2 sm:p-3 bg-background-light rounded-lg border border-gray-600">
+                    <div className="text-lg sm:text-2xl font-bold text-orange-400">${pendingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
+                    <div className="text-xs sm:text-sm text-gray-400">Pending</div>
                   </div>
-                  <div className="text-center p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-2xl font-bold text-red-400">${overdueRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
-                    <div className="text-sm text-gray-400">Overdue</div>
+                  <div className="text-center p-2 sm:p-3 bg-background-light rounded-lg border border-gray-600">
+                    <div className="text-lg sm:text-2xl font-bold text-red-400">${overdueRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
+                    <div className="text-xs sm:text-sm text-gray-400">Overdue</div>
                   </div>
                 </div>
                 
-                {/* Charts Row */}
-                <div className="flex gap-4 flex-1">
+                {/* Charts Row - responsive stacking */}
+                <div className="flex flex-col lg:flex-row gap-4 flex-1">
                   {/* Revenue Trend Chart */}
-                  <div className="flex-1 bg-background-light rounded-lg p-4 border border-gray-600">
-                    <h4 className="text-sm font-semibold text-white mb-3">Revenue Trend (14d)</h4>
-                    <ResponsiveContainer width="100%" height={140}>
+                  <div className="flex-1 bg-background-light rounded-lg p-3 sm:p-4 border border-gray-600 min-h-[160px] sm:min-h-fit">
+                    <h4 className="text-xs sm:text-sm font-semibold text-white mb-3">Revenue Trend (14d)</h4>
+                    <ResponsiveContainer width="100%" height={120}>
                       <BarChart data={revenueByDay}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis 
@@ -1040,9 +1038,9 @@ export default function DashboardPage() {
                   </div>
                   
                   {/* Payment Status Chart */}
-                  <div className="w-48 bg-background-light rounded-lg p-4 border border-gray-600">
-                    <h4 className="text-sm font-semibold text-white mb-3">Payment Status</h4>
-                    <ResponsiveContainer width="100%" height={120}>
+                  <div className="w-full lg:w-48 bg-background-light rounded-lg p-3 sm:p-4 border border-gray-600 min-h-[160px] sm:min-h-fit">
+                    <h4 className="text-xs sm:text-sm font-semibold text-white mb-3">Payment Status</h4>
+                    <ResponsiveContainer width="100%" height={100}>
                       <PieChart>
                         <Pie
                           data={invoiceStatusData}
@@ -1077,9 +1075,9 @@ export default function DashboardPage() {
                     </ResponsiveContainer>
                     <div className="flex flex-col gap-1 mt-2">
                       {invoiceStatusData.map((item, index) => (
-                        <div key={index} className="flex items-center gap-2 text-sm">
+                        <div key={index} className="flex items-center gap-2 text-xs sm:text-sm">
                           <div 
-                            className="w-3 h-3 rounded-sm" 
+                            className="w-2 sm:w-3 h-2 sm:h-3 rounded-sm" 
                             style={{ 
                               backgroundColor: 
                                 item.name === 'Completed' ? '#4ade80' :
@@ -1088,7 +1086,7 @@ export default function DashboardPage() {
                                 '#d1d5db'
                             }}
                           />
-                          <span className="text-gray-300">{item.name}</span>
+                          <span className="text-gray-300 text-xs sm:text-sm">{item.name}</span>
                         </div>
                       ))}
                     </div>

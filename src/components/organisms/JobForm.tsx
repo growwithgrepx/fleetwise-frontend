@@ -428,10 +428,11 @@ export interface JobFormProps {
   onCancel: () => void;
   onDelete?: (jobId: string | number) => Promise<void>;
   isLoading?: boolean;
+  isModal?: boolean;
 }
 
 const JobForm: React.FC<JobFormProps> = (props) => {
-  const { job, initialData, onSave, onCancel, onDelete, isLoading = false } = props;
+  const { job, initialData, onSave, onCancel, onDelete, isLoading = false, isModal = false } = props;
   
   // Debug: log component mount
   useEffect(() => {
@@ -2791,7 +2792,7 @@ if (!driverExists) {
   }, [formData.service_type, formData.vehicle_type]); // Fixed dependencies to only include the specific fields we're checking
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className={isModal ? "w-full bg-gray-900 text-white flex flex-col" : "min-h-screen bg-gray-900 text-white"}>
       {/* Header */}
       <div className="bg-gray-800 border-b border-gray-700 px-4 py-4 sm:px-6">
         <div className="flex items-center justify-between">
@@ -2870,7 +2871,7 @@ if (!driverExists) {
               disabled={isLoading || saveStatus === "saving" || isAiLoading}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
                 isLoading || saveStatus === "saving" || isAiLoading
-                  ? 'bg-blue-800 cursor-not-allowed' 
+                  ? 'bg-blue-800 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
               }`}
             >
@@ -2896,8 +2897,8 @@ if (!driverExists) {
       </div>
 
       <div
-        className="max-w-7xl w-full mx-auto bg-gray-900 rounded-xl shadow-2xl p-6 md:p-8 relative"
-        style={{ maxHeight: "90vh", overflowY: "auto" }}
+        className={isModal ? "flex-1 w-full overflow-y-auto p-6" : "w-full bg-gray-900 rounded-xl shadow-2xl p-6 md:p-8 relative"}
+        style={!isModal ? { maxHeight: "90vh", overflowY: "auto" } : undefined}
       >
         <form
           className="flex flex-col gap-6 items-stretch"
