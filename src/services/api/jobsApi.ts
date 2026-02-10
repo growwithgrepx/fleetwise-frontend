@@ -121,7 +121,7 @@ function parseExtraServices(extraServices: any): any[] {
 }
 
 /** Fetch jobs with optional filters */
-export async function getJobs(filters: JobFilters = {}): Promise<JobsResponse> {
+export async function getJobs(filters: JobFilters = {}, signal?: AbortSignal): Promise<JobsResponse> {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
@@ -129,7 +129,7 @@ export async function getJobs(filters: JobFilters = {}): Promise<JobsResponse> {
     }
   });
 
-  const response = await api.get<JobsResponse>(`/api/jobs/table?${params.toString()}`);
+  const response = await api.get<JobsResponse>(`/api/jobs/table?${params.toString()}`, { signal });
   const processedItems = response.data.items.map(job => ({
     ...job,
     // Ensure final_price is a proper number, not a string with leading zeros
