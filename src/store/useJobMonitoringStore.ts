@@ -25,6 +25,7 @@ export interface JobMonitoringAlert {
 interface JobMonitoringState {
   alerts: JobMonitoringAlert[];
   unreadCount: number;
+  cleanupTimer: NodeJS.Timeout | null;
   init: () => void;
   cleanupOldAlerts: () => void;
   resetCleanupTimer: () => void;
@@ -45,15 +46,19 @@ let cleanupTimer: NodeJS.Timeout | null = null;
 export const useJobMonitoringStore = create<JobMonitoringState>((set, get) => ({
   alerts: [],
   unreadCount: 0,
+  cleanupTimer: null,
   
   // Initialize cleanup timer
   init: () => {
+    const { cleanupTimer } = get();
     if (!cleanupTimer) {
-      cleanupTimer = setInterval(() => {
+      const timer = setInterval(() => {
         get().cleanupOldAlerts();
       }, ALERT_CLEANUP_INTERVAL);
       
-      // Cleanup on store destruction (in development)
+      // Store timer reference for cleanup
+      set({ cleanupTimer: timer });
+      
       if (process.env.NODE_ENV === 'development') {
         console.debug('[JobMonitoringStore] Cleanup timer initialized');
       }
@@ -131,6 +136,11 @@ export const useJobMonitoringStore = create<JobMonitoringState>((set, get) => ({
           .slice(0, MAX_ALERTS);
       }
       
+      // Restart cleanup timer if this is the first alert
+      if (state.alerts.length === 0 && updatedAlerts.length > 0) {
+        get().resetCleanupTimer();
+      }
+      
       return {
         alerts: updatedAlerts,
         unreadCount: updatedAlerts.filter(alert => !alert.dismissed).length,
@@ -166,9 +176,16 @@ export const useJobMonitoringStore = create<JobMonitoringState>((set, get) => ({
   
   clearAllAlerts: () => {
     set({ alerts: [], unreadCount: 0 });
-    
+      
+    // Stop cleanup timer when clearing all alerts
+    const { cleanupTimer } = get();
+    if (cleanupTimer) {
+      clearInterval(cleanupTimer);
+      set({ cleanupTimer: null });
+    }
+  
     if (process.env.NODE_ENV === 'development') {
-      console.debug('[JobMonitoringStore] All alerts cleared');
+      console.debug('[JobMonitoringStore] All alerts cleared and cleanup timer stopped');
     }
   },
   
@@ -184,7 +201,7 @@ export const useJobMonitoringStore = create<JobMonitoringState>((set, get) => ({
       // Validate and limit incoming alerts
       let validatedAlerts = newAlerts;
       if (newAlerts.length > MAX_ALERTS) {
-        validatedAlerts = newAlerts
+        validatedAlerts = [...newAlerts]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, MAX_ALERTS);
       }

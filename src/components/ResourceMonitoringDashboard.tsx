@@ -4,7 +4,7 @@
  * Displays real-time system health metrics, resource usage, and circuit breaker status.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
   Cpu, 
@@ -90,6 +90,7 @@ const ResourceMonitoringDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+  const isMounted = useRef(true);
 
   // Fetch system health data
   const fetchSystemHealth = async () => {
@@ -97,10 +98,14 @@ const ResourceMonitoringDashboard: React.FC = () => {
       const response = await fetch('/api/system-health');
       if (!response.ok) throw new Error('Failed to fetch system health');
       const data = await response.json();
-      setHealthData(data);
-      setError(null);
+      if (isMounted.current) {
+        setHealthData(data);
+        setError(null);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      if (isMounted.current) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
     }
   };
 
@@ -110,16 +115,21 @@ const ResourceMonitoringDashboard: React.FC = () => {
       const response = await fetch('/api/circuit-breaker-status');
       if (!response.ok) throw new Error('Failed to fetch circuit breaker status');
       const data = await response.json();
-      setCircuitBreakerData(data);
+      if (isMounted.current) {
+        setCircuitBreakerData(data);
+      }
     } catch (err) {
-      console.error('Failed to fetch circuit breaker status:', err);
+      if (isMounted.current) {
+        console.error('Failed to fetch circuit breaker status:', err);
+      }
     }
   };
 
   // Reset circuit breaker (admin only)
   const resetCircuitBreaker = async (serviceName: string) => {
     try {
-      const response = await fetch(`/api/reset-circuit-breaker/${serviceName}`, {
+      const encodedServiceName = encodeURIComponent(serviceName);
+      const response = await fetch(`/api/reset-circuit-breaker/${encodedServiceName}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,6 +150,19 @@ const ResourceMonitoringDashboard: React.FC = () => {
 
   // Start auto-refresh
   useEffect(() => {
+    const initialize = async () => {
+      try {
+        await Promise.all([
+          fetchSystemHealth(),
+          fetchCircuitBreakerStatus(),
+        ]);
+      } finally {
+        if (isMounted.current) {
+          setLoading(false);
+        }
+      }
+    };
+    
     const interval = setInterval(() => {
       fetchSystemHealth();
       fetchCircuitBreakerStatus();
@@ -148,9 +171,7 @@ const ResourceMonitoringDashboard: React.FC = () => {
     setRefreshInterval(interval);
     
     // Initial fetch
-    fetchSystemHealth();
-    fetchCircuitBreakerStatus();
-    setLoading(false);
+    initialize();
     
     return () => {
       if (interval) clearInterval(interval);
@@ -160,9 +181,10 @@ const ResourceMonitoringDashboard: React.FC = () => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      isMounted.current = false;
       if (refreshInterval) clearInterval(refreshInterval);
     };
-  }, [refreshInterval]);
+  }, []);
 
   if (loading) {
     return (
@@ -184,7 +206,7 @@ const ResourceMonitoringDashboard: React.FC = () => {
     );
   }
 
-  if (!healthData || !circuitBreakerData) {
+  if (!healthData) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <div className="flex items-center gap-2 text-yellow-800">
@@ -223,7 +245,14 @@ const ResourceMonitoringDashboard: React.FC = () => {
     const colorClass = percentage > 80 ? 'bg-red-500' : percentage > 60 ? 'bg-yellow-500' : 'bg-green-500';
     
     return (
-      <div className={`w-full bg-gray-200 rounded-full h-2 ${className}`}>
+      <div 
+        className={`w-full bg-gray-200 rounded-full h-2 ${className}`}
+        role="progressbar"
+        aria-valuenow={Math.round(percentage)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${Math.round(percentage)}%`}
+      >
         <div 
           className={`h-2 rounded-full ${colorClass} transition-all duration-300`}
           style={{ width: `${percentage}%` }}
