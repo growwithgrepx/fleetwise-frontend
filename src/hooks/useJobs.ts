@@ -72,13 +72,23 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
 
   const [debouncedFilters, setDebouncedFilters] = useState<JobFilters>(filters);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const updateFilters = useCallback((newFilters: Partial<JobFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
     
+    // Cancel previous debounce timeout
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
+    
+    // Cancel previous API requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller for upcoming requests
+    abortControllerRef.current = new AbortController();
     
     debounceTimeoutRef.current = setTimeout(() => {
       setDebouncedFilters(prev => ({ ...prev, ...newFilters }));
@@ -99,25 +109,47 @@ export function useJobs(initialJobId?: number): UseJobsReturn {
     setFilters(emptyFilters);
     setDebouncedFilters(emptyFilters);
     
+    // Cancel debounce timeout
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
+    
+    // Cancel ongoing API requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
   }, [setFilters, setDebouncedFilters]);
 
   // Cleanup effect
   useEffect(() => {
     return () => {
+      // Clear debounce timeout
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
+      }
+      
+      // Abort any pending API requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
       }
     };
   }, []);
 
-  // Queries
+  // Queries with manual refetch control
   const jobsQuery = useQuery({
     queryKey: jobKeys.lists(debouncedFilters),
-    queryFn: () => jobsApi.getJobs(debouncedFilters),
-    staleTime: 1000 * 60 // 1 minute
+    queryFn: () => jobsApi.getJobs(debouncedFilters, abortControllerRef.current?.signal),
+    staleTime: 1000 * 60, // 1 minute
+    retry: 1, // Limit retries to prevent excessive requests
+    gcTime: 1000 * 60 * 5, // 5 minutes garbage collection
+    // Disable automatic refetching when window regains focus to prevent unwanted requests
+    refetchOnWindowFocus: false,
+    // Disable refetching on reconnect to prevent duplicate requests
+    refetchOnReconnect: false,
   });
 
   const jobQuery = useQuery({
