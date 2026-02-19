@@ -7,7 +7,7 @@ import { useUser } from '@/context/UserContext';
 import { Card } from '@/components/atoms/Card';
 import { Button } from '@/components/atoms/Button';
 import { format, addDays, subDays, parseISO, differenceInHours, isSameDay, isToday, isYesterday, startOfDay, isWithinInterval } from 'date-fns';
-import { parseDisplayDate, convertUtcToDisplayTime } from '@/utils/timezoneUtils';
+import { parseDisplayDate, convertUtcToDisplayTime, convertUtcToDisplay, getDisplayTimezone } from '@/utils/timezoneUtils';
 import { 
   TruckIcon, 
   UserIcon, 
@@ -508,30 +508,30 @@ export default function DriverCalendarPage() {
               
               // Prioritize dropoff_time if available for duration calculation
               if (job.dropoff_time) {
-  // Convert BOTH pickup & dropoff to display timezone
-  const displayDropoffTime = convertUtcToDisplayTime(
-    job.dropoff_time,
-    job.pickup_date
-  );
+                // Convert BOTH pickup & dropoff to display timezone
+                const displayDropoffTime = convertUtcToDisplayTime(
+                  job.dropoff_time,
+                  job.pickup_date
+                );
 
-  const [dropoffHour, dropoffMinute] = displayDropoffTime
-    .split(':')
-    .map(Number);
+                const [dropoffHour, dropoffMinute] = displayDropoffTime
+                  .split(':')
+                  .map(Number);
 
-  if (!isNaN(dropoffHour) && !isNaN(dropoffMinute)) {
-    const pickupTotalMinutes = pickupHour * 60 + pickupMinute;
-    const dropoffTotalMinutes = dropoffHour * 60 + dropoffMinute;
+                if (!isNaN(dropoffHour) && !isNaN(dropoffMinute)) {
+                  const pickupTotalMinutes = pickupHour * 60 + pickupMinute;
+                  const dropoffTotalMinutes = dropoffHour * 60 + dropoffMinute;
 
-    let durationMinutes = dropoffTotalMinutes - pickupTotalMinutes;
+                  let durationMinutes = dropoffTotalMinutes - pickupTotalMinutes;
 
-    // Handle overnight jobs
-    if (durationMinutes <= 0) {
-      durationMinutes += 24 * 60;
-    }
+                  // Handle overnight jobs
+                  if (durationMinutes <= 0) {
+                    durationMinutes += 24 * 60;
+                  }
 
-    durationHours = durationMinutes / 60;
-  }
-}else if (job.duration_hours) {
+                  durationHours = durationMinutes / 60;
+                }
+              } else if (job.duration_hours) {
                 durationHours = job.duration_hours;
               } else {
                 // Try to get duration from service type patterns as fallback
@@ -1004,14 +1004,18 @@ export default function DriverCalendarPage() {
             <div className="flex bg-gray-900/50">
               <div className="w-48 min-w-[12rem] flex-shrink-0"></div> {/* Space for driver info */}
               <div className="flex-1 grid grid-cols-12 gap-0">
-                {Array.from({ length: 12 }, (_, i) => i * 2).map(hour => (
-                  <div 
-                    key={hour} 
-                    className="text-center text-xs text-gray-400 py-2 border-r border-gray-600 last:border-r-0"
-                  >
-                    {hour}:00
-                  </div>
-                ))}
+                {Array.from({ length: 12 }, (_, i) => i * 2).map(hour => {
+                  // Use local time directly for timeline labels
+                  // This ensures the grid represents local time (00:00-23:59)
+                  return (
+                    <div 
+                      key={hour} 
+                      className="text-center text-xs text-gray-400 py-2 border-r border-gray-600 last:border-r-0"
+                    >
+                      {hour.toString().padStart(2, '0')}:00
+                    </div>
+                  );
+                })}
               </div>
             </div>
             
@@ -1117,6 +1121,17 @@ export default function DriverCalendarPage() {
                             const startMinute = parseInt(block.startTime.split(':')[1]);
                             const blockStartOffset = ((startHour * 60 + startMinute) / (24 * 60)) * 100; // Percentage of day
                             
+                            if (process.env.NODE_ENV === 'development') {
+                              console.log(`Block positioning for ${block.type} (${block.job?.id || block.leave?.id || 'N/A'}):`);
+                              console.log(`  Start time: ${block.startTime} (${startHour}:${startMinute})`);
+                              console.log(`  Position offset: ${blockStartOffset.toFixed(2)}%`);
+                              console.log(`  Display timezone: ${getDisplayTimezone()}`);
+                              console.log(`  Selected date (local): ${selectedDate.toString()}`);
+                              console.log(`  Selected date formatted: ${format(selectedDate, 'yyyy-MM-dd')}`);
+                              console.log(`  Raw pickup_time from job: ${block.job?.pickup_time}`);
+                              console.log(`  Display pickup_time: ${convertUtcToDisplayTime(block.job?.pickup_time || '', block.job?.pickup_date)}`);
+                            }
+                            
                             // Calculate width based on duration
                             const [endHour, endMinute] = block.endTime.split(':').map(Number);
                             let durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
@@ -1132,22 +1147,16 @@ export default function DriverCalendarPage() {
                               durationMinutes = MIN_VISIBLE_DURATION_WIDTH;
                             }
                             
-                            // Business Rule: One calendar cell = 120 minutes
-                            // Default trip duration = 45 minutes (0.375 cells)
-                            // Minimum visible block = 45 minutes
-                            const CELL_TIME_SPAN = 120; // minutes per cell
+                            // Calculate actual proportional width based on 24-hour timeline (1440 minutes total)
+                            // Job block width should be proportional to actual pickup-to-dropoff duration
                             const MIN_VISIBLE_DURATION = 45; // minimum minutes for visibility
                             
-                            // Calculate width as percentage of cell time span
-                            // Block height calculation: (duration in minutes / 120) * cell height
-                            const durationPercentage = (durationMinutes / CELL_TIME_SPAN) * 100;
-                            
-                            // If duration < 45 min, use 45 min for display purposes (minimum block size)
+                            // Calculate width as percentage of full 24-hour day (1440 minutes)
                             const displayDurationMinutes = Math.max(MIN_VISIBLE_DURATION, durationMinutes);
-                            const displayWidthPercent = (displayDurationMinutes / CELL_TIME_SPAN) * 100;
+                            const widthPercent = (displayDurationMinutes / 1440) * 100;
                             
-                            // Use display width for actual rendering, but keep actual duration for calculations
-                            const widthPercent = Math.max(37.5, displayWidthPercent); // 37.5% = (45 / 120) * 100
+                            // Ensure minimum visible width (approximately 3.125% for 45 minutes)
+                            const finalWidthPercent = Math.max(3.125, widthPercent);
                             
                             // Block width calculation: (duration in minutes / 120) * cell width
                             
@@ -1155,22 +1164,21 @@ export default function DriverCalendarPage() {
                               console.log(`Block ${block.type} (${block.job?.id || block.leave?.id || 'N/A'}):`);
                               console.log(`  Actual duration: ${durationMinutes} mins`);
                               console.log(`  Display duration: ${displayDurationMinutes} mins (min: ${MIN_VISIBLE_DURATION})`);
-                              console.log(`  Cell time span: ${CELL_TIME_SPAN} mins`);
-                              console.log(`  Actual percentage: ${durationPercentage.toFixed(1)}%`);
-                              console.log(`  Display percentage: ${displayWidthPercent.toFixed(1)}%`);
-                              console.log(`  Final width: ${widthPercent.toFixed(1)}%`);
+                              console.log(`  Timeline span: 1440 mins (24 hours)`);
+                              console.log(`  Width percentage: ${widthPercent.toFixed(1)}%`);
+                              console.log(`  Final width: ${finalWidthPercent.toFixed(1)}%`);
                               if (block.type === 'leave') {
-                                console.log(`LEAVE BLOCK DEBUG: startTime=${block.startTime}, endTime=${block.endTime}, duration=${durationMinutes}mins, width=${widthPercent}%`);
+                                console.log(`LEAVE BLOCK DEBUG: startTime=${block.startTime}, endTime=${block.endTime}, duration=${durationMinutes}mins, width=${finalWidthPercent}%`);
                               }
                             }
                             
                             return (
                               <div
                                 key={`${block.driverId}-${block.startTime}-${idx}`}
-                                className={`absolute h-full ${bgColor} ${borderClass} cursor-pointer transition-all duration-200 hover:opacity-90 rounded shadow-sm hover:shadow-lg hover:scale-[1.02] hover:z-10 flex items-center text-sm ${textColor} ${widthPercent < 3 ? 'justify-center' : 'justify-start'} overflow-hidden`}
+                                className={`absolute h-full ${bgColor} ${borderClass} cursor-pointer transition-all duration-200 hover:opacity-90 rounded shadow-sm hover:shadow-lg hover:scale-[1.02] hover:z-10 flex items-center text-sm ${textColor} ${finalWidthPercent < 3 ? 'justify-center' : 'justify-start'} overflow-hidden`}
                                 style={{
                                   left: `${blockStartOffset}%`,
-                                  width: `${widthPercent}%`,
+                                  width: `${finalWidthPercent}%`,
                                   top: `${idx * 25}px`, // Fixed pixel height for consistent spacing
                                   minHeight: '24px',
                                   maxHeight: '24px',
