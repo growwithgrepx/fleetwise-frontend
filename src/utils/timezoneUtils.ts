@@ -8,12 +8,8 @@
  * Reads from General Settings, defaults to Asia/Singapore
  */
 export function getDisplayTimezone(): string {
-  // Debug: Check what's in localStorage
+  // Check what's in localStorage
   if (typeof window !== 'undefined') {
-    console.log('[TimezoneUtils] localStorage contents:');
-    console.log('userTimezone:', localStorage.getItem('userTimezone'));
-    console.log('systemTimezone:', localStorage.getItem('systemTimezone'));
-    console.log('All localStorage keys:', Object.keys(localStorage));
     
     // Temporary test: Force SGT timezone
     // localStorage.setItem('userTimezone', 'Asia/Singapore');
@@ -206,6 +202,28 @@ function getTimezoneOffset(timezone: string, date: Date): number {
   console.log('%%%%%%%%%%%%%%%%%%%% GET TIMEZONE OFFSET CALLED %%%%%%%%%%%%%%%%%%%%%');
   console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
   console.log('[TimezoneUtils] getTimezoneOffset called with:', { timezone, date: date.toISOString() });
+  
+  // Simple approach: Use a mapping for common timezones
+  const timezoneOffsets: Record<string, number> = {
+    'Asia/Singapore': 480, // UTC+8
+    'America/Los_Angeles': -480, // UTC-8
+    'Europe/Paris': 60, // UTC+1
+    'Asia/Kolkata': 330, // UTC+5:30
+    'Asia/Tokyo': 540, // UTC+9
+    'Australia/Sydney': 600, // UTC+10
+  };
+  
+  if (timezone in timezoneOffsets) {
+    const offset = timezoneOffsets[timezone];
+    console.log('[TimezoneUtils] Using mapped offset for', timezone, ':', offset, 'minutes');
+    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
+    console.log('%%%%%%%%%%%%%%%%%%% GET TIMEZONE OFFSET FINISHED %%%%%%%%%%%%%%%%%%%%%');
+    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
+    return offset;
+  }
+  
+  // Fallback to Intl.DateTimeFormat approach
+  console.log('[TimezoneUtils] Falling back to Intl.DateTimeFormat approach');
   
   // Get the timezone offset for the given date in the specified timezone
   // This approach directly calculates the offset between the timezone and UTC
@@ -453,7 +471,9 @@ export function formatUtcTime(date: Date): string {
  * @returns Time string in display timezone (HH:MM format)
  */
 export function convertUtcToDisplayTime(utcTimeString: string, utcDateString?: string): string {
-  console.log('[TimezoneUtils] convertUtcToDisplayTime called with:', { utcTimeString, utcDateString });
+  if (!utcTimeString) {
+    return '';
+  }
   
   if (!utcTimeString) {
     console.log('[TimezoneUtils] No time string provided, returning empty string');

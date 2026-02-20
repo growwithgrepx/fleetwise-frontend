@@ -20,6 +20,7 @@ import PriorityDashboard, { PriorityAlert } from '@/components/organisms/Priorit
 import JobMonitoringAlertsPanel from '@/components/organisms/JobMonitoringAlertsPanel';
 import { useGetAllDrivers } from '@/hooks/useDrivers';
 import { TooltipProps } from "@/types/types";
+import { convertUtcToDisplayTime, getDisplayTimezone } from "@/utils/timezoneUtils";
 
 // Extended Job type for timeline visualization
 type TimelineJob = Job & {
@@ -31,6 +32,7 @@ type TimelineJob = Job & {
   isEndingTomorrow: boolean;
   pickupDateTime: Date;
   endDateTime: Date;
+  verticalOffset: number;
   customer: string;
 };
 
@@ -390,31 +392,135 @@ export default function DashboardPage() {
       return pickupDate >= today && pickupDate < tomorrow;
     });
     
+    // Debug: Log all today's jobs for analysis
+    if (process.env.NODE_ENV === 'development') {
+      console.log('=== TODAY\'S JOBS DEBUG ===');
+      todayJobs.forEach(job => {
+        console.log(`Job ${job.id}: pickup_date=${job.pickup_date}, pickup_time=${job.pickup_time}, status=${job.status}`);
+      });
+    }
+    
     return todayJobs.map(job => {
-      const pickupDateTime = new Date(`${job.pickup_date}T${job.pickup_time}`);
+      // Create Date object respecting company timezone setting
+      // job.pickup_time is stored in the database as UTC but needs to be displayed in company's configured timezone (SGT)
+      // We need to convert the UTC time to display timezone for proper positioning
+      
+      // Convert UTC pickup time to display timezone for positioning
+      const displayPickupTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
+      const [pickupHour, pickupMinute] = displayPickupTime.split(':').map(Number);
+      
+      // Get the company timezone for reference
+      const companyTimezone = getDisplayTimezone();
+      
+      // Create date in the company timezone context for proper display
+      const pickupDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), pickupHour, pickupMinute);
+      
+      // Debug timezone info
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Job ${job.id}: Company timezone = ${companyTimezone}`);
+        console.log(`Job ${job.id}: Original UTC pickup_time=${job.pickup_time}, converted to display time=${displayPickupTime} (in ${companyTimezone})`);
+        console.log(`Job ${job.id}: Created Date object with hours=${pickupHour}:${pickupMinute}`);
+      }
       const durationHours = job.estimated_duration ? parseFloat(job.estimated_duration) : 1;
       const endDateTime = new Date(pickupDateTime.getTime() + durationHours * 60 * 60 * 1000);
+      
+      // Debug logging for timezone issues
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Job ${job.id}: pickup_time=${job.pickup_time}, converted display time=${displayPickupTime}, pickupDateTime.getHours()=${pickupDateTime.getHours()}, position using converted time=${displayPickupTime}`);
+        console.log(`Job ${job.id}: status=${job.status}, pickupDateTime=${pickupDateTime}, now=${now}`);
+      }
       
       const isStartingYesterday = pickupDateTime < today;
       const isEndingTomorrow = endDateTime >= tomorrow;
       
+      // Parse time from converted display time to respect company timezone
+      // Job pickup_time comes from database in UTC, but we use the converted display time for positioning
       const startPercent = isStartingYesterday ? 0 : 
-        ((pickupDateTime.getHours() * 60 + pickupDateTime.getMinutes()) / (24 * 60)) * 100;
+        ((pickupHour * 60 + pickupMinute) / (24 * 60)) * 100;
       
+      // Debug position calculation
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Job ${job.id}: Position calculation = ((${pickupHour} * 60 + ${pickupMinute}) / 1440) * 100 = ${startPercent}%`);
+        console.log(`Job ${job.id}: Expected timeline position ~${Math.round((pickupHour / 24) * 100)}%`);
+      }
+      
+      // Enhanced debugging for timezone issues
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Job ${job.id}: UTC pickup_time=${job.pickup_time}, converted display time=${displayPickupTime}, parsed hour=${pickupHour}, position=${startPercent}%`);
+        console.log(`Job ${job.id}: status=${job.status}, pickupDateTime=${pickupDateTime}, now=${now}`);
+        
+        // Debug specific jobs
+        if ([215, 216, 217, 214].includes(job.id)) {
+          console.log(`=== JOB #${job.id} DETAILED DEBUG ===`);
+          console.log(`Original UTC pickup_time string: ${job.pickup_time}`);
+          console.log(`Converted display pickup_time: ${displayPickupTime}`);
+          console.log(`pickupDateTime object: ${pickupDateTime}`);
+          console.log(`pickupDateTime.getHours(): ${pickupDateTime.getHours()}`);
+          console.log(`Parsed hour/minute: ${pickupHour}:${pickupMinute}`);
+          console.log(`Position calculation: ((${pickupHour} * 60 + ${pickupMinute}) / 1440) * 100 = ${startPercent}%`);
+          console.log(`Expected timeline position: ~${Math.round((pickupHour / 24) * 100)}%`);
+        }
+      }
+      
+      // Group jobs by pickup time to handle same-time jobs
+      const jobsByTime: Record<string, TimelineJob[]> = {};
+      todayJobs.forEach(job => {
+        const timeKey = `${job.pickup_date}T${job.pickup_time}`;
+        if (!jobsByTime[timeKey]) {
+          jobsByTime[timeKey] = [];
+        }
+        jobsByTime[timeKey].push(job);
+      });
+      
+      // Assign vertical lanes to same-time jobs
+      const jobLaneMap: Record<number, number> = {};
+      Object.values(jobsByTime).forEach(jobGroup => {
+        if (jobGroup.length > 1) {
+          // Multiple jobs at same time - assign different lanes
+          jobGroup.forEach((job, index) => {
+            jobLaneMap[job.id] = index;
+          });
+        } else {
+          // Single job at this time
+          jobLaneMap[jobGroup[0].id] = 0;
+        }
+      });
+      
+      // Calculate vertical position based on lane assignment
+      const verticalOffset = (jobLaneMap[job.id] || 0) * 60; // 60px per lane
+      
+      // Calculate end percent using the converted display time
+      const displayDropoffTime = job.dropoff_time ? convertUtcToDisplayTime(job.dropoff_time, job.pickup_date) : null;
       const endPercent = isEndingTomorrow ? 100 :
-        ((endDateTime.getHours() * 60 + endDateTime.getMinutes()) / (24 * 60)) * 100;
+        displayDropoffTime ?
+          ((parseInt(displayDropoffTime.split(':')[0]) * 60 + parseInt(displayDropoffTime.split(':')[1])) / (24 * 60)) * 100 :
+          ((endDateTime.getHours() * 60 + endDateTime.getMinutes()) / (24 * 60)) * 100;
       
       const status = (job.status || '').toLowerCase();
       let statusColor;
       
+      // Enhanced status logic: Handle completed vs delayed jobs correctly
       if (['jc', 'sd'].includes(status)) {
+        // Explicitly completed jobs - always green
         statusColor = '#22c55e';
       } else if (['otw', 'ots', 'pob'].includes(status)) {
+        // In-progress jobs - orange
         statusColor = '#f59e42';
       } else if (pickupDateTime < now && !['jc', 'sd', 'canceled'].includes(status)) {
-        statusColor = '#ef4444';
+        // Jobs past pickup time but NOT explicitly completed/canceled
+        // These should be considered Unresolved or Completed in practice
+        statusColor = '#ef4444'; // Still red for now, but this is the issue
       } else {
+        // Scheduled jobs (future pickup time) - blue
         statusColor = '#3b82f6';
+      }
+      
+      // Debug logging for status classification
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Job ${job.id} (${job.status}): pickup=${pickupDateTime}, now=${now}, classified as ${statusColor === '#22c55e' ? 'Completed' : statusColor === '#ef4444' ? 'Delayed' : statusColor === '#f59e42' ? 'In Progress' : 'Scheduled'}`);
+        if (pickupDateTime < now && !['jc', 'sd', 'canceled'].includes(status)) {
+          console.log(`⚠️ Job ${job.id} is past pickup time but not explicitly completed - this should be Completed status in DB`);
+        }
       }
       
       return {
@@ -428,6 +534,7 @@ export default function DashboardPage() {
         isEndingTomorrow,
         pickupDateTime,
         endDateTime,
+        verticalOffset,
         customer: job.customer?.name || job.passenger_name || 'Unknown',
       };
     });
@@ -459,31 +566,10 @@ export default function DashboardPage() {
     });
   }, [todayJobsData, statusFilter, vehicleFilter, priorityFilter]);
 
-  // Group jobs by their vertical position to prevent overlapping
+  // Display all jobs on a single timeline row without grouping
   const jobRows = useMemo((): TimelineJob[][] => {
-    const rows: TimelineJob[][] = [];
-    const sortedJobs = [...filteredJobs].sort((a, b) => a.startPercent - b.startPercent);
-    
-    sortedJobs.forEach(job => {
-      let placed = false;
-      
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const lastJob = row[row.length - 1];
-        
-        if (job.startPercent >= lastJob.endPercent) {
-          row.push(job);
-          placed = true;
-          break;
-        }
-      }
-      
-      if (!placed) {
-        rows.push([job]);
-      }
-    });
-    
-    return rows;
+    // Return all jobs in a single row to show individual pickup times
+    return [filteredJobs];
   }, [filteredJobs]);
 
   // Average Trip Duration data
@@ -700,13 +786,14 @@ export default function DashboardPage() {
                 
                 {/* Enhanced Filter buttons */}
                 <div className="flex flex-wrap gap-2 overflow-x-auto">
-                  {[
-                    { key: 'all', label: 'All Status', count: todayJobsData.length },
-                    { key: 'scheduled', label: 'Scheduled', count: todayJobsData.filter(j => ['new', 'pending', 'confirmed'].includes((j.status || '').toLowerCase())).length },
-                    { key: 'in-progress', label: 'In Progress', count: todayJobsData.filter(j => ['otw', 'ots', 'pob'].includes((j.status || '').toLowerCase())).length },
-                    { key: 'completed', label: 'Completed', count: todayJobsData.filter(j => ['jc', 'sd'].includes((j.status || '').toLowerCase())).length },
-                    { key: 'delayed', label: 'Delayed', count: todayJobsData.filter(j => j.pickupDateTime < new Date() && !['jc', 'sd', 'canceled'].includes((j.status || '').toLowerCase())).length }
-                  ].map(({ key, label, count }) => (
+                  {
+                    [
+                      { key: 'all', label: 'All Status', count: todayJobsData.length },
+                      { key: 'scheduled', label: 'Scheduled', count: todayJobsData.filter(j => ['new', 'pending', 'confirmed'].includes((j.status || '').toLowerCase())).length },
+                      { key: 'in-progress', label: 'In Progress', count: todayJobsData.filter(j => ['otw', 'ots', 'pob'].includes((j.status || '').toLowerCase())).length },
+                      { key: 'completed', label: 'Completed', count: todayJobsData.filter(j => ['jc', 'sd'].includes((j.status || '').toLowerCase())).length },
+                      { key: 'delayed', label: 'Delayed', count: todayJobsData.filter(j => j.pickupDateTime < new Date() && !['jc', 'sd', 'canceled'].includes((j.status || '').toLowerCase())).length }
+                    ].map(({ key, label, count }) => (
                     <motion.button
                       key={key}
                       whileHover={{ scale: 1.05 }}
@@ -727,7 +814,8 @@ export default function DashboardPage() {
                           </span>
                         )}
                       </motion.button>
-                    ))}
+                    ))
+                  }
                   </div>
                 </div>
               
@@ -769,15 +857,14 @@ export default function DashboardPage() {
                         </div>
                       ))}
                       
-                      {/* Half-hour markers */}
+                      {/* Half-hour markers - tick lines only */}
                       {Array.from({ length: 24 }).map((_, i) => (
                         <div 
                           key={i} 
                           className="absolute top-0 flex flex-col items-center"
                           style={{ left: `${((i + 0.5) / 24) * 100}%` }}
                         >
-                          <div className="h-2 w-px bg-slate-700/60"></div>
-                          <span className="text-[10px] text-slate-500 mt-2">30</span>
+                          <div className="h-2 w-px bg-slate-700/40"></div>
                         </div>
                       ))}
                     </div>
@@ -830,9 +917,10 @@ export default function DashboardPage() {
                                       zIndex: 50,
                                       transition: { duration: 0.2 }
                                     }}
-                                    className="absolute top-0 h-14 rounded-xl shadow-lg border border-gray-600/60 transition-all duration-300 hover:shadow-xl group cursor-pointer backdrop-blur-sm"
+                                    className="absolute h-14 rounded-xl shadow-lg border border-gray-600/60 transition-all duration-300 hover:shadow-xl group cursor-pointer backdrop-blur-sm"
                                     style={{
                                       left: `${job.startPercent}%`,
+                                      top: `${job.verticalOffset}px`,
                                       width: `${Math.max(job.width, 4)}%`,
                                       minWidth: '80px',
                                       background: `linear-gradient(135deg, ${job.statusColor}E6, ${job.statusColor}CC)`,
@@ -868,12 +956,16 @@ export default function DashboardPage() {
                                     <div className="absolute z-50 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none group-hover:translate-y-0 translate-y-2">
                                       <div 
                                         className="bg-slate-900/95 backdrop-blur-md text-white text-sm p-4 rounded-xl shadow-2xl border border-slate-700/60 w-80"
-                                        style={{
-                                          position: 'absolute',
-                                          top: '-16px',
-                                          left: jobCenter < 30 ? '0px' : jobCenter > 70 ? '-320px' : '-160px',
-                                          transform: 'translateY(-100%)',
-                                        }}
+                                        style={(() => {
+                                          // Dynamic positioning based on vertical space
+                                          const showAbove = job.verticalOffset > 80; // enough space above (80px minimum)
+                                          return {
+                                            position: 'absolute',
+                                            top: showAbove ? '-16px' : '110%',
+                                            left: jobCenter < 30 ? '0px' : jobCenter > 70 ? '-320px' : '-160px',
+                                            transform: showAbove ? 'translateY(-100%)' : 'none',
+                                          };
+                                        })()}
                                       >
                                         <div className="flex items-center justify-between mb-3">
                                           <div className="font-bold text-blue-300">Job #{job.id}</div>
@@ -891,9 +983,9 @@ export default function DashboardPage() {
                                           <div className="truncate">{job.service_type}</div>
                                           <div className="text-slate-400">Time:</div>
                                           <div className="font-mono">
-                                            {job.pickupDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {convertUtcToDisplayTime(job.pickup_time, job.pickup_date) || 'Not specified'}
                                             {' → '}
-                                            {job.endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {job.dropoff_time ? convertUtcToDisplayTime(job.dropoff_time, job.pickup_date) : 'Not specified'}
                                           </div>
                                           <div className="text-slate-400">From:</div>
                                           <div className="truncate text-xs">{job.pickup_location || 'Not specified'}</div>
@@ -909,13 +1001,24 @@ export default function DashboardPage() {
                                         <div className="mt-3 pt-2 border-t border-slate-700/60 text-xs text-slate-400">
                                           Click to view details
                                         </div>
-                                        {/* Tooltip arrow */}
+                                        {/* Tooltip arrow - dynamic positioning */}
                                         <div 
-                                          className="absolute top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-slate-700/60"
-                                          style={{
-                                            left: jobCenter < 30 ? '20px' : jobCenter > 70 ? '300px' : '50%',
-                                            transform: jobCenter >= 30 && jobCenter <= 70 ? 'translateX(-50%)' : 'none',
-                                          }}
+                                          className={`absolute w-0 h-0 border-l-8 border-r-8 border-l-transparent border-r-transparent ${(() => {
+                                            // Match arrow direction to tooltip direction
+                                            const showAbove = job.verticalOffset > 80;
+                                            return showAbove 
+                                              ? 'top-full border-t-8 border-t-slate-700/60'  // Arrow pointing down (tooltip above)
+                                              : 'bottom-full border-b-8 border-b-slate-700/60'; // Arrow pointing up (tooltip below)
+                                          })()}`}
+                                          style={(() => {
+                                            // Match arrow position to tooltip position
+                                            const showAbove = job.verticalOffset > 80;
+                                            return {
+                                              left: jobCenter < 30 ? '20px' : jobCenter > 70 ? '300px' : '50%',
+                                              transform: jobCenter >= 30 && jobCenter <= 70 ? 'translateX(-50%)' : 'none',
+                                              ...(showAbove ? {} : { bottom: '100%' }),
+                                            };
+                                          })()}
                                         />
                                       </div>
                                     </div>
