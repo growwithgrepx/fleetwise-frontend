@@ -767,7 +767,7 @@ export default function DriverCalendarPage() {
               </div>
               <div className="flex items-center gap-2">
                 <ClockIcon className="w-3 h-3 text-blue-400" />
-                <span>{block.startTime}</span>
+                <span>{block.startTime} → {block.endTime}</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPinIcon className="w-3 h-3 text-blue-400" />
@@ -1010,7 +1010,8 @@ export default function DriverCalendarPage() {
                   return (
                     <div 
                       key={hour} 
-                      className="text-center text-xs text-gray-400 py-2 border-r border-gray-600 last:border-r-0"
+                      className="text-left text-xs text-gray-400 py-2 pl-1 border-r border-gray-600 last:border-r-0"
+                      style={{ position: 'relative', left: '0' }}
                     >
                       {hour.toString().padStart(2, '0')}:00
                     </div>
@@ -1088,7 +1089,7 @@ export default function DriverCalendarPage() {
                           }
                           textColor = 'text-white';
                           // Show job type and time range
-                          displayText = `${block.job?.service_type || 'Job'} ${block.startTime}-${block.endTime}`;
+                          displayText = `${block.job?.service_type || 'Job'} ${block.startTime}→${block.endTime}`;
                         }
                         else if (block.type === 'leave') {
                           bgColor = 'bg-orange-500';
@@ -1097,48 +1098,73 @@ export default function DriverCalendarPage() {
                           displayText = 'Leave';
                         }
                                           
-                        // Calculate position based on start time (using 24-hour scale)
-                        const startHour = parseInt(block.startTime.split(':')[0]);
-                        const startMinute = parseInt(block.startTime.split(':')[1]);
-                        const blockStartOffset = ((startHour * 60 + startMinute) / (24 * 60)) * 100; // Percentage of day
-                                          
-                        // Validate time parsing
-                        if (isNaN(startHour) || isNaN(startMinute)) {
-                          console.error('Invalid start time format:', block.startTime);
-                          return null; // Skip rendering this block
+                        // Calculate position and width using the exact pattern requested
+                        const TIMELINE_MINUTES = 1440;
+
+                        const toMinutes = (t) => {
+                          if (!t) return 0;
+                          const [h, m] = t.split(':').map(Number);
+                          return h * 60 + m;
+                        };
+
+                        // Determine the actual pickup and dropoff times based on block type
+                        let pickupTimeStr, dropoffTimeStr;
+                        
+                        if (block.type === 'job' && block.job) {
+                          // Use the actual job times, converting from UTC to display time
+                          pickupTimeStr = convertUtcToDisplayTime(block.job.pickup_time, block.date);
+                          dropoffTimeStr = block.job.dropoff_time ? 
+                            convertUtcToDisplayTime(block.job.dropoff_time, block.date) : 
+                            (() => {
+                              // If no dropoff time, estimate based on service type
+                              let estimatedDurationMinutes = 60; // Default 1 hour
+                              const serviceType = block.job.service_type.toLowerCase();
+                              if (serviceType.includes('airport transfer')) {
+                                estimatedDurationMinutes = 90; // ~90 mins
+                              } else if (serviceType.includes('hourly')) {
+                                const hourlyMatch = serviceType.match(/(\d+)\s*(?:hrs?|hours?|h)/i);
+                                if (hourlyMatch) {
+                                  estimatedDurationMinutes = parseInt(hourlyMatch[1]) * 60;
+                                }
+                              } else if (serviceType.includes('charter') || serviceType.includes('tour')) {
+                                estimatedDurationMinutes = 120; // ~2 hours
+                              }
+                              
+                              const pickupMinutes = toMinutes(pickupTimeStr);
+                              const totalMinutes = pickupMinutes + estimatedDurationMinutes;
+                              const dropoffHour = Math.floor(totalMinutes / 60) % 24;
+                              const dropoffMinute = Math.floor(totalMinutes % 60);
+                              return `${dropoffHour.toString().padStart(2, '0')}:${dropoffMinute.toString().padStart(2, '0')}`;
+                            })();
+                            
+                          // Update the display text to show the actual converted times
+                          displayText = `${block.job.service_type} ${pickupTimeStr}→${dropoffTimeStr}`;
+                        } else {
+                          // For non-job blocks (like leave), use the block's times directly
+                          pickupTimeStr = block.startTime;
+                          dropoffTimeStr = block.endTime;
                         }
-                                          
-                        // Calculate width based on duration
-                        const endTimeParts = block.endTime.split(':');
-                        if (endTimeParts.length !== 2) {
-                          console.error('Invalid end time format:', block.endTime);
-                          return null; // Skip rendering this block
-                        }
-                                          
-                        const [endHour, endMinute] = endTimeParts.map(Number);
-                                          
-                        // Validate end time parsing
-                        if (isNaN(endHour) || isNaN(endMinute)) {
-                          console.error('Invalid end time format:', block.endTime);
-                          return null; // Skip rendering this block
-                        }
-                                          
-                        let durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
-                                          
+
+                        // Apply the exact calculation pattern requested
+                        const left = (toMinutes(pickupTimeStr) / TIMELINE_MINUTES) * 100;
+                        const width = ((toMinutes(dropoffTimeStr) - toMinutes(pickupTimeStr)) / TIMELINE_MINUTES) * 100;
+
                         // Handle overnight jobs (end time is next day)
-                        if (durationMinutes <= 0) {
-                          durationMinutes = durationMinutes + (24 * 60); // Add 24 hours in minutes
+                        let actualDropoffMinutes = toMinutes(dropoffTimeStr);
+                        if (toMinutes(dropoffTimeStr) <= toMinutes(pickupTimeStr)) {
+                          // This is an overnight job that extends to the next day
+                          // For the current day's timeline, we only show until 24:00 (1440 minutes)
+                          actualDropoffMinutes = TIMELINE_MINUTES;
                         }
-                                          
-                        // Ensure minimum visible duration for UI consistency
-                        const MIN_VISIBLE_DURATION = 45; // minimum minutes for visibility
-                        const displayDurationMinutes = Math.max(MIN_VISIBLE_DURATION, durationMinutes);
-                                          
-                        // Calculate width as percentage of full 24-hour day (1440 minutes)
-                        const widthPercent = (displayDurationMinutes / 1440) * 100;
-                                          
-                        // Ensure minimum visible width (approximately 3.125% for 45 minutes)
-                        const finalWidthPercent = Math.max(3.125, widthPercent);
+
+                        const widthPercent = ((actualDropoffMinutes - toMinutes(pickupTimeStr)) / TIMELINE_MINUTES) * 100;
+
+                        // Ensure minimum visible width for UI consistency
+                        const MIN_VISIBLE_WIDTH = 2.5; // minimum percentage for visibility
+                        const finalWidthPercent = Math.max(MIN_VISIBLE_WIDTH, widthPercent);
+
+                        // Calculate the block start offset as the left position
+                        const blockStartOffset = left;
                                           
                         // For debugging - log block information
                         if (process.env.NODE_ENV === 'development') {
@@ -1146,14 +1172,8 @@ export default function DriverCalendarPage() {
                           console.log(`Rendering block ${block.type} (${block.job?.id || block.leave?.id || 'N/A'}):`);
                           console.log(`  Raw start time: ${block.startTime}`);
                           console.log(`  Raw end time: ${block.endTime}`);
-                          console.log(`  Parsed start: ${startHour}:${startMinute}`);
-                          console.log(`  Parsed end: ${endHour}:${endMinute}`);
-                          console.log(`  Duration calculation: (${endHour} * 60 + ${endMinute}) - (${startHour} * 60 + ${startMinute})`);
-                          console.log(`  Raw duration: ${durationMinutes} minutes`);
-                          console.log(`  Display duration: ${displayDurationMinutes} minutes`);
-                          console.log(`  Position offset: ${blockStartOffset.toFixed(2)}%`);
-                          console.log(`  Width calculation: (${displayDurationMinutes} / 1440) * 100`);
-                          console.log(`  Final width: ${finalWidthPercent.toFixed(2)}%`);
+                          console.log(`  Parsed start: ${block.startTime}`);
+                          console.log(`  Parsed end: ${block.endTime}`);
                           console.log(`  Background: ${bgColor}`);
                           console.log(`  Display text: ${displayText}`);
                           console.log(`========================`);
@@ -1172,6 +1192,7 @@ export default function DriverCalendarPage() {
                             style={{
                               left: `${blockStartOffset}%`,
                               width: `${finalWidthPercent}%`,
+                              minWidth: '30px', // so very short jobs are still visible
                               top: `${idx * 32}px`, // Stack blocks vertically if they overlap
                             }}
                             onMouseEnter={(e) => {

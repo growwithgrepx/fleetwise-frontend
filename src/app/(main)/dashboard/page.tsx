@@ -850,11 +850,11 @@ export default function DashboardPage() {
                       {Array.from({ length: 25 }).map((_, i) => (
                         <div 
                           key={i} 
-                          className="absolute top-0 flex flex-col items-center"
+                          className="absolute top-0 flex flex-col items-start"
                           style={{ left: `${(i / 24) * 100}%` }}
                         >
                           <div className="h-2 sm:h-3 w-px bg-slate-600"></div>
-                          <span className="text-[10px] sm:text-xs text-slate-300 font-semibold mt-1 sm:mt-2">
+                          <span className="text-[10px] sm:text-xs text-slate-300 font-semibold mt-1 sm:mt-2 pl-1">
                             {i.toString().padStart(2, '0')}:00
                           </span>
                         </div>

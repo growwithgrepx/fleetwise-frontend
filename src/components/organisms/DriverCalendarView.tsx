@@ -396,7 +396,32 @@ const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, class
           </div>
           <div className="flex items-center gap-1">
             <ClockIcon className="w-3 h-3 text-blue-400" />
-            <span>{convertUtcToDisplayTime(job.pickup_time, date)}</span>
+            <span>
+              {convertUtcToDisplayTime(job.pickup_time, date)} → {job.dropoff_time ? convertUtcToDisplayTime(job.dropoff_time, date) : 
+                (() => {
+                  const pickupTime = convertUtcToDisplayTime(job.pickup_time, date);
+                  const pickupParts = pickupTime.split(':');
+                  const pickupMinutes = (parseInt(pickupParts[0]) * 60) + parseInt(pickupParts[1]);
+                  
+                  let estimatedDurationMinutes = 60; // Default 1 hour
+                  const serviceType = job.service_type.toLowerCase();
+                  if (serviceType.includes('airport transfer')) {
+                    estimatedDurationMinutes = 90; // Airport transfers typically take ~90 mins
+                  } else if (serviceType.includes('hourly')) {
+                    const hourlyMatch = serviceType.match(/(\d+)\s*(?:hrs?|hours?|h)/i);
+                    if (hourlyMatch) {
+                      estimatedDurationMinutes = parseInt(hourlyMatch[1]) * 60;
+                    }
+                  } else if (serviceType.includes('charter') || serviceType.includes('tour')) {
+                    estimatedDurationMinutes = 120; // Charters/tours typically take ~2 hours
+                  }
+                  
+                  const totalMinutes = pickupMinutes + estimatedDurationMinutes;
+                  const dropoffHour = Math.floor(totalMinutes / 60) % 24;
+                  const dropoffMinute = Math.floor(totalMinutes % 60);
+                  return `${dropoffHour.toString().padStart(2, '0')}:${dropoffMinute.toString().padStart(2, '0')}`;
+                })()}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <MapPinIcon className="w-3 h-3 text-blue-400" />
@@ -416,13 +441,65 @@ const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, class
     );
   };
 
-  // Job chip component - small, draggable job indicator positioned on timeline
+  // Job chip component - dynamic width job indicator positioned on timeline
   const JobChip = ({ job, date, driverId }: { job: CalendarJob; date: string; driverId: string | number }) => {
     const statusColor = STATUS_COLORS[job.status] || STATUS_COLORS.default;
     const borderColor = STATUS_BORDER_COLORS[job.status] || STATUS_BORDER_COLORS.default;
     const draggableId = `${job.id}_${date}_${driverId}`;
-    // Position based on pickup_time (driver start time)
-    const position = getTimePosition(job.pickup_time);
+    
+    // Calculate position and width using the exact pattern requested
+    const TIMELINE_MINUTES = 1440;
+
+    const toMinutes = (timeStr) => {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    // Get actual pickup and dropoff times from the job object
+    const pickupTime = convertUtcToDisplayTime(job.pickup_time, date);
+    const dropoffTime = job.dropoff_time ? 
+      convertUtcToDisplayTime(job.dropoff_time, date) : 
+      (() => {
+        // Estimate dropoff time based on service type
+        let estimatedDurationMinutes = 60; // Default 1 hour
+        
+        const serviceType = job.service_type.toLowerCase();
+        if (serviceType.includes('airport transfer')) {
+          estimatedDurationMinutes = 90; // Airport transfers typically take ~90 mins
+        } else if (serviceType.includes('hourly')) {
+          // For hourly services, try to extract the number of hours
+          const hourlyMatch = serviceType.match(/(\d+)\s*(?:hrs?|hours?|h)/i);
+          if (hourlyMatch) {
+            estimatedDurationMinutes = parseInt(hourlyMatch[1]) * 60;
+          }
+        } else if (serviceType.includes('charter') || serviceType.includes('tour')) {
+          estimatedDurationMinutes = 120; // Charters/tours typically take ~2 hours
+        }
+        
+        const totalMinutes = toMinutes(pickupTime) + estimatedDurationMinutes;
+        const dropoffHour = Math.floor(totalMinutes / 60) % 24;
+        const dropoffMinute = Math.floor(totalMinutes % 60);
+        return `${dropoffHour.toString().padStart(2, '0')}:${dropoffMinute.toString().padStart(2, '0')}`;
+      })();
+
+    const left = (toMinutes(pickupTime) / TIMELINE_MINUTES) * 100;
+    const width = ((toMinutes(dropoffTime) - toMinutes(pickupTime)) / TIMELINE_MINUTES) * 100;
+    
+    // Handle overnight jobs (end time is next day)
+    let actualDropoffTimeMinutes = toMinutes(dropoffTime);
+    if (toMinutes(dropoffTime) <= toMinutes(pickupTime)) {
+      // This is an overnight job that extends to the next day
+      // For the current day's timeline, we only show until 24:00 (1440 minutes)
+      actualDropoffTimeMinutes = TIMELINE_MINUTES;
+    }
+    
+    // Use the calculated left and width values directly
+    const leftPercent = left;
+    const widthPercent = ((actualDropoffTimeMinutes - toMinutes(pickupTime)) / TIMELINE_MINUTES) * 100;
+    
+    // Ensure minimum visible width for UI consistency
+    const MIN_VISIBLE_WIDTH = 3; // minimum percentage for visibility
+    const finalWidthPercent = Math.max(MIN_VISIBLE_WIDTH, widthPercent);
     
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
       id: draggableId,
@@ -434,11 +511,17 @@ const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, class
       backgroundColor: statusColor,
       borderColor: borderColor,
       opacity: isDragging ? 0.5 : 1,
-      left: `${position}%`
+      left: `${leftPercent}%`,
+      width: `${finalWidthPercent}%`,
+      height: '2rem',
+      minWidth: '30px' // so very short jobs are still visible
     } : {
       backgroundColor: statusColor,
       borderColor: borderColor,
-      left: `${position}%`
+      left: `${leftPercent}%`,
+      width: `${finalWidthPercent}%`,
+      height: '2rem',
+      minWidth: '30px' // so very short jobs are still visible
     };
     
     return (
@@ -446,7 +529,7 @@ const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, class
         ref={setNodeRef}
         {...attributes}
         {...listeners}
-        className="absolute top-1/2 -translate-y-1/2 h-8 w-8 rounded-full cursor-grab active:cursor-grabbing shadow-lg border-2 transition-transform duration-200 hover:scale-125 flex items-center justify-center text-xs text-white font-bold z-10"
+        className="absolute top-1/2 -translate-y-1/2 rounded cursor-grab active:cursor-grabbing shadow-lg border-2 transition-transform duration-200 hover:scale-[1.03] flex items-center justify-start text-xs text-white font-bold z-10 truncate px-2"
         style={style}
         onMouseEnter={(e) => setHoveredJob({ 
           job, 
@@ -459,7 +542,7 @@ const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, class
           router.push(`/jobs/${job.id}`);
         }}
       >
-        {job.id % 100}
+        <span className="truncate pl-1">{job.id % 100}</span>
       </div>
     );
   };
@@ -685,10 +768,12 @@ const DriverCalendarView: React.FC<DriverCalendarViewProps> = ({ days = 2, class
                 
                 return (
                   <div 
-                    className="h-8 w-8 rounded-full shadow-lg border-2 flex items-center justify-center text-xs text-white font-bold"
+                    className="h-8 rounded shadow-lg border-2 flex items-center justify-center text-xs text-white font-bold"
                     style={{
                       backgroundColor: statusColor,
                       borderColor: borderColor,
+                      minWidth: '30px', // Minimum width for visibility
+                      width: 'auto' // Allow width to be determined by content or parent
                     }}
                   >
                     {activeJob.id % 100}
