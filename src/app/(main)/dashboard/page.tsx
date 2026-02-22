@@ -336,7 +336,10 @@ export default function DashboardPage() {
     
     jobs.forEach(job => {
       const status = (job.status || '').toLowerCase();
-      const pickupDateTime = new Date(`${job.pickup_date}T${job.pickup_time}`);
+      
+      // Convert UTC time to display timezone for proper alert calculation
+      const displayPickupTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
+      const pickupDateTime = new Date(`${job.pickup_date}T${displayPickupTime}`);
       const minutesToPickup = (pickupDateTime.getTime() - now.getTime()) / 60000;
       
       if (["new","pending","confirmed"].includes(status) && pickupDateTime < now) {
