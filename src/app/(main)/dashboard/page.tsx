@@ -342,6 +342,22 @@ export default function DashboardPage() {
       const pickupDateTime = new Date(`${job.pickup_date}T${displayPickupTime}`);
       const minutesToPickup = (pickupDateTime.getTime() - now.getTime()) / 60000;
       
+      // Pre-alert: Check if job is approaching pickup time (before pickup)
+      const pickupThreshold = 15; // minutes before pickup to trigger alert
+      if (["new","pending","confirmed"].includes(status) && 
+          pickupDateTime >= now && 
+          minutesToPickup <= pickupThreshold && 
+          minutesToPickup > 0) {
+        alerts.push({
+          text: `Job #${job.id} pickup in ${Math.round(minutesToPickup)} min`,
+          link: `/jobs/${job.id}`,
+          severity: 'warning',
+          driverName: undefined,
+          driverId: job.driver_id,
+        });
+      }
+      
+      // Overdue alert: Check if pickup time has passed
       if (["new","pending","confirmed"].includes(status) && pickupDateTime < now) {
         alerts.push({
           text: `Job #${job.id} is overdue`,
@@ -352,6 +368,7 @@ export default function DashboardPage() {
         });
       }
       
+      // Unassigned overdue alert
       if (["new","pending","confirmed"].includes(status) && !job.driver_id && pickupDateTime < now) {
         alerts.push({
           text: `Job #${job.id} is overdue and unassigned`,
@@ -362,6 +379,7 @@ export default function DashboardPage() {
         });
       }
       
+      // Unassigned approaching alert
       if (["new","pending","confirmed"].includes(status) && !job.driver_id && pickupDateTime >= now && minutesToPickup < soonThreshold && minutesToPickup > 0) {
         alerts.push({
           text: `Job #${job.id} starts in ${Math.round(minutesToPickup)} min and is unassigned`,

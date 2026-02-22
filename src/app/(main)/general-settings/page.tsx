@@ -146,7 +146,7 @@ export default function SettingsPage() {
   const [enableAudioNotifications, setEnableAudioNotifications] = useState<boolean>(true);
   const [enableVisualAlerts, setEnableVisualAlerts] = useState<boolean>(true);
   const [alertVolume, setAlertVolume] = useState<number>(70);
-  const [pickupThresholdMinutes, setPickupThresholdMinutes] = useState<number>(15); // minutes after pickup time
+  const [pickupThresholdMinutes, setPickupThresholdMinutes] = useState<number>(15); // minutes before pickup time
   const [reminderIntervalMinutes, setReminderIntervalMinutes] = useState<number>(10); // minutes between reminders
   const [maxAlertReminders, setMaxAlertReminders] = useState<number>(3); // max reminders for overdue jobs
   const [alertHistoryRetentionHours, setAlertHistoryRetentionHours] = useState<number>(24); // hours to retain dismissed alerts
@@ -1943,7 +1943,7 @@ export default function SettingsPage() {
                       />
                       <span className="text-sm text-gray-300">minutes</span>
                       <p className="text-xs text-gray-400 ml-4">
-                        Minutes after pickup time when alert triggers
+                        Minutes before pickup time when alert triggers
                       </p>
                     </div>
                   </div>
