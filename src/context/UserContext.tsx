@@ -112,11 +112,28 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       // Handle error responses (401, 403, etc.)
-      const errorData = await res.json().catch(() => ({}));
-      const errorMessage = errorData.response?.errors?.[0] ||
-                          errorData.error?.message ||
-                          'Invalid email or password';
-      const lockedUntil = errorData.response?.locked_until;
+      let errorMessage = 'Invalid email or password';
+      let lockedUntil = null;
+      
+      try {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const errorData = await res.json();
+          errorMessage = errorData.response?.errors?.[0] ||
+                        errorData.error?.message ||
+                        'Invalid email or password';
+          lockedUntil = errorData.response?.locked_until;
+        } else if (contentType.includes('text/html')) {
+          // HTML response - likely login redirect
+          errorMessage = 'Authentication required. Please log in.';
+        } else {
+          // Other content type
+          errorMessage = 'Login failed. Please try again.';
+        }
+      } catch (parseError) {
+        // If we can't parse the response, use default message
+        errorMessage = 'Login failed. Please try again.';
+      }
 
       setUser(null);
       setIsLoggedIn(false);

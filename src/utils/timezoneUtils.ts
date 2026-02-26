@@ -25,7 +25,6 @@ export function getDisplayTimezone(): string {
   
   // If we have a saved timezone, map it from display format to IANA format
   if (savedTimezone) {
-    console.log('[TimezoneUtils] Raw saved timezone from localStorage:', savedTimezone);
     
     // Map display timezone names to IANA timezone identifiers
     const timezoneMap: Record<string, string> = {
@@ -41,11 +40,9 @@ export function getDisplayTimezone(): string {
     
     // If it's a mapped value, return the IANA equivalent
     if (savedTimezone in timezoneMap) {
-      console.log('[TimezoneUtils] Mapped saved timezone:', savedTimezone, 'to', timezoneMap[savedTimezone]);
       return timezoneMap[savedTimezone];
     }
     
-    console.log('[TimezoneUtils] Using saved timezone (no mapping needed):', savedTimezone);
     return savedTimezone;
   }
   
@@ -64,18 +61,15 @@ export function getDisplayTimezone(): string {
       'JST': 'Asia/Tokyo',
       'AEST': 'Australia/Sydney',
     };
-    
+      
     if (systemTimezone in timezoneMap) {
-      console.log('[TimezoneUtils] Mapped system timezone:', systemTimezone, 'to', timezoneMap[systemTimezone]);
       return timezoneMap[systemTimezone];
     }
-    
-    console.log('[TimezoneUtils] Using system timezone:', systemTimezone);
+      
     return systemTimezone;
   }
   
   // Default to Asia/Singapore as per current requirements
-  console.log('[TimezoneUtils] Using default timezone: Asia/Singapore');
   return "Asia/Singapore";
 }
 
@@ -100,28 +94,17 @@ export function convertUtcToDisplay(utcDateTime: string | Date): Date {
  * @returns Date object in UTC
  */
 export function convertDisplayToUtc(displayDateTime: string | Date): Date {
-  console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-  console.log('%%%%%%%%%%%%%%%%%%% CONVERT DISPLAY TO UTC CALLED %%%%%%%%%%%%%%%%%%%%%');
-  console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
   let date = displayDateTime instanceof Date ? displayDateTime : new Date(displayDateTime);
-  console.log('[TimezoneUtils] convertDisplayToUtc called with:', date.toISOString(), 'type:', typeof displayDateTime);
   
   // Get the timezone offset for the display timezone
   const displayTimezone = getDisplayTimezone();
   const offsetMinutes = getTimezoneOffset(displayTimezone, date);
-  console.log('[TimezoneUtils] Display timezone for conversion:', displayTimezone);
-  console.log('[TimezoneUtils] Timezone offset (minutes):', offsetMinutes);
-  console.log('[TimezoneUtils] Timezone offset (hours):', offsetMinutes / 60);
   
   // For display timezone to UTC conversion:
   // If we have a time that represents 19:00 in SGT (UTC+8),
   // we need to SUBTRACT 8 hours to get UTC (11:00 UTC)
   // So we subtract the offset: date - offset = UTC
   const result = new Date(date.getTime() - offsetMinutes * 60000);
-  console.log('[TimezoneUtils] Final UTC date from convertDisplayToUtc:', result.toISOString());
-  console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-  console.log('%%%%%%%%%%%%%%%%%% CONVERT DISPLAY TO UTC FINISHED %%%%%%%%%%%%%%%%%%%%');
-  console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
   return result;
 }
 
@@ -198,10 +181,6 @@ function getTimezoneSuffix(timezone: string): string {
 }
 
 function getTimezoneOffset(timezone: string, date: Date): number {
-  console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-  console.log('%%%%%%%%%%%%%%%%%%%% GET TIMEZONE OFFSET CALLED %%%%%%%%%%%%%%%%%%%%%');
-  console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-  console.log('[TimezoneUtils] getTimezoneOffset called with:', { timezone, date: date.toISOString() });
   
   // Simple approach: Use a mapping for common timezones
   const timezoneOffsets: Record<string, number> = {
@@ -215,15 +194,10 @@ function getTimezoneOffset(timezone: string, date: Date): number {
   
   if (timezone in timezoneOffsets) {
     const offset = timezoneOffsets[timezone];
-    console.log('[TimezoneUtils] Using mapped offset for', timezone, ':', offset, 'minutes');
-    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-    console.log('%%%%%%%%%%%%%%%%%%% GET TIMEZONE OFFSET FINISHED %%%%%%%%%%%%%%%%%%%%%');
-    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
     return offset;
   }
   
   // Fallback to Intl.DateTimeFormat approach
-  console.log('[TimezoneUtils] Falling back to Intl.DateTimeFormat approach');
   
   // Get the timezone offset for the given date in the specified timezone
   // This approach directly calculates the offset between the timezone and UTC
@@ -242,11 +216,9 @@ function getTimezoneOffset(timezone: string, date: Date): number {
   });
   
   const parts = formatter.formatToParts(date);
-  console.log('[TimezoneUtils] Formatted parts:', parts);
   
   // Find the timezone offset part
   const timeZonePart = parts.find(part => part.type === 'timeZoneName');
-  console.log('[TimezoneUtils] Timezone part:', timeZonePart);
   
   if (timeZonePart && timeZonePart.value) {
     // Extract the offset from the timezone name (e.g., "GMT+08:00")
@@ -257,22 +229,11 @@ function getTimezoneOffset(timezone: string, date: Date): number {
       const [hours, minutes] = offsetStr.substring(1).split(':').map(Number);
       const totalMinutes = sign * (hours * 60 + minutes);
       
-      console.log('[TimezoneUtils] Parsed offset string:', offsetStr);
-      console.log('[TimezoneUtils] Calculated offset (minutes):', totalMinutes);
-      console.log('[TimezoneUtils] Calculated offset (hours):', totalMinutes / 60);
-      
-      console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-      console.log('%%%%%%%%%%%%%%%%%%% GET TIMEZONE OFFSET FINISHED %%%%%%%%%%%%%%%%%%%%%');
-      console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
       return totalMinutes;
     }
   }
   
   // Fallback: if we can't parse the offset, return 0
-  console.log('[TimezoneUtils] Could not parse offset, returning 0');
-  console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-  console.log('%%%%%%%%%%%%%%%%%%% GET TIMEZONE OFFSET FINISHED %%%%%%%%%%%%%%%%%%%%%');
-  console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
   return 0;
 }
 
@@ -283,16 +244,8 @@ function getTimezoneOffset(timezone: string, date: Date): number {
  * @returns Date object in display timezone
  */
 export function parseDisplayDate(dateString: string, timeString?: string): Date {
-  console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-  console.log('%%%%%%%%%%%%%%%%%%%% PARSE DISPLAY DATE CALLED %%%%%%%%%%%%%%%%%%%%%');
-  console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-  console.log('[TimezoneUtils] parseDisplayDate called with:', { dateString, timeString });
   
   if (!dateString) {
-    console.log('[TimezoneUtils] No date string provided, returning new Date()');
-    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-    console.log('%%%%%%%%%%%%%%%%%%% PARSE DISPLAY DATE FINISHED %%%%%%%%%%%%%%%%%%%%');
-    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
     return new Date();
   }
   
@@ -300,32 +253,23 @@ export function parseDisplayDate(dateString: string, timeString?: string): Date 
   if (!dateString.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
     console.error('[TimezoneUtils] Invalid date format:', dateString);
     console.error('[TimezoneUtils] Expected format: DD/MM/YYYY');
-    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-    console.log('%%%%%%%%%%%%%%%%%%% PARSE DISPLAY DATE FINISHED %%%%%%%%%%%%%%%%%%%%');
-    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
     return new Date(); // Return current date as fallback
   }
   
   const [day, month, year] = dateString.split('/').map(Number);
-  console.log('[TimezoneUtils] Parsed date components:', { day, month, year });
   
   // Validate parsed components
   if (isNaN(day) || isNaN(month) || isNaN(year) || day < 1 || day > 31 || month < 1 || month > 12) {
     console.error('[TimezoneUtils] Invalid date components:', { day, month, year });
-    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
-    console.log('%%%%%%%%%%%%%%%%%%% PARSE DISPLAY DATE FINISHED %%%%%%%%%%%%%%%%%%%%');
-    console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%');
     return new Date(); // Return current date as fallback
   }
   
   // Get the display timezone
   const displayTimezone = getDisplayTimezone();
-  console.log('[TimezoneUtils] Display timezone:', displayTimezone);
-  
+
   // Create date in UTC representing the same moment as the user's input in display timezone
   if (timeString) {
     const [hours, minutes] = timeString.split(':').map(Number);
-    console.log('[TimezoneUtils] Parsed time components:', { hours, minutes });
     
     // Direct timezone offset approach - simpler and more reliable
     // Create a UTC date at noon to avoid DST issues
@@ -339,7 +283,6 @@ export function parseDisplayDate(dateString: string, timeString?: string): Date 
     
     const parts = formatter.formatToParts(utcBase);
     const timeZonePart = parts.find(part => part.type === 'timeZoneName');
-    console.log('[TimezoneUtils] Timezone part:', timeZonePart);
     
     // Parse the offset (e.g., "GMT+08:00" -> +480 minutes)
     let offsetMinutes = 0;
@@ -349,24 +292,13 @@ export function parseDisplayDate(dateString: string, timeString?: string): Date 
         const [sign, hours, minutes] = offsetMatch[0].match(/([+-])(\d{2}):(\d{2})/)!.slice(1);
         offsetMinutes = parseInt(hours) * 60 + parseInt(minutes);
         if (sign === '-') offsetMinutes = -offsetMinutes;
-        console.log('[TimezoneUtils] Parsed offset:', offsetMinutes, 'minutes');
-        console.log('[TimezoneUtils] Offset breakdown:', { sign, hours, minutes });
       }
     }
     
     // Calculate UTC time: display_time - offset = UTC_time
     // If user enters 19:00 in SGT (+480), UTC should be 11:00
-    console.log('[TimezoneUtils] Detailed calculation for 19:00 SGT -> UTC:');
-    console.log('[TimezoneUtils]   Input time:', hours, ':', minutes, displayTimezone);
-    console.log('[TimezoneUtils]   Offset minutes:', offsetMinutes);
-    console.log('[TimezoneUtils]   Offset hours:', offsetMinutes / 60);
-    
     const utcHours = hours - Math.floor(offsetMinutes / 60);
     const utcMinutes = minutes - (offsetMinutes % 60);
-    
-    console.log('[TimezoneUtils]   Raw calculation:');
-    console.log('[TimezoneUtils]     utcHours =', hours, '-', Math.floor(offsetMinutes / 60), '=', utcHours);
-    console.log('[TimezoneUtils]     utcMinutes =', minutes, '-', (offsetMinutes % 60), '=', utcMinutes);
     
     // Handle negative hours/minutes
     let finalHours = utcHours;
@@ -374,27 +306,18 @@ export function parseDisplayDate(dateString: string, timeString?: string): Date 
     if (finalMinutes < 0) {
       finalMinutes += 60;
       finalHours -= 1;
-      console.log('[TimezoneUtils]   Adjusted for negative minutes: finalMinutes =', finalMinutes, ', finalHours =', finalHours);
     }
     if (finalHours < 0) {
       finalHours += 24;
-      console.log('[TimezoneUtils]   Adjusted for negative hours: finalHours =', finalHours);
     }
     if (finalHours >= 24) {
       finalHours -= 24;
-      console.log('[TimezoneUtils]   Adjusted for hours >= 24: finalHours =', finalHours);
     }
     
-    console.log('[TimezoneUtils] Final conversion: ', hours, ':', minutes, ' ', displayTimezone, ' -> ', finalHours, ':', finalMinutes, ' UTC');
-    
     const utcDate = new Date(Date.UTC(year, month - 1, day, finalHours, finalMinutes, 0, 0));
-    console.log('[TimezoneUtils] Final UTC date:', utcDate.toISOString());
-    console.log('=== PARSE DISPLAY DATE FINISHED ===');
     return utcDate;
   } else {
     // For date-only, create UTC date at start of day
-    console.log('[TimezoneUtils] Creating date-only UTC date');
-    console.log('=== PARSE DISPLAY DATE FINISHED ===');
     return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
   }
 }
@@ -474,20 +397,19 @@ export function convertUtcToDisplayTime(utcTimeString: string, utcDateString?: s
   if (!utcTimeString) {
     return '';
   }
-  
+
   if (!utcTimeString) {
-    console.log('[TimezoneUtils] No time string provided, returning empty string');
     return '';
   }
-  
+
   // Parse the UTC time string
   const [hours, minutes] = utcTimeString.split(':').map(Number);
-  
+
   if (isNaN(hours) || isNaN(minutes)) {
     console.error('[TimezoneUtils] Invalid time format:', utcTimeString);
     return utcTimeString; // Return as-is if invalid
   }
-  
+
   // Create a UTC date object
   let utcDate: Date;
   if (utcDateString) {
@@ -499,19 +421,15 @@ export function convertUtcToDisplayTime(utcTimeString: string, utcDateString?: s
     const now = new Date();
     utcDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0));
   }
-  
-  console.log('[TimezoneUtils] Created UTC date:', utcDate.toISOString());
-  
+
   // Convert UTC to display timezone
   const displayDate = convertUtcToDisplay(utcDate);
-  
+
   // Format as HH:MM
   const displayHours = displayDate.getHours().toString().padStart(2, '0');
   const displayMinutes = displayDate.getMinutes().toString().padStart(2, '0');
   const result = `${displayHours}:${displayMinutes}`;
-  
-  console.log('[TimezoneUtils] Converted UTC time', utcTimeString, 'to display time:', result);
-  
+
   return result;
 }
 

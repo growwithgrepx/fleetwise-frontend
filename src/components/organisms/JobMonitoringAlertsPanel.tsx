@@ -8,9 +8,12 @@ import {
 } from "@heroicons/react/24/outline";
 import JobDetailsModal from "./JobDetailsModal";
 import { ApiJob } from "@/types/job";
+import { getDisplayTimezone } from "@/utils/timezoneUtils";
 
 const JobMonitoringAlertsPanel = () => {
   const { alerts, startTrip, dismissAlert } = useJobMonitoring();
+
+
 
   const [expandedAlerts, setExpandedAlerts] = useState<Record<number, boolean>>(
     {}
@@ -22,7 +25,9 @@ const JobMonitoringAlertsPanel = () => {
   const [dismissingAlerts, setDismissingAlerts] = useState<Set<number>>(new Set());
 
   // Optimize filtering to avoid repeated calculations
-  const activeAlerts = useMemo(() => alerts.filter(alert => !alert.dismissed), [alerts]);
+  const activeAlerts = useMemo(() => {
+    return alerts.filter(alert => !alert.dismissed);
+  }, [alerts]);
   const toggleExpand = (id: number) => {
     setExpandedAlerts((prev) => ({
       ...prev,
@@ -32,21 +37,23 @@ const JobMonitoringAlertsPanel = () => {
 
   const formatElapsedTime = (minutes: number) => {
     if (minutes < 0) {
+      // Negative minutes means job is upcoming (in the future)
       const absMinutes = Math.abs(minutes);
-      if (absMinutes < 60) return `${absMinutes} min early`;
+      if (absMinutes < 60) return `in ${absMinutes}m`;
       if (absMinutes < 1440) {
         const hours = Math.floor(absMinutes / 60);
         const remainingMinutes = absMinutes % 60;
         return remainingMinutes > 0
-          ? `${hours}h ${remainingMinutes}m early`
-          : `${hours}h early`;
+          ? `in ${hours}h ${remainingMinutes}m`
+          : `in ${hours}h`;
       }
       const days = Math.floor(absMinutes / 1440);
       const remainingHours = Math.floor((absMinutes % 1440) / 60);
-      return remainingHours > 0 ? `${days}d ${remainingHours}h early` : `${days}d early`;
+      return remainingHours > 0 ? `in ${days}d ${remainingHours}h` : `in ${days}d`;
     }
 
-    if (minutes < 60) return `${minutes} min late`;
+    // Positive minutes means job is late (past pickup time)
+    if (minutes < 60) return `${minutes}m late`;
     if (minutes < 1440) {
       const hours = Math.floor(minutes / 60);
       const remainingMinutes = minutes % 60;
@@ -150,14 +157,22 @@ const JobMonitoringAlertsPanel = () => {
                           <ClockIcon className="h-4 w-4 text-gray-500" />
                           <span className="text-gray-400">Pickup:</span>
                           <span className="ml-auto text-gray-200">
-                            {new Date(alert.pickupTime).toLocaleString()}
+                            {new Date(alert.pickupTime + 'Z').toLocaleString('en-US', {
+                              timeZone: getDisplayTimezone(),
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: false
+                            })}
                           </span>
                         </div>
 
                         <div className="text-gray-300">
                           <span className="text-gray-400">Passenger:</span>{" "}
                           <span className="text-gray-200">
-                            {alert.passengerDetails}
+                            {alert.passengerDetails || alert.jobData?.customer?.name || alert.jobData?.customer_name || 'Not assigned'}
                           </span>
                         </div>
                       </div>

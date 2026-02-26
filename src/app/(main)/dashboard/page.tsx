@@ -21,6 +21,8 @@ import JobMonitoringAlertsPanel from '@/components/organisms/JobMonitoringAlerts
 import { useGetAllDrivers } from '@/hooks/useDrivers';
 import { TooltipProps } from "@/types/types";
 import { convertUtcToDisplayTime, getDisplayTimezone } from "@/utils/timezoneUtils";
+import { useJobMonitoring } from "@/hooks/useJobMonitoring";
+import { getAlertSettings } from "@/services/api/settingsApi";
 
 // Extended Job type for timeline visualization
 type TimelineJob = Job & {
@@ -255,6 +257,85 @@ export default function DashboardPage() {
   });
   const jobs = useMemo(() => jobsResponse?.items ?? [], [jobsResponse]);
 
+  // --- Alert System Integration ---
+  const { alerts: monitoringAlerts, isLoading: alertsLoading, error: alertsError } = useJobMonitoring();
+  const { data: alertSettingsData } = useQuery({
+    queryKey: ['alert-settings'],
+    queryFn: getAlertSettings,
+  });
+  
+  // Debug logging for alerts
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Dashboard] monitoringAlerts:', monitoringAlerts);
+      console.log('[Dashboard] alertsLoading:', alertsLoading);
+      console.log('[Dashboard] alertsError:', alertsError);
+      if (monitoringAlerts) {
+        console.log('[Dashboard] Alert count:', monitoringAlerts.length);
+        console.log('[Dashboard] Dismissed alerts:', monitoringAlerts.filter(a => a.dismissed).length);
+        console.log('[Dashboard] Active alerts:', monitoringAlerts.filter(a => !a.dismissed).length);
+      }
+    }
+  }, [monitoringAlerts, alertsLoading, alertsError]);
+
+  const pickupThreshold = alertSettingsData?.alert_settings?.pickup_threshold_minutes ?? 15;
+
+  // Convert server-side alerts to priority alerts format
+  const priorityAlerts: PriorityAlert[] = useMemo(() => {
+    if (!monitoringAlerts || monitoringAlerts.length === 0) {
+      return [];
+    }
+
+    return monitoringAlerts
+      .filter(alert => !alert.dismissed) // Only active alerts
+      .slice(0, 5) // Limit to top 5 for priority dashboard
+      .map(alert => {
+        // Determine correct alert text based on elapsed time
+        // Positive elapsed time = overdue (pickup time has passed)
+        // Negative elapsed time = approaching (pickup time in future)
+        const isOverdue = alert.elapsedTime > 0;
+        let alertText = '';
+        
+        if (isOverdue) {
+          const elapsedMinutes = Math.floor(alert.elapsedTime);
+          const hours = Math.floor(elapsedMinutes / 60);
+          const minutes = elapsedMinutes % 60;
+          
+          if (hours > 0) {
+            alertText = `is ${hours}h ${minutes}m late`;
+          } else {
+            alertText = `is ${minutes}m late`;
+          }
+        } else {
+          const absElapsedMinutes = Math.abs(Math.floor(alert.elapsedTime));
+          const hours = Math.floor(absElapsedMinutes / 60);
+          const minutes = absElapsedMinutes % 60;
+          
+          if (hours >= 24) {
+            const days = Math.floor(hours / 24);
+            const remainingHours = hours % 24;
+            if (remainingHours > 0) {
+              alertText = `in ${days}d ${remainingHours}h`;
+            } else {
+              alertText = `in ${days}d`;
+            }
+          } else if (hours > 0) {
+            alertText = `in ${hours}h ${minutes}m`;
+          } else {
+            alertText = `in ${minutes}m`;
+          }
+        }
+        
+        return {
+          text: `Job #${alert.jobId} ${alertText}`,
+          link: `/jobs/${alert.jobId}`,
+          severity: isOverdue ? 'critical' : 'warning',
+          driverName: alert.driverName || 'Unassigned',
+          driverId: undefined, // Not available in current alert structure
+        };
+      });
+  }, [monitoringAlerts]);
+
   const { data: driversData, isLoading: driversLoading } = useGetAllDrivers();
 
   // --- Data Processing for KPIs ---
@@ -328,70 +409,8 @@ export default function DashboardPage() {
     }));
   }, [jobs]);
 
-  // --- Enhanced Exception Alerts for Priority Dashboard ---
-  const priorityAlerts: PriorityAlert[] = useMemo(() => {
-    const now = new Date();
-    const soonThreshold = 30;
-    const alerts: PriorityAlert[] = [];
-    
-    jobs.forEach(job => {
-      const status = (job.status || '').toLowerCase();
-      
-      // Convert UTC time to display timezone for proper alert calculation
-      const displayPickupTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
-      const pickupDateTime = new Date(`${job.pickup_date}T${displayPickupTime}`);
-      const minutesToPickup = (pickupDateTime.getTime() - now.getTime()) / 60000;
-      
-      // Pre-alert: Check if job is approaching pickup time (before pickup)
-      const pickupThreshold = 15; // minutes before pickup to trigger alert
-      if (["new","pending","confirmed"].includes(status) && 
-          pickupDateTime >= now && 
-          minutesToPickup <= pickupThreshold && 
-          minutesToPickup > 0) {
-        alerts.push({
-          text: `Job #${job.id} pickup in ${Math.round(minutesToPickup)} min`,
-          link: `/jobs/${job.id}`,
-          severity: 'warning',
-          driverName: undefined,
-          driverId: job.driver_id,
-        });
-      }
-      
-      // Overdue alert: Check if pickup time has passed
-      if (["new","pending","confirmed"].includes(status) && pickupDateTime < now) {
-        alerts.push({
-          text: `Job #${job.id} is overdue`,
-          link: `/jobs/${job.id}`,
-          severity: 'critical',
-          driverName: undefined,
-          driverId: job.driver_id,
-        });
-      }
-      
-      // Unassigned overdue alert
-      if (["new","pending","confirmed"].includes(status) && !job.driver_id && pickupDateTime < now) {
-        alerts.push({
-          text: `Job #${job.id} is overdue and unassigned`,
-          link: `/jobs/${job.id}`,
-          severity: 'critical',
-          driverName: undefined,
-          driverId: undefined,
-        });
-      }
-      
-      // Unassigned approaching alert
-      if (["new","pending","confirmed"].includes(status) && !job.driver_id && pickupDateTime >= now && minutesToPickup < soonThreshold && minutesToPickup > 0) {
-        alerts.push({
-          text: `Job #${job.id} starts in ${Math.round(minutesToPickup)} min and is unassigned`,
-          link: `/jobs/${job.id}`,
-          severity: 'warning',
-          driverName: undefined,
-          driverId: undefined,
-        });
-      }
-    });
-    return alerts;
-  }, [jobs]);
+  // DEPRECATED: Old client-side alert logic removed to prevent duplicate priorityAlerts definition
+  // Server-side alerts are now used for both Priority Dashboard and Active Monitoring Alerts
 
   const UPCOMING_STATUSES = ['new', 'pending', 'confirmed', 'otw', 'ots', 'pob'];
 
@@ -399,18 +418,50 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [vehicleFilter, setVehicleFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   // Process jobs for the horizontal timeline
   const todayJobsData = useMemo((): TimelineJob[] => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const userTimezone = getDisplayTimezone();
+    
+    // Get selected date in user's timezone
+    const selectedDateInUserTz = new Date(selectedDate.toLocaleString('en-US', {
+      timeZone: userTimezone
+    }));
+    const today = new Date(selectedDateInUserTz.getFullYear(), selectedDateInUserTz.getMonth(), selectedDateInUserTz.getDate());
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
+    // Debug: Log current timezone info
+    if (process.env.NODE_ENV === 'development') {
+      console.log('=== TIMELINE DATE FILTERING DEBUG ===');
+      console.log(`System time: ${new Date().toISOString()}`);
+      console.log(`User timezone: ${userTimezone}`);
+      console.log(`Today in user timezone: ${today.toISOString()}`);
+      console.log(`Tomorrow in user timezone: ${tomorrow.toISOString()}`);
+    }
+    
     const todayJobs = jobs.filter(job => {
       if (!job.pickup_date || !job.pickup_time) return false;
-      const pickupDate = new Date(job.pickup_date);
-      return pickupDate >= today && pickupDate < tomorrow;
+      
+      // Parse job pickup date in user's timezone context
+      const pickupDateStr = job.pickup_date;
+      const [year, month, day] = pickupDateStr.split('-').map(Number);
+      
+      // Create date object in user's timezone
+      const jobDateInUserTz = new Date(year, month - 1, day);
+      
+      const isToday = jobDateInUserTz >= today && jobDateInUserTz < tomorrow;
+      
+      if (process.env.NODE_ENV === 'development' && job.id === 234) {
+        console.log(`Job ${job.id}: pickup_date=${pickupDateStr}`);
+        console.log(`Job ${job.id}: jobDateInUserTz=${jobDateInUserTz.toISOString()}`);
+        console.log(`Job ${job.id}: today=${today.toISOString()}`);
+        console.log(`Job ${job.id}: tomorrow=${tomorrow.toISOString()}`);
+        console.log(`Job ${job.id}: isToday=${isToday}`);
+      }
+      
+      return isToday;
     });
     
     // Debug: Log all today's jobs for analysis
@@ -426,29 +477,40 @@ export default function DashboardPage() {
       // job.pickup_time is stored in the database as UTC but needs to be displayed in company's configured timezone (SGT)
       // We need to convert the UTC time to display timezone for proper positioning
       
-      // Convert UTC pickup time to display timezone for positioning
+      // Convert pickup_time to display timezone for consistent positioning
       const displayPickupTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
       const [pickupHour, pickupMinute] = displayPickupTime.split(':').map(Number);
       
       // Get the company timezone for reference
       const companyTimezone = getDisplayTimezone();
       
-      // Create date in the company timezone context for proper display
-      const pickupDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), pickupHour, pickupMinute);
+      // Create Date object with the actual job pickup date and time
+      // Parse the pickup date
+      const [pickupYear, pickupMonth, pickupDay] = job.pickup_date.split('-').map(Number);
+      
+      // Create date object with actual pickup date and time
+      const pickupDateTime = new Date(pickupYear, pickupMonth - 1, pickupDay, pickupHour, pickupMinute);
+      
+      // Create local now variable for time comparisons
+      const now = new Date();
       
       // Debug timezone info
       if (process.env.NODE_ENV === 'development') {
         console.log(`Job ${job.id}: Company timezone = ${companyTimezone}`);
-        console.log(`Job ${job.id}: Original UTC pickup_time=${job.pickup_time}, converted to display time=${displayPickupTime} (in ${companyTimezone})`);
-        console.log(`Job ${job.id}: Created Date object with hours=${pickupHour}:${pickupMinute}`);
+        console.log(`Job ${job.id}: Raw pickup_time=${job.pickup_time}`);
+        console.log(`Job ${job.id}: Display pickup_time=${displayPickupTime} (in ${companyTimezone})`);
+        console.log(`Job ${job.id}: Job pickup_date=${job.pickup_date}`);
+        console.log(`Job ${job.id}: Parsed hours=${pickupHour}, minutes=${pickupMinute}`);
+        console.log(`Job ${job.id}: Created Date object with ${pickupYear}-${pickupMonth}-${pickupDay} ${pickupHour}:${pickupMinute}`);
+        console.log(`Job ${job.id}: Full pickupDateTime=${pickupDateTime.toISOString()}`);
       }
       const durationHours = job.estimated_duration ? parseFloat(job.estimated_duration) : 1;
       const endDateTime = new Date(pickupDateTime.getTime() + durationHours * 60 * 60 * 1000);
       
       // Debug logging for timezone issues
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Job ${job.id}: pickup_time=${job.pickup_time}, converted display time=${displayPickupTime}, pickupDateTime.getHours()=${pickupDateTime.getHours()}, position using converted time=${displayPickupTime}`);
-        console.log(`Job ${job.id}: status=${job.status}, pickupDateTime=${pickupDateTime}, now=${now}`);
+        console.log(`Job ${job.id}: displayPickupTime=${displayPickupTime}, parsed hour=${pickupHour}, position using converted time`);
+        console.log(`Job ${job.id}: status=${job.status}, pickupDateTime=${pickupDateTime}`);
       }
       
       const isStartingYesterday = pickupDateTime < today;
@@ -456,25 +518,30 @@ export default function DashboardPage() {
       
       // Parse time from converted display time to respect company timezone
       // Job pickup_time comes from database in UTC, but we use the converted display time for positioning
+      // Use higher precision to minimize visual positioning errors
       const startPercent = isStartingYesterday ? 0 : 
-        ((pickupHour * 60 + pickupMinute) / (24 * 60)) * 100;
+        parseFloat(((pickupHour * 60 + pickupMinute) / (24 * 60) * 100).toFixed(6));
       
-      // Debug position calculation
+      // Debug position calculation with enhanced precision
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Job ${job.id}: Position calculation = ((${pickupHour} * 60 + ${pickupMinute}) / 1440) * 100 = ${startPercent}%`);
+        const rawCalc = ((pickupHour * 60 + pickupMinute) / (24 * 60)) * 100;
+        const preciseCalc = parseFloat(rawCalc.toFixed(6));
+        console.log(`Job ${job.id}: Position calculation = ((${pickupHour} * 60 + ${pickupMinute}) / 1440) * 100`);
+        console.log(`Job ${job.id}: Raw = ${rawCalc}%, Precise = ${preciseCalc}%`);
         console.log(`Job ${job.id}: Expected timeline position ~${Math.round((pickupHour / 24) * 100)}%`);
+        console.log(`Job ${job.id}: Visual position (24h scale) = ${(preciseCalc / 100) * 24} hours`);
       }
       
       // Enhanced debugging for timezone issues
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Job ${job.id}: UTC pickup_time=${job.pickup_time}, converted display time=${displayPickupTime}, parsed hour=${pickupHour}, position=${startPercent}%`);
-        console.log(`Job ${job.id}: status=${job.status}, pickupDateTime=${pickupDateTime}, now=${now}`);
+        console.log(`Job ${job.id}: Local pickup_time=${job.pickup_time}, parsed hour=${pickupHour}, position=${startPercent}%`);
+        console.log(`Job ${job.id}: status=${job.status}, pickupDateTime=${pickupDateTime}`);
         
         // Debug specific jobs
-        if ([215, 216, 217, 214].includes(job.id)) {
+        if ([215, 216, 217, 214, 238].includes(job.id)) {
           console.log(`=== JOB #${job.id} DETAILED DEBUG ===`);
-          console.log(`Original UTC pickup_time string: ${job.pickup_time}`);
-          console.log(`Converted display pickup_time: ${displayPickupTime}`);
+          console.log(`Raw pickup_time string: ${job.pickup_time}`);
+          console.log(`Converted display time: ${displayPickupTime}`);
           console.log(`pickupDateTime object: ${pickupDateTime}`);
           console.log(`pickupDateTime.getHours(): ${pickupDateTime.getHours()}`);
           console.log(`Parsed hour/minute: ${pickupHour}:${pickupMinute}`);
@@ -561,10 +628,24 @@ export default function DashboardPage() {
     });
   }, [jobs]);
 
-  // Current time indicator position
+  // Current time indicator position - using user's timezone
   const currentTimePercent = useMemo(() => {
+    const userTimezone = getDisplayTimezone();
     const now = new Date();
-    return ((now.getHours() * 60 + now.getMinutes()) / (24 * 60)) * 100;
+    const localNow = new Date(now.toLocaleString('en-US', {
+      timeZone: userTimezone
+    }));
+    
+    // Debug: Log current time calculation
+    if (process.env.NODE_ENV === 'development') {
+      console.log('=== CURRENT TIME INDICATOR DEBUG ===');
+      console.log(`System time: ${now.toISOString()}`);
+      console.log(`Local time in ${userTimezone}: ${localNow.toISOString()}`);
+      console.log(`Hours: ${localNow.getHours()}, Minutes: ${localNow.getMinutes()}`);
+      console.log(`Position percentage: ${((localNow.getHours() * 60 + localNow.getMinutes()) / (24 * 60)) * 100}%`);
+    }
+    
+    return ((localNow.getHours() * 60 + localNow.getMinutes()) / (24 * 60)) * 100;
   }, []);
 
   // Filtered jobs
@@ -670,6 +751,7 @@ export default function DashboardPage() {
 
   function getTimeAgoString(date: Date | null) {
     if (!date) return '';
+    const now = new Date();
     const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
     if (diff < 60) return `Updated just now`;
     if (diff < 3600) return `Updated ${Math.floor(diff / 60)} min ago`;
@@ -799,10 +881,53 @@ export default function DashboardPage() {
               <div className="flex flex-col gap-4 sm:gap-6 mb-6 sm:mb-8">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                   <div className="w-1 h-8 bg-gradient-to-b from-blue-400 to-blue-600 rounded-full"></div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-white">Today&apos;s Jobs Timeline</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">
+                    {(() => {
+                      const userTimezone = getDisplayTimezone();
+                      const selectedDateInUserTz = new Date(selectedDate.toLocaleString('en-US', {
+                        timeZone: userTimezone
+                      }));
+                      return selectedDateInUserTz.toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        timeZone: userTimezone
+                      });
+                    })()}'s Jobs Timeline
+                  </h2>
                   <span className="px-3 py-1 bg-blue-600/20 text-blue-300 text-xs sm:text-sm font-medium rounded-full border border-blue-600/30 w-fit">
                     {filteredJobs.length} jobs
                   </span>
+                  {/* Date Navigation Controls */}
+                  <div className="flex items-center gap-2 ml-auto">
+                    <button 
+                      onClick={() => setSelectedDate(prev => {
+                        const newDate = new Date(prev);
+                        newDate.setDate(newDate.getDate() - 1);
+                        return newDate;
+                      })}
+                      className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors"
+                    >
+                      <ChevronLeftIcon className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={() => setSelectedDate(new Date())}
+                      className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                    >
+                      Today
+                    </button>
+                    <button 
+                      onClick={() => setSelectedDate(prev => {
+                        const newDate = new Date(prev);
+                        newDate.setDate(newDate.getDate() + 1);
+                        return newDate;
+                      })}
+                      className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors"
+                    >
+                      <ChevronRightIcon className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
                 
                 {/* Enhanced Filter buttons */}
@@ -912,7 +1037,12 @@ export default function DashboardPage() {
                       >
                         <div className="absolute -top-1 -translate-x-1/2 w-3 h-3 rounded-full bg-red-500 shadow-lg shadow-red-500/50 animate-pulse"></div>
                         <div className="absolute top-4 -translate-x-1/2 px-2 py-1 bg-red-500 text-white text-xs font-medium rounded shadow-lg whitespace-nowrap">
-                          {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date().toLocaleTimeString('en-US', { 
+                            timeZone: getDisplayTimezone(),
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: false
+                          })}
                         </div>
                       </motion.div>
                       

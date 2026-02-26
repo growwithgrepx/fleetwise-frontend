@@ -6,7 +6,7 @@ import { getJobsCalendar, rescheduleJob, CalendarJob } from '@/services/api/jobs
 import { Card } from '@/components/atoms/Card';
 import { Spinner } from '@/components/atoms/Spinner';
 import { Button } from '@/components/atoms/Button';
-import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
+import { convertUtcToDisplayTime, getDisplayTimezone } from '@/utils/timezoneUtils';
 import { useRouter } from 'next/navigation';
 import { format, addDays } from 'date-fns';
 import { 
@@ -74,7 +74,12 @@ const formatTime = (time: string): string => {
     const date = new Date();
     date.setHours(parseInt(hours, 10));
     date.setMinutes(parseInt(minutes, 10));
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return date.toLocaleTimeString('en-US', { 
+      timeZone: getDisplayTimezone(),
+      hour: '2-digit', 
+      minute: '2-digit', 
+      hour12: false 
+    });
   } catch (e) {
     return time;
   }

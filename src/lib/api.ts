@@ -24,6 +24,8 @@ export const api = axios.create({
   },
   // Add withCredentials for session cookies
   withCredentials: true,
+  // Ensure credentials are sent with cross-origin requests
+  withXSRFToken: true,
 });
 
 // Add request interceptor for debugging
@@ -57,6 +59,19 @@ api.interceptors.response.use(
       const data = error.response.data as any;
       let msg = 'An error occurred';
       
+      // Check if response is HTML (login redirect)
+      const contentType = error.response.headers?.['content-type'] || '';
+      if (contentType.includes('text/html')) {
+        // This is likely a login redirect - user needs to authenticate
+        console.error('[API] Received HTML response - authentication required');
+        msg = 'Authentication required. Please log in.';
+        // Redirect to login page
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(new Error(msg));
+      }
+      
       // Handle different types of error responses
       if (data && typeof data === 'object') {
         if (Object.keys(data).length > 0) {
@@ -73,7 +88,16 @@ api.interceptors.response.use(
           }
         }
       } else if (typeof data === 'string' && data.length > 0) {
-        msg = data;
+        // Handle string responses (could be HTML or error message)
+        if (data.includes('<!DOCTYPE html>') || data.includes('<html')) {
+          // HTML response - authentication required
+          msg = 'Authentication required. Please log in.';
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+        } else {
+          msg = data;
+        }
       } else if (error.response.status === 409) {
         // Special handling for 409 conflict status
         msg = 'Scheduling conflict detected. Please select a different date or time.';
@@ -84,6 +108,10 @@ api.interceptors.response.use(
         // Only log if it's not a ServiceError with detailed message
         if (!(data.message || data.error)) {
           console.error("API Error Response:", data);
+        }
+      } else if (data && typeof data === 'string') {
+        if (!data.includes('<!DOCTYPE html>')) {
+          console.error("API Error Response (string):", data.substring(0, 200));
         }
       } else if (data) {
         console.error("API Error Response (non-object):", data);

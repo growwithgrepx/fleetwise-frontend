@@ -17,7 +17,18 @@ export interface JobMonitoringAlert {
   service_type: string;
   pickup_location: string;
   dropoff_location: string;
-  job_data: Job; // Full job data for details
+  job_data?: {
+    id: number;
+    customer?: {
+      name: string | null;
+      email: string | null;
+      mobile: string | null;
+      company_name: string | null;
+    } | null;
+    customer_name: string | null;
+    passenger_name: string | null;
+    passenger_mobile: string | null;
+  };
 }
 
 export interface GetJobMonitoringAlertsResponse {
@@ -36,12 +47,42 @@ export interface UpdateJobMonitoringAlertStatusResponse {
 }
 
 // Get all active job monitoring alerts
-export async function getJobMonitoringAlerts(): Promise<GetJobMonitoringAlertsResponse> {
-  const response = await api.get<GetJobMonitoringAlertsResponse>(
-    `/api/job-monitoring-alerts`
-  );
+export async function getJobMonitoringAlerts(includeUpcoming: boolean = false, windowHours: number = 24): Promise<GetJobMonitoringAlertsResponse> {
+  console.log('[JobMonitoringApi] Making API call to /api/job-monitoring-alerts');
   
-  return response.data;
+  try {
+    const params = new URLSearchParams();
+    if (includeUpcoming) {
+      params.append('include_upcoming', 'true');
+      params.append('window_hours', windowHours.toString());
+    }
+    
+    const url = `/api/job-monitoring-alerts${params.toString() ? `?${params.toString()}` : ''}`;
+    console.log('[JobMonitoringApi] Request URL:', url);
+    
+    const response = await api.get<GetJobMonitoringAlertsResponse>(url);
+    
+    console.log('[JobMonitoringApi] API response status:', response.status);
+    console.log('[JobMonitoringApi] Response data:', response.data);
+    console.log('[JobMonitoringApi] Response data keys:', Object.keys(response.data));
+    console.log('[JobMonitoringApi] Alerts count:', response.data.alerts?.length || 0);
+    console.log('[JobMonitoringApi] Active count:', response.data.active_count);
+    console.log('[JobMonitoringApi] Total count:', response.data.total_count);
+    console.log('[JobMonitoringApi] Counts:', (response.data as any).counts);
+    console.log('[JobMonitoringApi] Parameters:', (response.data as any).parameters);
+    
+    if (response.data.alerts && response.data.alerts.length > 0) {
+      console.log('[JobMonitoringApi] First alert sample:', response.data.alerts[0]);
+      console.log('[JobMonitoringApi] First alert status:', response.data.alerts[0].status);
+    }
+    
+    return response.data;
+  } catch (error: any) {
+    console.error('[JobMonitoringApi] API call failed:', error);
+    console.error('[JobMonitoringApi] Error response:', error.response?.data);
+    console.error('[JobMonitoringApi] Error status:', error.response?.status);
+    throw error;
+  }
 }
 
 // Dismiss a specific alert

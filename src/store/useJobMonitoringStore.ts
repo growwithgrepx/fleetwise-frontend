@@ -19,7 +19,11 @@ export interface JobMonitoringAlert {
   dismissed: boolean;
   maxRemindersReached: boolean;
   reminderCount: number;
-  jobData?: ApiJob; // Include the full job data if available
+  jobData?: any; // Make it flexible to accept different job data structures
+  // New fields for upcoming jobs feature
+  alertType?: 'OVERDUE' | 'APPROACHING' | 'UPCOMING';
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  hoursUntilPickup?: number;
 }
 
 interface JobMonitoringState {
@@ -191,13 +195,14 @@ export const useJobMonitoringStore = create<JobMonitoringState>((set, get) => ({
   
   updateAlerts: (newAlerts) => {
     set((state) => {
-      // Only update if the alerts have actually changed
-      const alertsChanged = JSON.stringify(state.alerts) !== JSON.stringify(newAlerts);
-      
-      if (!alertsChanged) {
-        return {};
+      // Debug logging
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[JobMonitoringStore] updateAlerts called with', newAlerts.length, 'alerts');
+        console.debug('[JobMonitoringStore] Current alerts:', state.alerts.length);
+        console.debug('[JobMonitoringStore] Dismissed values in new alerts:', newAlerts.map(a => ({ id: a.id, dismissed: a.dismissed, jobId: a.jobId })));
       }
       
+      // Always update with fresh data from API - don't preserve old dismissed state
       // Validate and limit incoming alerts
       let validatedAlerts = newAlerts;
       if (newAlerts.length > MAX_ALERTS) {

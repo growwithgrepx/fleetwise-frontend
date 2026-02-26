@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useJobMonitoringStore } from '@/store/useJobMonitoringStore';
 import { useJobMonitoring } from '@/hooks/useJobMonitoring';
 import { PhoneIcon, BellIcon as PhoneBellIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { useTimezone } from '@/contexts/TimezoneContext';
 import {
   getUserSettings,
   saveUserSettings,
@@ -70,6 +71,7 @@ const stageOptions = [
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const { setTimezone: setContextTimezone, refreshTimezone } = useTimezone();
   // Modal state for image preview
   const [previewImageUrl, setPreviewImageUrl] = useState<string>("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -630,10 +632,12 @@ export default function SettingsPage() {
     try {
       await saveUserSettings({ preferences });
       
-      // Sync timezone to localStorage so the frontend timezone utilities can use it
+      // Sync timezone to localStorage and context
       // Always update localStorage with the current timezone value
       localStorage.setItem('userTimezone', timezone);
-      console.log('Saved timezone to localStorage:', timezone);
+      setContextTimezone(timezone); // Update context
+      refreshTimezone(); // Refresh timezone context
+      console.log('Saved timezone to localStorage and context:', timezone);
       
       toast.success('General settings saved!');
     } catch (err) {

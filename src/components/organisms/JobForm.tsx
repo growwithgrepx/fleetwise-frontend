@@ -1399,7 +1399,7 @@ if (!driverExists) {
       
     // Extract date and time in ISO format for backend (YYYY-MM-DD) and display format (HH:MM)
     const formattedDate = utcDateTime.toISOString().split('T')[0]; // YYYY-MM-DD for backend
-    const formattedTime = formatDisplayTime(utcDateTime); // HH:MM for display
+    const formattedTime = formatDisplayTime(displayDateTime); // HH:MM local time for backend
       
     console.log('[JobForm] Formatted date (YYYY-MM-DD):', formattedDate);
     console.log('[JobForm] Formatted time (HH:MM):', formattedTime);
