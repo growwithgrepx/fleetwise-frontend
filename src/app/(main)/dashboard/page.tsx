@@ -1062,14 +1062,14 @@ export default function DashboardPage() {
                                     {/* Left overflow indicator */}
                                     {job.isStartingYesterday && (
                                       <div className="absolute -left-2 top-1/2 -translate-y-1/2 text-white/90">
-                                        <ChevronLeftIcon className="h-4 w-4" />
+                                        <div className="h-2 w-2 rounded-full bg-white/70" />
                                       </div>
                                     )}
                                     
                                     {/* Right overflow indicator */}
                                     {job.isEndingTomorrow && (
                                       <div className="absolute -right-2 top-1/2 -translate-y-1/2 text-white/90">
-                                        <ChevronRightIcon className="h-4 w-4" />
+                                        <div className="h-2 w-2 rounded-full bg-white/70" />
                                       </div>
                                     )}
                                     
