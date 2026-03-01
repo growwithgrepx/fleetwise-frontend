@@ -34,7 +34,9 @@ export default function PasswordChangeModal({ user, onClose, onSave }: PasswordC
     const passwordErrors = [];
     if (newPassword.length < 8) passwordErrors.push('Password must be at least 8 characters');
     if (!/[A-Z]/.test(newPassword)) passwordErrors.push('Must contain uppercase letter');
+    if (!/[a-z]/.test(newPassword)) passwordErrors.push('Must contain lowercase letter');
     if (!/[0-9]/.test(newPassword)) passwordErrors.push('Must contain number');
+    if (!/[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]/.test(newPassword)) passwordErrors.push('Must contain special character (!@#$%^&*()_+-=[]{};\'":,.<>?/)');
     if (passwordErrors.length > 0) {
       toast.error(passwordErrors.join(', '));
       return;
@@ -44,11 +46,7 @@ export default function PasswordChangeModal({ user, onClose, onSave }: PasswordC
     try {
       const result = await adminChangePassword(user.id, newPassword, confirmPassword);
       if ('error' in result) {
-        const errorMessage =
-          result.error && typeof result.error === 'string' && result.error.includes('Validation failed')
-            ? result.error
-            : 'Failed to change password';
-        toast.error(errorMessage);
+        toast.error(result.error || 'Failed to change password');
       } else {
         toast.success(result.message || 'Password changed successfully');
         onSave();
