@@ -51,10 +51,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
             setUser(null);
             setIsLoggedIn(false);
           }
-        } else if (res.status === 401) {
-          // Not authenticated
+        } else if (res.status === 401 || res.status === 403) {
+          // Not authenticated or forbidden
           setUser(null);
           setIsLoggedIn(false);
+          // Redirect to login if we were trying to access a protected route
+          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
         } else {
           // Other error
           console.error('Failed to fetch user data:', res.status, res.statusText);
@@ -71,6 +75,35 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
     checkSession();
   }, []);
+
+  // Periodically refresh session to prevent expiration
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/auth/me', { 
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (!res.ok) {
+          // Session expired
+          setUser(null);
+          setIsLoggedIn(false);
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+        }
+      } catch (error) {
+        console.error('Session refresh error:', error);
+      }
+    }, 15 * 60 * 1000); // Refresh every 15 minutes
+    
+    return () => clearInterval(interval);
+  }, [isLoggedIn]);
 
   // Login using backend session
   const login = async (email: string, password: string): Promise<LoginResult> => {
@@ -112,11 +145,28 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       // Handle error responses (401, 403, etc.)
-      const errorData = await res.json().catch(() => ({}));
-      const errorMessage = errorData.response?.errors?.[0] ||
-                          errorData.error?.message ||
-                          'Invalid email or password';
-      const lockedUntil = errorData.response?.locked_until;
+      let errorMessage = 'Invalid email or password';
+      let lockedUntil = null;
+      
+      try {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const errorData = await res.json();
+          errorMessage = errorData.response?.errors?.[0] ||
+                        errorData.error?.message ||
+                        'Invalid email or password';
+          lockedUntil = errorData.response?.locked_until;
+        } else if (contentType.includes('text/html')) {
+          // HTML response - likely login redirect
+          errorMessage = 'Authentication required. Please log in.';
+        } else {
+          // Other content type
+          errorMessage = 'Login failed. Please try again.';
+        }
+      } catch (parseError) {
+        // If we can't parse the response, use default message
+        errorMessage = 'Login failed. Please try again.';
+      }
 
       setUser(null);
       setIsLoggedIn(false);

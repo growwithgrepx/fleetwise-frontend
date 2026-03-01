@@ -59,6 +59,9 @@ export const analytics = {
   }
 };
 
+// Configurable offset in minutes (currently 45 minutes)
+const DROPOFF_TIME_OFFSET_MINUTES = 45;
+
 // Default job values
 const defaultJobValues: JobFormData = {
   // Customer Information
@@ -492,6 +495,8 @@ const JobForm: React.FC<JobFormProps> = (props) => {
   const [toastState, setToastState] = useState<string | null>(null);
   const [userModifiedLocationPrices, setUserModifiedLocationPrices] = useState<Set<string>>(new Set());
   const [userDirectlyEditedLocationPrices, setUserDirectlyEditedLocationPrices] = useState<Set<string>>(new Set());
+  const [dropoffTimeAutoCalculated, setDropoffTimeAutoCalculated] = useState<boolean>(true);
+  const userHasManuallyChangedDropoff = useRef(false);
 
   // Get current date and time for defaults in user's configured timezone
   const getCurrentDateTime = () => {
@@ -977,6 +982,10 @@ if (!driverExists) {
         vehicle_type: vehicleTypeName,
         dropoff_time: displayDropoffTime || prev.dropoff_time,
       }));
+      // When loading an existing job, assume dropoff time was manually set (not auto-calculated)
+      // unless we have specific logic to determine if it was auto-calculated previously
+      setDropoffTimeAutoCalculated(false);
+      userHasManuallyChangedDropoff.current = false; // Reset the manual change flag when loading a job
   setUserModifiedPricing(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1390,7 +1399,7 @@ if (!driverExists) {
       
     // Extract date and time in ISO format for backend (YYYY-MM-DD) and display format (HH:MM)
     const formattedDate = utcDateTime.toISOString().split('T')[0]; // YYYY-MM-DD for backend
-    const formattedTime = formatDisplayTime(utcDateTime); // HH:MM for display
+    const formattedTime = formatDisplayTime(displayDateTime); // HH:MM local time for backend
       
     console.log('[JobForm] Formatted date (YYYY-MM-DD):', formattedDate);
     console.log('[JobForm] Formatted time (HH:MM):', formattedTime);
@@ -1642,6 +1651,13 @@ if (!driverExists) {
       userLocationTimestamps.current.pickup = Date.now();
     } else if (field === 'dropoff_location') {
       userLocationTimestamps.current.dropoff = Date.now();
+    }
+    
+    // Track when user manually changes dropoff time
+    if (field === 'dropoff_time' && value) {
+      // User has manually set the dropoff time, so mark it as not auto-calculated
+      setDropoffTimeAutoCalculated(false);
+      userHasManuallyChangedDropoff.current = true;
     }
     
     // Auto-populate driver when vehicle is selected
@@ -2108,20 +2124,24 @@ if (!driverExists) {
 
   // Auto-calculate default dropoff time (pickup_time + 45 minutes)
   useEffect(() => {
+    // Auto-calculate dropoff time when pickup time changes
     // Only auto-calculate if:
     // 1. pickup_time is set
-    // 2. dropoff_time is not already set (user hasn't overridden it)
-    // 3. This is a new job (not editing existing)
-    const isEditing = job && job.id;
+    // 2. dropoff_time is empty OR was previously auto-calculated (respect manual input)
+    // 3. OR we're editing a job and the dropoff time hasn't been manually changed yet in this session
+    const isEditing = Boolean(job && job.id);
+    const shouldAutoCalculate = formData.pickup_time && 
+                                (!formData.dropoff_time || dropoffTimeAutoCalculated || 
+                                 (isEditing && !userHasManuallyChangedDropoff.current));
     
-    if (!isEditing && formData.pickup_time && !formData.dropoff_time) {
+    if (shouldAutoCalculate) {
       try {
         // Parse pickup time
         const [pickupHours, pickupMinutes] = formData.pickup_time.split(':').map(Number);
         
         if (!isNaN(pickupHours) && !isNaN(pickupMinutes)) {
-          // Add 45 minutes
-          let totalMinutes = pickupHours * 60 + pickupMinutes + 45;
+          // Add configurable offset minutes
+          let totalMinutes = pickupHours * 60 + pickupMinutes + DROPOFF_TIME_OFFSET_MINUTES;
           
           // Handle day overflow
           if (totalMinutes >= 24 * 60) {
@@ -2133,22 +2153,25 @@ if (!driverExists) {
           
           const newDropoffTime = `${newDropoffHours.toString().padStart(2, '0')}:${newDropoffMinutes.toString().padStart(2, '0')}`;
           
-          console.log('[JobForm] Auto-calculating default dropoff time:', {
+          console.log('[JobForm] Auto-calculating dropoff time:', {
             pickupTime: formData.pickup_time,
             calculatedDropoffTime: newDropoffTime,
-            durationMinutes: 45
+            durationMinutes: DROPOFF_TIME_OFFSET_MINUTES
           });
           
+          // Update form data and mark that dropoff time was auto-calculated
           setFormData(prev => ({
             ...prev,
             dropoff_time: newDropoffTime
           }));
+          setDropoffTimeAutoCalculated(true);
+          userHasManuallyChangedDropoff.current = false; // Reset the flag since we auto-calculated
         }
       } catch (error) {
         console.warn('[JobForm] Failed to auto-calculate dropoff time:', error);
       }
     }
-  }, [formData.pickup_time, formData.dropoff_time, job]);
+  }, [formData.pickup_time, formData.dropoff_time, dropoffTimeAutoCalculated, job]);
 
   // Auto-calculate contractor claim based on service, vehicle type, and contractor
   useEffect(() => {

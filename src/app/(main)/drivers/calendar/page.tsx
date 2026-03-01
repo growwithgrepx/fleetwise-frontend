@@ -767,7 +767,7 @@ export default function DriverCalendarPage() {
               </div>
               <div className="flex items-center gap-2">
                 <ClockIcon className="w-3 h-3 text-blue-400" />
-                <span>{block.startTime}</span>
+                <span>{block.startTime} → {block.endTime}</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPinIcon className="w-3 h-3 text-blue-400" />
@@ -1010,7 +1010,8 @@ export default function DriverCalendarPage() {
                   return (
                     <div 
                       key={hour} 
-                      className="text-center text-xs text-gray-400 py-2 border-r border-gray-600 last:border-r-0"
+                      className="text-left text-xs text-gray-400 py-2 pl-1 border-r border-gray-600 last:border-r-0"
+                      style={{ position: 'relative', left: '0' }}
                     >
                       {hour.toString().padStart(2, '0')}:00
                     </div>
@@ -1049,166 +1050,169 @@ export default function DriverCalendarPage() {
                   </div>
                   
                   {/* Timeline Grid */}
-                  <div className="flex-1 grid grid-cols-12 gap-0 min-h-16">
-                    {Array.from({ length: 12 }, (_, i) => i * 2).map(hour => {
-                      const hourStart = `${hour.toString().padStart(2, '0')}:00`;
-                      
-                      // Find blocks that fall within this hour range (excluding 'available' blocks as they're handled by base availability)
-                      const hourBlocks = driverBlocks.filter(block => {
-                        const blockStartHour = parseInt(block.startTime.split(':')[0]);
-                        return (blockStartHour === hour || blockStartHour === hour + 1) && block.type !== 'available';
-                      });
-                      
-                      // If driver has any leave for the day, all time slots should be marked as unavailable
-                      // unless there's a specific job block for that time slot
-                      const hasLeaveForDay = hasAnyLeave;
-                      
-                      // Determine if this specific time slot should show as unavailable due to leave
-                      // If the driver has any leave for the day, then all time slots should be unavailable
-                      // unless there's a specific job in that time slot
-                      const showAsUnavailableDueToLeave = hasLeaveForDay && hourBlocks.every(block => block.type !== 'job');
-                      
-                      return (
+                  <div className="flex-1 relative min-h-24">
+                    {/* Background grid lines */}
+                    <div className="absolute inset-0 grid grid-cols-12 gap-0 pointer-events-none">
+                      {Array.from({ length: 12 }, (_, i) => i * 2).map(hour => (
                         <div 
-                          key={hour}
-                          className="relative border-r border-gray-700 last:border-r-0 flex items-center justify-center min-h-16 bg-gray-800/30"
-                        >
-                          {/* Show base availability only if there are no blocks for this hour */}
-                          {!hourBlocks.length && (
-                            <>
-                              {/* If driver has any leave for the day, show as unavailable */}
-                              {hasLeaveForDay && (
-                                <div className="w-full h-full bg-gray-700/50" title="Not Available"></div>
-                              )}
-                              {/* If driver doesn't have leave, show as available - now with subtle styling */}
-                              {!hasLeaveForDay && (
-                                <div className="w-full h-full bg-gray-800/30 border border-gray-700/50" title="Available"></div>
-                              )}
-                            </>
-                          )}
-                          
-                          {hourBlocks.map((block, idx) => {
-                            let bgColor = 'bg-gray-700/50';
-                            let borderClass = 'border border-gray-500/30';
-                            let textColor = 'text-gray-400';
-                            let displayText = '';
-                            
-                            if (block.type === 'job') {
-                              bgColor = 'bg-gradient-to-r from-blue-500 to-blue-600';
-                              borderClass = 'border border-blue-400/50';
-                              textColor = 'text-white';
-                              displayText = `#${block.job?.id || 'Job'}`;
-                              // Optionally, we can add more descriptive text like customer name or location
-                              if (block.job?.customer_name) {
-                                displayText += ` (${block.job.customer_name})`;
+                          key={`grid-${hour}`}
+                          className="border-r border-gray-700 last:border-r-0 flex items-center justify-center min-h-16 bg-gray-800/30"
+                        />
+                      ))}
+                    </div>
+                                      
+                    {/* Job blocks - positioned absolutely across the entire timeline */}
+                    {driverBlocks
+                      .filter(block => block.type === 'job' || block.type === 'leave')
+                      .map((block, idx) => {
+                        let bgColor = 'bg-gray-700/50';
+                        let borderClass = 'border border-gray-500/30';
+                        let textColor = 'text-gray-400';
+                        let displayText = '';
+                                          
+                        if (block.type === 'job') {
+                          // Color code by job type - enhanced with better visual distinction
+                          const jobType = block.job?.service_type?.toLowerCase() || '';
+                          if (jobType.includes('pickup')) {
+                            bgColor = 'bg-gradient-to-r from-green-500 to-green-600';
+                            borderClass = 'border border-green-400/50';
+                          } else if (jobType.includes('delivery')) {
+                            bgColor = 'bg-gradient-to-r from-blue-500 to-blue-600';
+                            borderClass = 'border border-blue-400/50';
+                          } else if (jobType.includes('pending')) {
+                            bgColor = 'bg-gradient-to-r from-orange-500 to-orange-600';
+                            borderClass = 'border border-orange-400/50';
+                          } else {
+                            // Default job color
+                            bgColor = 'bg-gradient-to-r from-blue-500 to-blue-600';
+                            borderClass = 'border border-blue-400/50';
+                          }
+                          textColor = 'text-white';
+                          // Show job type and time range
+                          displayText = `${block.job?.service_type || 'Job'} ${block.startTime}→${block.endTime}`;
+                        }
+                        else if (block.type === 'leave') {
+                          bgColor = 'bg-orange-500';
+                          borderClass = 'border border-orange-400';
+                          textColor = 'text-white';
+                          displayText = 'Leave';
+                        }
+                                          
+                        // Calculate position and width using the exact pattern requested
+                        const TIMELINE_MINUTES = 1440;
+
+                        const toMinutes = (t) => {
+                          if (!t) return 0;
+                          const [h, m] = t.split(':').map(Number);
+                          return h * 60 + m;
+                        };
+
+                        // Determine the actual pickup and dropoff times based on block type
+                        let pickupTimeStr, dropoffTimeStr;
+                        
+                        if (block.type === 'job' && block.job) {
+                          // Use the actual job times, converting from UTC to display time
+                          pickupTimeStr = convertUtcToDisplayTime(block.job.pickup_time, block.date);
+                          dropoffTimeStr = block.job.dropoff_time ? 
+                            convertUtcToDisplayTime(block.job.dropoff_time, block.date) : 
+                            (() => {
+                              // If no dropoff time, estimate based on service type
+                              let estimatedDurationMinutes = 60; // Default 1 hour
+                              const serviceType = block.job.service_type.toLowerCase();
+                              if (serviceType.includes('airport transfer')) {
+                                estimatedDurationMinutes = 90; // ~90 mins
+                              } else if (serviceType.includes('hourly')) {
+                                const hourlyMatch = serviceType.match(/(\d+)\s*(?:hrs?|hours?|h)/i);
+                                if (hourlyMatch) {
+                                  estimatedDurationMinutes = parseInt(hourlyMatch[1]) * 60;
+                                }
+                              } else if (serviceType.includes('charter') || serviceType.includes('tour')) {
+                                estimatedDurationMinutes = 120; // ~2 hours
                               }
-                            }
-                            else if (block.type === 'leave') {
-                              bgColor = 'bg-orange-500';
-                              borderClass = 'border border-orange-400';
-                              textColor = 'text-white';
-                              displayText = 'Leave';
-                            }
-                            else if (block.type === 'unavailable') {
-                              bgColor = 'bg-gray-700';
-                              borderClass = 'border border-gray-600';
-                              textColor = 'text-white';
-                              displayText = '';
-                            }
+                              
+                              const pickupMinutes = toMinutes(pickupTimeStr);
+                              const totalMinutes = pickupMinutes + estimatedDurationMinutes;
+                              const dropoffHour = Math.floor(totalMinutes / 60) % 24;
+                              const dropoffMinute = Math.floor(totalMinutes % 60);
+                              return `${dropoffHour.toString().padStart(2, '0')}:${dropoffMinute.toString().padStart(2, '0')}`;
+                            })();
                             
-                            // Calculate position based on start time
-                            const startHour = parseInt(block.startTime.split(':')[0]);
-                            const startMinute = parseInt(block.startTime.split(':')[1]);
-                            const blockStartOffset = ((startHour * 60 + startMinute) / (24 * 60)) * 100; // Percentage of day
-                            
-                            if (process.env.NODE_ENV === 'development') {
-                              console.log(`Block positioning for ${block.type} (${block.job?.id || block.leave?.id || 'N/A'}):`);
-                              console.log(`  Start time: ${block.startTime} (${startHour}:${startMinute})`);
-                              console.log(`  Position offset: ${blockStartOffset.toFixed(2)}%`);
-                              console.log(`  Display timezone: ${getDisplayTimezone()}`);
-                              console.log(`  Selected date (local): ${selectedDate.toString()}`);
-                              console.log(`  Selected date formatted: ${format(selectedDate, 'yyyy-MM-dd')}`);
-                              console.log(`  Raw pickup_time from job: ${block.job?.pickup_time}`);
-                              console.log(`  Display pickup_time: ${convertUtcToDisplayTime(block.job?.pickup_time || '', block.job?.pickup_date)}`);
-                            }
-                            
-                            // Calculate width based on duration
-                            const [endHour, endMinute] = block.endTime.split(':').map(Number);
-                            let durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
-                            
-                            // Handle overnight jobs (end time is next day)
-                            if (durationMinutes <= 0) {
-                              durationMinutes = durationMinutes + (24 * 60); // Add 24 hours in minutes
-                            }
-                            
-                            // Ensure minimum visible duration for UI consistency
-                            const MIN_VISIBLE_DURATION_WIDTH = 45; // minimum minutes for visibility (same as calendar rule)
-                            if (durationMinutes < MIN_VISIBLE_DURATION_WIDTH) {
-                              durationMinutes = MIN_VISIBLE_DURATION_WIDTH;
-                            }
-                            
-                            // Calculate actual proportional width based on 24-hour timeline (1440 minutes total)
-                            // Job block width should be proportional to actual pickup-to-dropoff duration
-                            const MIN_VISIBLE_DURATION = 45; // minimum minutes for visibility
-                            
-                            // Calculate width as percentage of full 24-hour day (1440 minutes)
-                            const displayDurationMinutes = Math.max(MIN_VISIBLE_DURATION, durationMinutes);
-                            const widthPercent = (displayDurationMinutes / 1440) * 100;
-                            
-                            // Ensure minimum visible width (approximately 3.125% for 45 minutes)
-                            const finalWidthPercent = Math.max(3.125, widthPercent);
-                            
-                            // Block width calculation: (duration in minutes / 120) * cell width
-                            
-                            if (process.env.NODE_ENV === 'development') {
-                              console.log(`Block ${block.type} (${block.job?.id || block.leave?.id || 'N/A'}):`);
-                              console.log(`  Actual duration: ${durationMinutes} mins`);
-                              console.log(`  Display duration: ${displayDurationMinutes} mins (min: ${MIN_VISIBLE_DURATION})`);
-                              console.log(`  Timeline span: 1440 mins (24 hours)`);
-                              console.log(`  Width percentage: ${widthPercent.toFixed(1)}%`);
-                              console.log(`  Final width: ${finalWidthPercent.toFixed(1)}%`);
-                              if (block.type === 'leave') {
-                                console.log(`LEAVE BLOCK DEBUG: startTime=${block.startTime}, endTime=${block.endTime}, duration=${durationMinutes}mins, width=${finalWidthPercent}%`);
+                          // Update the display text to show the actual converted times
+                          displayText = `${block.job.service_type} ${pickupTimeStr}→${dropoffTimeStr}`;
+                        } else {
+                          // For non-job blocks (like leave), use the block's times directly
+                          pickupTimeStr = block.startTime;
+                          dropoffTimeStr = block.endTime;
+                        }
+
+                        // Apply the exact calculation pattern requested
+                        const left = (toMinutes(pickupTimeStr) / TIMELINE_MINUTES) * 100;
+                        const width = ((toMinutes(dropoffTimeStr) - toMinutes(pickupTimeStr)) / TIMELINE_MINUTES) * 100;
+
+                        // Handle overnight jobs (end time is next day)
+                        let actualDropoffMinutes = toMinutes(dropoffTimeStr);
+                        if (toMinutes(dropoffTimeStr) <= toMinutes(pickupTimeStr)) {
+                          // This is an overnight job that extends to the next day
+                          // For the current day's timeline, we only show until 24:00 (1440 minutes)
+                          actualDropoffMinutes = TIMELINE_MINUTES;
+                        }
+
+                        const widthPercent = ((actualDropoffMinutes - toMinutes(pickupTimeStr)) / TIMELINE_MINUTES) * 100;
+
+                        // Ensure minimum visible width for UI consistency
+                        const MIN_VISIBLE_WIDTH = 2.5; // minimum percentage for visibility
+                        const finalWidthPercent = Math.max(MIN_VISIBLE_WIDTH, widthPercent);
+
+                        // Calculate the block start offset as the left position
+                        const blockStartOffset = left;
+                                          
+                        // For debugging - log block information
+                        if (process.env.NODE_ENV === 'development') {
+                          console.log(`=== BLOCK RENDERING DEBUG ===`);
+                          console.log(`Rendering block ${block.type} (${block.job?.id || block.leave?.id || 'N/A'}):`);
+                          console.log(`  Raw start time: ${block.startTime}`);
+                          console.log(`  Raw end time: ${block.endTime}`);
+                          console.log(`  Parsed start: ${block.startTime}`);
+                          console.log(`  Parsed end: ${block.endTime}`);
+                          console.log(`  Background: ${bgColor}`);
+                          console.log(`  Display text: ${displayText}`);
+                          console.log(`========================`);
+                        }
+                                          
+                        // Skip rendering if duration is invalid or extremely small
+                        if (finalWidthPercent < 0.1) {
+                          console.warn(`Skipping block with tiny width (${finalWidthPercent}%):`, block);
+                          return null;
+                        }
+                                          
+                        return (
+                          <div
+                            key={`${block.driverId}-${block.startTime}-${idx}`}
+                            className={`absolute h-8 ${bgColor} ${borderClass} cursor-pointer transition-all duration-200 hover:opacity-90 rounded shadow-sm hover:shadow-md hover:scale-[1.02] flex items-center text-xs font-medium ${textColor} px-2 overflow-hidden whitespace-nowrap z-10`}
+                            style={{
+                              left: `${blockStartOffset}%`,
+                              width: `${finalWidthPercent}%`,
+                              minWidth: '30px', // so very short jobs are still visible
+                              top: `${idx * 32}px`, // Stack blocks vertically if they overlap
+                            }}
+                            onMouseEnter={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setHoveredBlock({
+                                block,
+                                position: { x: rect.left, y: rect.bottom + 10 }
+                              });
+                            }}
+                            onMouseLeave={() => setHoveredBlock(null)}
+                            onClick={() => {
+                              if (block.type === 'job' && block.job) {
+                                handleJobClick(block.job);
                               }
-                            }
-                            
-                            return (
-                              <div
-                                key={`${block.driverId}-${block.startTime}-${idx}`}
-                                className={`absolute h-full ${bgColor} ${borderClass} cursor-pointer transition-all duration-200 hover:opacity-90 rounded shadow-sm hover:shadow-lg hover:scale-[1.02] hover:z-10 flex items-center text-sm ${textColor} ${finalWidthPercent < 3 ? 'justify-center' : 'justify-start'} overflow-hidden`}
-                                style={{
-                                  left: `${blockStartOffset}%`,
-                                  width: `${finalWidthPercent}%`,
-                                  top: `${idx * 25}px`, // Fixed pixel height for consistent spacing
-                                  minHeight: '24px',
-                                  maxHeight: '24px',
-                                  maxWidth: '100%'
-                                }}
-                                onMouseEnter={(e) => {
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  setHoveredBlock({
-                                    block,
-                                    position: { x: rect.left, y: rect.bottom + 10 }
-                                  });
-                                }}
-                                onMouseLeave={() => setHoveredBlock(null)}
-                                onClick={() => {
-                                  if (block.type === 'job' && block.job) {
-                                    handleJobClick(block.job);
-                                  }
-                                }}
-                              >
-                                {widthPercent < 3 ? (
-                                  <span className="text-xs">•</span>
-                                ) : (
-                                  <span className="truncate px-2 font-medium">{displayText}</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
+                            }}
+                          >
+                            <span className="truncate">{displayText}</span>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               );

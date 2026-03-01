@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useJobMonitoringStore } from '@/store/useJobMonitoringStore';
 import { useJobMonitoring } from '@/hooks/useJobMonitoring';
 import { PhoneIcon, BellIcon as PhoneBellIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { useTimezone } from '@/contexts/TimezoneContext';
 import {
   getUserSettings,
   saveUserSettings,
@@ -18,6 +19,8 @@ import {
   testEmailSettings,
   saveAlertSettings,
   getAlertSettings,
+  getSystemTimezone,
+  setSystemTimezone,
   type EmailSettings,
   type TestEmailPayload
 } from '@/services/api/settingsApi';
@@ -70,6 +73,7 @@ const stageOptions = [
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const { setTimezone: setContextTimezone, refreshTimezone } = useTimezone();
   // Modal state for image preview
   const [previewImageUrl, setPreviewImageUrl] = useState<string>("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -146,7 +150,7 @@ export default function SettingsPage() {
   const [enableAudioNotifications, setEnableAudioNotifications] = useState<boolean>(true);
   const [enableVisualAlerts, setEnableVisualAlerts] = useState<boolean>(true);
   const [alertVolume, setAlertVolume] = useState<number>(70);
-  const [pickupThresholdMinutes, setPickupThresholdMinutes] = useState<number>(15); // minutes after pickup time
+  const [pickupThresholdMinutes, setPickupThresholdMinutes] = useState<number>(15); // minutes before pickup time
   const [reminderIntervalMinutes, setReminderIntervalMinutes] = useState<number>(10); // minutes between reminders
   const [maxAlertReminders, setMaxAlertReminders] = useState<number>(3); // max reminders for overdue jobs
   const [alertHistoryRetentionHours, setAlertHistoryRetentionHours] = useState<number>(24); // hours to retain dismissed alerts
@@ -628,12 +632,21 @@ export default function SettingsPage() {
       }
     };
     try {
+      // Save user preferences
       await saveUserSettings({ preferences });
       
-      // Sync timezone to localStorage so the frontend timezone utilities can use it
-      // Always update localStorage with the current timezone value
-      localStorage.setItem('userTimezone', timezone);
-      console.log('Saved timezone to localStorage:', timezone);
+      // Also save system-wide timezone
+      try {
+        await setSystemTimezone(timezone);
+        console.log('Saved system timezone to backend:', timezone);
+      } catch (tzError) {
+        console.warn('Failed to save system timezone:', tzError);
+        // Continue even if system timezone save fails
+      }
+      
+      // Refresh timezone context
+      await refreshTimezone();
+      console.log('Refreshed timezone context:', timezone);
       
       toast.success('General settings saved!');
     } catch (err) {
@@ -718,6 +731,7 @@ export default function SettingsPage() {
   useEffect(() => {
     async function fetchSettings() {
       try {
+        // Fetch user settings
         const data = await getUserSettings();
         const prefs = data.settings?.preferences || {};
 
@@ -744,12 +758,19 @@ export default function SettingsPage() {
         setCompanyAddress(general?.company_address || "");
         setEmail(general?.email_id || "");
         setContactNumber(general?.contact_number || "");
-        setTimezone(general?.timezone || "SGT");
         
-        // Sync timezone to localStorage so the frontend timezone utilities can use it
-        if (general?.timezone) {
-          localStorage.setItem('userTimezone', general.timezone);
-          console.log('Loaded timezone from backend to localStorage:', general.timezone);
+        // Fetch system timezone (takes precedence over user settings for display)
+        try {
+          const tzResponse = await getSystemTimezone();
+          if (tzResponse?.timezone) {
+            setTimezone(tzResponse.timezone);
+            console.log('Loaded system timezone from API:', tzResponse.timezone);
+          } else {
+            setTimezone(general?.timezone || "Asia/Singapore");
+          }
+        } catch (tzError) {
+          console.warn('Failed to fetch system timezone, using user settings:', tzError);
+          setTimezone(general?.timezone || "Asia/Singapore");
         }
         
         setLanguage(general?.language || "English");
@@ -1943,7 +1964,7 @@ export default function SettingsPage() {
                       />
                       <span className="text-sm text-gray-300">minutes</span>
                       <p className="text-xs text-gray-400 ml-4">
-                        Minutes after pickup time when alert triggers
+                        Minutes before pickup time when alert triggers
                       </p>
                     </div>
                   </div>

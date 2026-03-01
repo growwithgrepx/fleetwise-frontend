@@ -148,9 +148,10 @@ export function generateJobSummary(job: Job | ApiJob): string {
  */
 function formatDateTime(date: string, time: string): string {
   if (!date || !time) return '';
+  // Always display as YYYY-MM-DD
   const dateParts = date.split('-');
   if (dateParts.length === 3 && dateParts.every(part => part && !isNaN(Number(part)))) {
-    const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+    const formattedDate = `${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`;
     return `${formattedDate} ${time}`;
   }
   return `${date} ${time}`;

@@ -8,6 +8,7 @@ import { UserProvider } from '../context/UserContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { AddressCacheProvider } from '../context/AddressCacheContext';
 import { CopiedJobProvider } from '../context/CopiedJobContext';
+import { TimezoneProvider } from '../contexts/TimezoneContext';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -22,12 +23,13 @@ const queryClient = new QueryClient({
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <AddressCacheProvider>
-          <UserProvider>
-            <CopiedJobProvider>{children}</CopiedJobProvider>
-          </UserProvider>
-        </AddressCacheProvider>
+      <TimezoneProvider>
+        <QueryClientProvider client={queryClient}>
+          <AddressCacheProvider>
+            <UserProvider>
+              <CopiedJobProvider>{children}</CopiedJobProvider>
+            </UserProvider>
+          </AddressCacheProvider>
         <Toaster
           position="top-right"
           toastOptions={{
@@ -39,6 +41,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         />
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
-    </ThemeProvider>
+    </TimezoneProvider>
+  </ThemeProvider>
   );
 }
