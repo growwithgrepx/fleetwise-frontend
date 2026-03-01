@@ -13,6 +13,25 @@ import { getAlertSettings } from '@/services/api/settingsApi';
 import { toast } from 'react-hot-toast';
 import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
 import { useUser } from '@/context/UserContext';
+import type { AlertSettings } from '@/services/api/settingsApi';
+
+// Define return type for the hook
+interface AlertSettingsResponse {
+  alert_settings: Partial<AlertSettings>;
+}
+
+interface UseJobMonitoringReturn {
+  alerts: any[];
+  isLoading: boolean;
+  error: any;
+  alertCount: number;
+  refetch: () => void;
+  dismissAlert: (alertId: number) => void;
+  startTrip: (jobId: number) => void;
+  isDismissing: boolean;
+  isStartingTrip: boolean;
+  alertSettings: AlertSettingsResponse;
+}
 
 // Convert API alert to store alert format
 const convertApiAlertToStoreFormat = (apiAlert: ApiJobMonitoringAlert, maxAlertReminders: number = 3) => ({
@@ -20,6 +39,7 @@ const convertApiAlertToStoreFormat = (apiAlert: ApiJobMonitoringAlert, maxAlertR
   jobId: apiAlert.job_id,
   driverName: apiAlert.driver_name,
   driverContact: apiAlert.driver_mobile,
+  pickupDate: apiAlert.pickup_date,
   pickupTime: apiAlert.pickup_time, // Use backend's formatted time (ISO string or display format)
   passengerDetails: apiAlert.passenger_name || apiAlert.job_data?.customer?.name || apiAlert.job_data?.customer_name || 'Not assigned',
   elapsedTime: apiAlert.elapsed_minutes,
@@ -43,7 +63,7 @@ const debugConvertApiAlert = (apiAlert: ApiJobMonitoringAlert) => {
   return result;
 };
 
-export const useJobMonitoring = () => {
+export const useJobMonitoring = (): UseJobMonitoringReturn => {
   const queryClient = useQueryClient();
   const { alerts, dismissAlert, updateAlerts } = useJobMonitoringStore();
   const { isLoggedIn } = useUser();
@@ -130,9 +150,26 @@ export const useJobMonitoring = () => {
       
       if (newAlerts.length > 0) {
         // Only play notification if we have actual new alerts
-        // Check if audio notifications are enabled in settings
-        if (alertSettingsData?.alert_settings?.enable_audio_notifications ?? true) {
+        // Check if audio notifications are enabled in settings (default to true if not specified)
+        const enableAudio = alertSettingsData?.alert_settings?.enable_audio_notifications ?? true;
+        const enableVisual = alertSettingsData?.alert_settings?.enable_visual_alerts ?? true;
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useJobMonitoring] New alerts detected. Audio enabled:', enableAudio, 'Visual enabled:', enableVisual);
+        }
+        
+        if (enableAudio) {
           playAudioNotification(alertSettingsData?.alert_settings);
+        }
+        
+        if (enableVisual && 'Notification' in window && Notification.permission === 'granted') {
+          // Show browser notification if visual alerts are enabled
+          new Notification('Job Alert', {
+            body: `${newAlerts.length} new job monitoring alert${newAlerts.length > 1 ? 's' : ''} require attention`,
+            icon: '/icon-192x192.png',
+            tag: 'job-alert',
+            requireInteraction: true
+          });
         }
       }
       
@@ -202,5 +239,6 @@ export const useJobMonitoring = () => {
     startTrip: (jobId: number) => startTripMutation.mutate(jobId),
     isDismissing: dismissAlertMutation.isPending,
     isStartingTrip: startTripMutation.isPending,
+    alertSettings: { alert_settings: alertSettingsData?.alert_settings || {} },
   };
 };

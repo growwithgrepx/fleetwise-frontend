@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useJobMonitoring } from "@/hooks/useJobMonitoring";
 import { useUser } from '@/context/UserContext';
 import {
@@ -7,94 +7,146 @@ import {
   ClockIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
-import JobDetailsModal from "./JobDetailsModal";
-import { ApiJob } from "@/types/job";
-import { getDisplayTimezone } from "@/utils/timezoneUtils";
+import JobDetailsModal from './JobDetailsModal';
+import { getJobById } from '@/services/api/jobsApi';
+import { ApiJob } from '@/types/job';
+import { getDisplayTimezone, convertUtcToDisplayTime } from '@/utils/timezoneUtils';
 
-// Helper function to convert UTC ISO timestamp to display timezone
-const formatPickupTimeInDisplayTimezone = (utcIsoString: string, displayTimezone: string): string => {
+// Helper function to format pickup time - handles both display timezone time and UTC ISO formats
+const formatPickupTimeInDisplayTimezone = (pickupTimeValue: string, displayTimezone: string): string => {
   try {
-    // Parse UTC ISO string (e.g., "2026-03-01T00:20Z")
-    const date = new Date(utcIsoString);
-    
-    // Format using Intl API with the display timezone
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: displayTimezone,
-    });
-    
-    const parts = formatter.formatToParts(date);
-    const year = parts.find(p => p.type === 'year')?.value;
-    const month = parts.find(p => p.type === 'month')?.value;
-    const day = parts.find(p => p.type === 'day')?.value;
-    const hour = parts.find(p => p.type === 'hour')?.value;
-    const minute = parts.find(p => p.type === 'minute')?.value;
-    
-    return `${year}-${month}-${day}, ${hour}:${minute}`;
+    // Check if it's a UTC ISO string (contains 'T' and 'Z')
+    if (pickupTimeValue.includes('T') && pickupTimeValue.includes('Z')) {
+      // Parse UTC ISO string (e.g., "2026-03-01T00:20Z")
+      const date = new Date(pickupTimeValue);
+      
+      // Format using Intl API with the display timezone
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: displayTimezone,
+      });
+      
+      const parts = formatter.formatToParts(date);
+      const year = parts.find(p => p.type === 'year')?.value;
+      const month = parts.find(p => p.type === 'month')?.value;
+      const day = parts.find(p => p.type === 'day')?.value;
+      const hour = parts.find(p => p.type === 'hour')?.value;
+      const minute = parts.find(p => p.type === 'minute')?.value;
+      
+      return `${year}-${month}-${day}, ${hour}:${minute}`;
+    } else if (pickupTimeValue.match(/^\d{4}-\d{2}-\d{2}, \d{2}:\d{2}$/)) {
+      // If it's already in format "YYYY-MM-DD, HH:MM", extract date and time parts separately
+      // and use the same conversion method as in normalizeJobForDisplay
+      const [datePart, timePart] = pickupTimeValue.split(', ');
+      
+      // Use the same convertUtcToDisplayTime function as used in job normalization
+      const convertedTime = convertUtcToDisplayTime(timePart, datePart);
+      
+      // Reconstruct the full datetime string in the same format
+      return `${datePart}, ${convertedTime}`;
+    } else if (pickupTimeValue.match(/^\d{2}:\d{2}$/)) {
+      // If it's just a time format "HH:MM", we need to combine with today's date to properly convert
+      const [hour, minute] = pickupTimeValue.split(':').map(Number);
+      
+      // Since we only have time without date, we need to make assumptions.
+      // The safest approach is to treat it as a time that needs proper timezone handling
+      // For this case, we'll construct a date with the current date to allow timezone conversion
+      const now = new Date();
+      const dateWithTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
+      
+      // Format using Intl API with the display timezone
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: displayTimezone,
+      });
+      
+      return formatter.format(dateWithTime);
+    } else {
+      // Display timezone time format (e.g., "20:20" or "2026-03-01, 20:20")
+      return pickupTimeValue;
+    }
   } catch (error) {
     console.error('[JobMonitoringAlertsPanel] Error formatting pickup time:', error);
-    // Fallback: just remove Z and replace T with comma
-    return utcIsoString.replace('T', ', ').replace('Z', '');
+    // Fallback: just return the value as-is
+    return pickupTimeValue;
   }
 };
 
 const JobMonitoringAlertsPanel = () => {
-  const { alerts, startTrip, dismissAlert, isLoading: alertsLoading, error: alertsError } = useJobMonitoring();
+  const { alerts, startTrip, dismissAlert, isLoading: alertsLoading, error: alertsError, alertSettings } = useJobMonitoring();
   const { isLoggedIn, isLoading: userLoading } = useUser();
-
-
 
   const [expandedAlerts, setExpandedAlerts] = useState<Record<number, boolean>>(
     {}
   );
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
-  const [selectedJobData, setSelectedJobData] = useState<ApiJob | undefined>(undefined);
   const [isJobDetailsModalOpen, setIsJobDetailsModalOpen] = useState(false);
   const [startingTripAlerts, setStartingTripAlerts] = useState<Set<number>>(new Set());
   const [dismissingAlerts, setDismissingAlerts] = useState<Set<number>>(new Set());
+  const [jobDetailsMap, setJobDetailsMap] = useState<Record<number, ApiJob | null>>({});
+  const [loadingJobs, setLoadingJobs] = useState<Set<number>>(new Set());
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   // Optimize filtering to avoid repeated calculations
   const activeAlerts = useMemo(() => {
     return alerts.filter(alert => !alert.dismissed);
   }, [alerts]);
 
+  // Fetch complete job details for all alerts on initial load
+  useEffect(() => {
+    if (activeAlerts.length > 0 && !initialLoadComplete) {
+      const fetchAllJobDetails = async () => {
+        setInitialLoadComplete(true);
+        const jobIdsToFetch = activeAlerts
+          .filter(alert => !jobDetailsMap[alert.jobId])
+          .map(alert => alert.jobId);
+        
+        if (jobIdsToFetch.length > 0) {
+          // Fetch all job details in parallel
+          const promises = jobIdsToFetch.map(jobId => 
+            getJobById(jobId).catch(error => {
+              console.error(`Failed to fetch job details for job ${jobId}:`, error);
+              return null;
+            })
+          );
+          
+          const results = await Promise.all(promises);
+          
+          // Update jobDetailsMap with the fetched data
+          setJobDetailsMap(prev => {
+            const newMap = { ...prev };
+            jobIdsToFetch.forEach((jobId, index) => {
+              newMap[jobId] = results[index];
+            });
+            return newMap;
+          });
+        }
+      };
+      
+      fetchAllJobDetails();
+    }
+  }, [activeAlerts, initialLoadComplete, jobDetailsMap]);
+
+  // Check if visual alerts are enabled (default to true if not specified)
+  const visualAlertsEnabled = alertSettings?.alert_settings?.enable_visual_alerts ?? true;
+
   // Don't render anything if user is not authenticated or still loading
   if (userLoading || !isLoggedIn) {
     return null;
   }
 
-  // Show error state if there's an error
-  if (alertsError) {
-    return (
-      <div className="col-span-full sm:col-span-3 px-2 sm:px-4 md:px-6 lg:px-8">
-        <div className="bg-gray-800/60 border border-gray-700 rounded-lg sm:rounded-2xl p-3 sm:p-4 md:p-5 shadow-xl">
-          <div className="text-center py-8">
-            <div className="text-red-400 mb-2">⚠️</div>
-            <div className="text-red-300 font-medium">Error loading alerts</div>
-            <div className="text-gray-400 text-sm mt-1">Please refresh the page</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loading state
-  if (alertsLoading) {
-    return (
-      <div className="col-span-full sm:col-span-3 px-2 sm:px-4 md:px-6 lg:px-8">
-        <div className="bg-gray-800/60 border border-gray-700 rounded-lg sm:rounded-2xl p-3 sm:p-4 md:p-5 shadow-xl">
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            <span className="ml-3 text-gray-300">Loading alerts...</span>
-          </div>
-        </div>
-      </div>
-    );
+  // Don't render the panel if visual alerts are disabled
+  if (!visualAlertsEnabled) {
+    // Optionally show a subtle indicator that alerts exist but are hidden
+    // For now, we'll just return null - the backend sends them, we just don't display them
+    return null;
   }
   const toggleExpand = (id: number) => {
     setExpandedAlerts((prev) => ({
@@ -189,18 +241,26 @@ const JobMonitoringAlertsPanel = () => {
                             Job #{alert.jobId}
                           </span>
 
-                          <span
+                          {/* TEMPORARILY HIDDEN: Elapsed time display */}
+                          {/* <span
                             className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full ${getTimingTagStyle(
                               elapsed
                             )}`}
                           >
                             {formatElapsedTime(elapsed)}
-                          </span>
+                          </span> */}
                         </div>
 
                         <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
                           <UserIcon className="h-4 w-4 text-gray-500" />
-                          <span className="truncate">{alert.driverName}</span>
+                          <span className="truncate">{
+                            /* Use driver name from fetched job details if available, otherwise fall back to monitoring alert data */
+                            jobDetailsMap[alert.jobId]?.driver?.name 
+                              ? jobDetailsMap[alert.jobId]?.driver?.name
+                              : (alert.driverName && alert.driverName !== 'Unassigned' 
+                                  ? alert.driverName 
+                                  : (alert.jobData?.driver?.name || 'Unassigned'))
+                          }</span>
                         </div>
                       </div>
 
@@ -225,7 +285,7 @@ const JobMonitoringAlertsPanel = () => {
                           <ClockIcon className="h-4 w-4 text-gray-500" />
                           <span className="text-gray-400">Pickup:</span>
                           <span className="ml-auto text-gray-200">
-                            {formatPickupTimeInDisplayTimezone(alert.pickupTime, getDisplayTimezone())}
+                            {alert.pickupDate ? formatPickupTimeInDisplayTimezone(`${alert.pickupDate}, ${alert.pickupTime}`, getDisplayTimezone()) : formatPickupTimeInDisplayTimezone(alert.pickupTime, getDisplayTimezone())}
                           </span>
                         </div>
 
@@ -243,7 +303,6 @@ const JobMonitoringAlertsPanel = () => {
                       <button
                         onClick={() => {
                           setSelectedJobId(alert.jobId);
-                          setSelectedJobData(alert.jobData);
                           setIsJobDetailsModalOpen(true);
                         }}
                         className="flex-1 text-xs sm:text-sm bg-blue-600/90 hover:bg-blue-600 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition font-medium"
@@ -310,11 +369,9 @@ const JobMonitoringAlertsPanel = () => {
       <JobDetailsModal
         isOpen={isJobDetailsModalOpen}
         jobId={selectedJobId}
-        jobData={selectedJobData}
         onClose={() => {
           setIsJobDetailsModalOpen(false);
           setSelectedJobId(null);
-          setSelectedJobData(undefined); // Clear stored job data when closing
         }}
       />
     )}

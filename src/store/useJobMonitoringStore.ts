@@ -12,6 +12,7 @@ export interface JobMonitoringAlert {
   jobId: number;
   driverName: string;
   driverContact: string;
+  pickupDate: string;
   pickupTime: string; // ISO string
   passengerDetails: string;
   elapsedTime: number; // in minutes
