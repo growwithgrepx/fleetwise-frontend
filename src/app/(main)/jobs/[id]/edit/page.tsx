@@ -74,14 +74,6 @@ export default function EditJobPage() {
     <div className="flex flex-col min-h-screen">
       <div className="px-8 pt-6 pb-4 border-b border-gray-200">
         <PageHeader title={`Edit Job #${jobId}`}>
-          <Button variant="primary" type="submit" form="job-form" disabled={isUpdating}>
-            <HiCheck className="w-5 h-5 mr-2" />
-            {isUpdating ? 'Saving...' : 'Save Changes'}
-          </Button>
-          <Button variant="secondary" onClick={() => router.push('/jobs')} className="ml-2">
-            <HiArrowLeft className="w-5 h-5 mr-2" />
-            Back to Jobs
-          </Button>
         </PageHeader>
       </div>
       

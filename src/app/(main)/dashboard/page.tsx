@@ -491,8 +491,24 @@ export default function DashboardPage() {
       // Create date object with actual pickup date and time
       const pickupDateTime = new Date(pickupYear, pickupMonth - 1, pickupDay, pickupHour, pickupMinute);
       
-      // Create local now variable for time comparisons
-      const now = new Date();
+      // Create local now variable for time comparisons - must be in display timezone
+      // to match pickupDateTime which is also in display timezone
+      const systemNow = new Date();
+      const nowInDisplayTzString = systemNow.toLocaleString('en-US', {
+        timeZone: userTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      // Parse "MM/DD/YYYY, HH:MM:SS" format
+      const [dateStr, timeStr] = nowInDisplayTzString.split(', ');
+      const [nowMonth, nowDay, nowYear] = dateStr.split('/').map(Number);
+      const [nowHour, nowMinute, nowSecond] = timeStr.split(':').map(Number);
+      const now = new Date(nowYear, nowMonth - 1, nowDay, nowHour, nowMinute, nowSecond);
       
       // Debug timezone info
       if (process.env.NODE_ENV === 'development') {
@@ -605,9 +621,13 @@ export default function DashboardPage() {
       
       // Debug logging for status classification
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Job ${job.id} (${job.status}): pickup=${pickupDateTime}, now=${now}, classified as ${statusColor === '#22c55e' ? 'Completed' : statusColor === '#ef4444' ? 'Delayed' : statusColor === '#f59e42' ? 'In Progress' : 'Scheduled'}`);
+        const statusName = statusColor === '#22c55e' ? 'Completed' : statusColor === '#ef4444' ? 'Delayed' : statusColor === '#f59e42' ? 'In Progress' : 'Scheduled';
+        console.log(`Job ${job.id} (${job.status}): pickup=${pickupDateTime.toISOString()}, now=${now.toISOString()} (${userTimezone}), classified as ${statusName}`);
         if (pickupDateTime < now && !['jc', 'sd', 'canceled'].includes(status)) {
-          console.log(`⚠️ Job ${job.id} is past pickup time but not explicitly completed - this should be Completed status in DB`);
+          const delayMinutes = Math.floor((now.getTime() - pickupDateTime.getTime()) / (1000 * 60));
+          const delayHours = Math.floor(delayMinutes / 60);
+          const remainingMinutes = delayMinutes % 60;
+          console.log(`⚠️ Job ${job.id} is ${delayHours}h ${remainingMinutes}m overdue (status="${status}" should be updated)`);
         }
       }
       
