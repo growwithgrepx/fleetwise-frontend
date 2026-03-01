@@ -155,6 +155,8 @@ export async function adminChangePassword(userId: number, newPassword: string, c
     });
     return response.data;
   } catch (error: any) {
-    return { error: error?.message ?? 'Failed to change password' };
+    // Extract error message from error object (from API interceptor)
+    const errorMessage = error?.message || error?.response?.data?.error || 'Failed to change password';
+    return { error: errorMessage };
   }
 }
