@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useJobMonitoring } from "@/hooks/useJobMonitoring";
+import { useUser } from '@/context/UserContext';
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -10,8 +11,41 @@ import JobDetailsModal from "./JobDetailsModal";
 import { ApiJob } from "@/types/job";
 import { getDisplayTimezone } from "@/utils/timezoneUtils";
 
+// Helper function to convert UTC ISO timestamp to display timezone
+const formatPickupTimeInDisplayTimezone = (utcIsoString: string, displayTimezone: string): string => {
+  try {
+    // Parse UTC ISO string (e.g., "2026-03-01T00:20Z")
+    const date = new Date(utcIsoString);
+    
+    // Format using Intl API with the display timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: displayTimezone,
+    });
+    
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    const hour = parts.find(p => p.type === 'hour')?.value;
+    const minute = parts.find(p => p.type === 'minute')?.value;
+    
+    return `${year}-${month}-${day}, ${hour}:${minute}`;
+  } catch (error) {
+    console.error('[JobMonitoringAlertsPanel] Error formatting pickup time:', error);
+    // Fallback: just remove Z and replace T with comma
+    return utcIsoString.replace('T', ', ').replace('Z', '');
+  }
+};
+
 const JobMonitoringAlertsPanel = () => {
-  const { alerts, startTrip, dismissAlert } = useJobMonitoring();
+  const { alerts, startTrip, dismissAlert, isLoading: alertsLoading, error: alertsError } = useJobMonitoring();
+  const { isLoggedIn, isLoading: userLoading } = useUser();
 
 
 
@@ -28,6 +62,40 @@ const JobMonitoringAlertsPanel = () => {
   const activeAlerts = useMemo(() => {
     return alerts.filter(alert => !alert.dismissed);
   }, [alerts]);
+
+  // Don't render anything if user is not authenticated or still loading
+  if (userLoading || !isLoggedIn) {
+    return null;
+  }
+
+  // Show error state if there's an error
+  if (alertsError) {
+    return (
+      <div className="col-span-full sm:col-span-3 px-2 sm:px-4 md:px-6 lg:px-8">
+        <div className="bg-gray-800/60 border border-gray-700 rounded-lg sm:rounded-2xl p-3 sm:p-4 md:p-5 shadow-xl">
+          <div className="text-center py-8">
+            <div className="text-red-400 mb-2">⚠️</div>
+            <div className="text-red-300 font-medium">Error loading alerts</div>
+            <div className="text-gray-400 text-sm mt-1">Please refresh the page</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (alertsLoading) {
+    return (
+      <div className="col-span-full sm:col-span-3 px-2 sm:px-4 md:px-6 lg:px-8">
+        <div className="bg-gray-800/60 border border-gray-700 rounded-lg sm:rounded-2xl p-3 sm:p-4 md:p-5 shadow-xl">
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <span className="ml-3 text-gray-300">Loading alerts...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const toggleExpand = (id: number) => {
     setExpandedAlerts((prev) => ({
       ...prev,
@@ -157,15 +225,7 @@ const JobMonitoringAlertsPanel = () => {
                           <ClockIcon className="h-4 w-4 text-gray-500" />
                           <span className="text-gray-400">Pickup:</span>
                           <span className="ml-auto text-gray-200">
-                            {new Date(alert.pickupTime + 'Z').toLocaleString('en-US', {
-                              timeZone: getDisplayTimezone(),
-                              year: 'numeric',
-                              month: '2-digit',
-                              day: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: false
-                            })}
+                            {formatPickupTimeInDisplayTimezone(alert.pickupTime, getDisplayTimezone())}
                           </span>
                         </div>
 

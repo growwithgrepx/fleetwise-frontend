@@ -28,13 +28,17 @@ export const api = axios.create({
   withXSRFToken: true,
 });
 
-// Add request interceptor for debugging
+// Add request interceptor for debugging and session handling
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
     // Only log in development
     if (process.env.NODE_ENV === 'development') {
       console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
     }
+    
+    // Ensure credentials are included for all requests
+    config.withCredentials = true;
+    
     return config;
   },
   (error) => {
@@ -52,12 +56,41 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error: AxiosError) => {
+  async (error: AxiosError) => {
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx
       const data = error.response.data as any;
       let msg = 'An error occurred';
+      
+      // Handle 403 Forbidden - authentication issue
+      if (error.response.status === 403) {
+        console.error('[API] 403 Forbidden - Authentication issue detected');
+        msg = 'Authentication required. Please log in again.';
+        
+        // Try to refresh the session
+        try {
+          const refreshResponse = await fetch('/api/auth/me', { 
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (!refreshResponse.ok) {
+            // Session is invalid, redirect to login
+            console.log('[API] Session refresh failed, redirecting to login');
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            }
+          }
+        } catch (refreshError) {
+          console.error('[API] Session refresh error:', refreshError);
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+        }
+        
+        return Promise.reject(new Error(msg));
+      }
       
       // Check if response is HTML (login redirect)
       const contentType = error.response.headers?.['content-type'] || '';

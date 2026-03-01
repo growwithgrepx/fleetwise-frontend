@@ -12,6 +12,7 @@ import { JobMonitoringAlert as ApiJobMonitoringAlert } from '@/services/api/jobM
 import { getAlertSettings } from '@/services/api/settingsApi';
 import { toast } from 'react-hot-toast';
 import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
+import { useUser } from '@/context/UserContext';
 
 // Convert API alert to store alert format
 const convertApiAlertToStoreFormat = (apiAlert: ApiJobMonitoringAlert, maxAlertReminders: number = 3) => ({
@@ -19,7 +20,7 @@ const convertApiAlertToStoreFormat = (apiAlert: ApiJobMonitoringAlert, maxAlertR
   jobId: apiAlert.job_id,
   driverName: apiAlert.driver_name,
   driverContact: apiAlert.driver_mobile,
-  pickupTime: `${apiAlert.pickup_date}T${apiAlert.pickup_time}`, // Keep as UTC ISO string for proper timezone handling
+  pickupTime: apiAlert.pickup_time, // Use backend's formatted time (ISO string or display format)
   passengerDetails: apiAlert.passenger_name || apiAlert.job_data?.customer?.name || apiAlert.job_data?.customer_name || 'Not assigned',
   elapsedTime: apiAlert.elapsed_minutes,
   createdAt: apiAlert.created_at,
@@ -45,12 +46,19 @@ const debugConvertApiAlert = (apiAlert: ApiJobMonitoringAlert) => {
 export const useJobMonitoring = () => {
   const queryClient = useQueryClient();
   const { alerts, dismissAlert, updateAlerts } = useJobMonitoringStore();
+  const { isLoggedIn } = useUser();
   const previousAlertsRef = useRef<typeof alerts>([]);
 
   // Fetch alerts from API
   const { data: apiAlertsData, isLoading, error, refetch } = useQuery({
     queryKey: ['job-monitoring-alerts'],
     queryFn: async () => {
+      // Only fetch if user is logged in
+      if (!isLoggedIn) {
+        console.log('[useJobMonitoring] User not logged in, skipping API call');
+        return { alerts: [], active_count: 0, total_count: 0 };
+      }
+      
       console.log('[useJobMonitoring] Starting API call to getJobMonitoringAlerts');
       try {
         const result = await getJobMonitoringAlerts(true, 24); // Include upcoming jobs for 24 hours
@@ -62,6 +70,7 @@ export const useJobMonitoring = () => {
       }
     },
     refetchInterval: 30000, // Refetch every 30 seconds
+    enabled: isLoggedIn, // Only run query when user is logged in
   });
   
   // Debug logging
@@ -81,6 +90,7 @@ export const useJobMonitoring = () => {
     queryKey: ['alert-settings'],
     queryFn: getAlertSettings,
     refetchInterval: 60000, // Refetch settings every minute
+    enabled: isLoggedIn, // Only run query when user is logged in
   });
 
   const maxAlertReminders = alertSettingsData?.alert_settings.max_alert_reminders ?? 3; // Default to 3 if not loaded
@@ -179,6 +189,7 @@ export const useJobMonitoring = () => {
     queryKey: ['job-monitoring-alert-count'],
     queryFn: getActiveJobMonitoringAlertCount,
     refetchInterval: 30000, // Refetch every 30 seconds
+    enabled: isLoggedIn, // Only run query when user is logged in
   });
 
   return {

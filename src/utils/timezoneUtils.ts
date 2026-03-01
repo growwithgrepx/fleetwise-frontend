@@ -3,74 +3,78 @@
  * Handles conversion between UTC and display timezone (configurable, default Asia/Singapore)
  */
 
+// Cache for the display timezone to avoid repeated API calls
+let cachedDisplayTimezone: string | null = null;
+
 /**
  * Get the configured display timezone
- * Reads from General Settings, defaults to Asia/Singapore
+ * Fetches from system settings via API, with fallback to cached value and then default.
+ * This is a synchronous getter that uses cached value for performance.
  */
 export function getDisplayTimezone(): string {
-  // Check what's in localStorage
-  if (typeof window !== 'undefined') {
-    
-    // Temporary test: Force SGT timezone
-    // localStorage.setItem('userTimezone', 'Asia/Singapore');
+  // Return cached timezone if available
+  if (cachedDisplayTimezone) {
+    return cachedDisplayTimezone;
   }
-  
-  // In production, this would read from:
-  // 1. User preferences (if logged in)
-  // 2. System General Settings
-  // 3. Default to Asia/Singapore
-  
-  // Check localStorage for user timezone setting
-  let savedTimezone = typeof window !== 'undefined' ? localStorage.getItem('userTimezone') : null;
-  
-  // If we have a saved timezone, map it from display format to IANA format
-  if (savedTimezone) {
-    
-    // Map display timezone names to IANA timezone identifiers
-    const timezoneMap: Record<string, string> = {
-      'SGT': 'Asia/Singapore',
-      'PST': 'America/Los_Angeles',
-      'EST': 'America/New_York',
-      'CET': 'Europe/Paris',
-      'GMT': 'Europe/London',
-      'IST': 'Asia/Kolkata',
-      'JST': 'Asia/Tokyo',
-      'AEST': 'Australia/Sydney',
-    };
-    
-    // If it's a mapped value, return the IANA equivalent
-    if (savedTimezone in timezoneMap) {
-      return timezoneMap[savedTimezone];
-    }
-    
-    return savedTimezone;
-  }
-  
-  // Check for system timezone setting
-  let systemTimezone = typeof window !== 'undefined' ? localStorage.getItem('systemTimezone') : null;
-  
-  if (systemTimezone) {
-    // Also map system timezone if needed
-    const timezoneMap: Record<string, string> = {
-      'SGT': 'Asia/Singapore',
-      'PST': 'America/Los_Angeles',
-      'EST': 'America/New_York',
-      'CET': 'Europe/Paris',
-      'GMT': 'Europe/London',
-      'IST': 'Asia/Kolkata',
-      'JST': 'Asia/Tokyo',
-      'AEST': 'Australia/Sydney',
-    };
-      
-    if (systemTimezone in timezoneMap) {
-      return timezoneMap[systemTimezone];
-    }
-      
-    return systemTimezone;
-  }
-  
-  // Default to Asia/Singapore as per current requirements
+
+  // Return default if no cached value (will be updated after API fetch)
   return "Asia/Singapore";
+}
+
+/**
+ * Initialize timezone from system settings (async)
+ * Call this on app startup to fetch and cache the display timezone
+ */
+export async function initializeDisplayTimezone(): Promise<string> {
+  try {
+    // Only do this in browser context
+    if (typeof window === 'undefined') {
+      return "Asia/Singapore";
+    }
+
+    const { getSystemTimezone } = await import('@/services/api/settingsApi');
+    const response = await getSystemTimezone();
+    
+    if (response && response.timezone) {
+      cachedDisplayTimezone = response.timezone;
+      // Also save to localStorage for persistence across page reloads
+      localStorage.setItem('_cachedTimezone', response.timezone);
+      return response.timezone;
+    }
+  } catch (error) {
+    console.warn('Failed to fetch system timezone from API, using default', error);
+    
+    // Try to recover cached value from localStorage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('_cachedTimezone');
+      if (stored) {
+        cachedDisplayTimezone = stored;
+        return stored;
+      }
+    }
+  }
+
+  cachedDisplayTimezone = "Asia/Singapore";
+  return "Asia/Singapore";
+}
+
+/**
+ * Refresh the cached timezone (call after changing timezone in Admin Settings)
+ */
+export async function refreshDisplayTimezone(): Promise<string> {
+  // Clear cache to force refresh
+  cachedDisplayTimezone = null;
+  return initializeDisplayTimezone();
+}
+
+/**
+ * Set timezone manually (usually after Admin Settings change)
+ */
+export function setDisplayTimezone(timezone: string): void {
+  cachedDisplayTimezone = timezone;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('_cachedTimezone', timezone);
+  }
 }
 
 /**

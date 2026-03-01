@@ -19,6 +19,8 @@ import {
   testEmailSettings,
   saveAlertSettings,
   getAlertSettings,
+  getSystemTimezone,
+  setSystemTimezone,
   type EmailSettings,
   type TestEmailPayload
 } from '@/services/api/settingsApi';
@@ -630,14 +632,21 @@ export default function SettingsPage() {
       }
     };
     try {
+      // Save user preferences
       await saveUserSettings({ preferences });
       
-      // Sync timezone to localStorage and context
-      // Always update localStorage with the current timezone value
-      localStorage.setItem('userTimezone', timezone);
-      setContextTimezone(timezone); // Update context
-      refreshTimezone(); // Refresh timezone context
-      console.log('Saved timezone to localStorage and context:', timezone);
+      // Also save system-wide timezone
+      try {
+        await setSystemTimezone(timezone);
+        console.log('Saved system timezone to backend:', timezone);
+      } catch (tzError) {
+        console.warn('Failed to save system timezone:', tzError);
+        // Continue even if system timezone save fails
+      }
+      
+      // Refresh timezone context
+      await refreshTimezone();
+      console.log('Refreshed timezone context:', timezone);
       
       toast.success('General settings saved!');
     } catch (err) {
@@ -722,6 +731,7 @@ export default function SettingsPage() {
   useEffect(() => {
     async function fetchSettings() {
       try {
+        // Fetch user settings
         const data = await getUserSettings();
         const prefs = data.settings?.preferences || {};
 
@@ -748,12 +758,19 @@ export default function SettingsPage() {
         setCompanyAddress(general?.company_address || "");
         setEmail(general?.email_id || "");
         setContactNumber(general?.contact_number || "");
-        setTimezone(general?.timezone || "SGT");
         
-        // Sync timezone to localStorage so the frontend timezone utilities can use it
-        if (general?.timezone) {
-          localStorage.setItem('userTimezone', general.timezone);
-          console.log('Loaded timezone from backend to localStorage:', general.timezone);
+        // Fetch system timezone (takes precedence over user settings for display)
+        try {
+          const tzResponse = await getSystemTimezone();
+          if (tzResponse?.timezone) {
+            setTimezone(tzResponse.timezone);
+            console.log('Loaded system timezone from API:', tzResponse.timezone);
+          } else {
+            setTimezone(general?.timezone || "Asia/Singapore");
+          }
+        } catch (tzError) {
+          console.warn('Failed to fetch system timezone, using user settings:', tzError);
+          setTimezone(general?.timezone || "Asia/Singapore");
         }
         
         setLanguage(general?.language || "English");

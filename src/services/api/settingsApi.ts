@@ -214,3 +214,25 @@ export async function testEmailSettings(payload: TestEmailPayload): Promise<Save
   }
   return res.json();
 }
+
+// --- SYSTEM TIMEZONE ---
+export interface SystemTimezoneResponse {
+  timezone: string;
+}
+
+export async function getSystemTimezone(): Promise<SystemTimezoneResponse> {
+  const res = await fetch('/api/settings/system/timezone', { credentials: 'include' });
+  if (!res.ok) throw new Error('Failed to fetch system timezone');
+  return res.json();
+}
+
+export async function setSystemTimezone(timezone: string): Promise<{ message: string; timezone: string }> {
+  const res = await fetch('/api/settings/system/timezone', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ timezone }),
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to save system timezone');
+  return res.json();
+}

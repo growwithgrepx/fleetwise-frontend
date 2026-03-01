@@ -1,26 +1,42 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getDisplayTimezone } from '../utils/timezoneUtils';
+import { getDisplayTimezone, initializeDisplayTimezone, refreshDisplayTimezone, setDisplayTimezone } from '../utils/timezoneUtils';
 
 interface TimezoneContextType {
   timezone: string;
   setTimezone: (timezone: string) => void;
-  refreshTimezone: () => void;
+  refreshTimezone: () => Promise<void>;
 }
 
 const TimezoneContext = createContext<TimezoneContextType | undefined>(undefined);
 
 export function TimezoneProvider({ children }: { children: ReactNode }) {
-  const [timezone, setTimezone] = useState<string>(() => {
-    // Get initial timezone from utils function
+  const [timezone, setTimezoneState] = useState<string>(() => {
+    // Get initial timezone from utils function (may be default)
     return getDisplayTimezone();
   });
+  const [initialized, setInitialized] = useState(false);
+
+  // Initialize timezone from API on mount
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const tz = await initializeDisplayTimezone();
+        setTimezoneState(tz);
+      } catch (error) {
+        console.error('Failed to initialize timezone:', error);
+      }
+      setInitialized(true);
+    };
+
+    init();
+  }, []);
 
   // Update timezone when system/user preference changes
   useEffect(() => {
     const handleStorageChange = () => {
       const newTimezone = getDisplayTimezone();
-      if (newTimezone !== timezone) {
-        setTimezone(newTimezone);
+      if (newTimezone && newTimezone !== timezone) {
+        setTimezoneState(newTimezone);
       }
     };
 
@@ -35,13 +51,15 @@ export function TimezoneProvider({ children }: { children: ReactNode }) {
   const value = {
     timezone,
     setTimezone: (newTimezone: string) => {
-      localStorage.setItem('userTimezone', newTimezone);
-      setTimezone(newTimezone);
+      setDisplayTimezone(newTimezone);
+      setTimezoneState(newTimezone);
     },
-    refreshTimezone: () => {
-      const newTimezone = getDisplayTimezone();
-      if (newTimezone !== timezone) {
-        setTimezone(newTimezone);
+    refreshTimezone: async () => {
+      try {
+        const newTimezone = await refreshDisplayTimezone();
+        setTimezoneState(newTimezone);
+      } catch (error) {
+        console.error('Failed to refresh timezone:', error);
       }
     }
   };

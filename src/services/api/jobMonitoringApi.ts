@@ -8,7 +8,7 @@ export interface JobMonitoringAlert {
   driver_mobile: string;
   passenger_name: string;
   passenger_mobile: string | null;
-  pickup_time: string; // HH:MM format
+  pickup_time: string; // ISO format (YYYY-MM-DDTHH:MMZ) in UTC or display format
   pickup_date: string; // YYYY-MM-DD format
   status: 'active' | 'dismissed' | 'resolved';
   reminder_count: number;
