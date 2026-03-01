@@ -12,7 +12,7 @@ import { HiPlus, HiOutlineDocumentAdd, HiOutlineDocumentReport, HiOutlineCalcula
 import Link from "next/link";
 import { useMediaQuery } from 'react-responsive';
 import { useRouter } from 'next/navigation';
-import { CheckCircleIcon, CalendarIcon, UserGroupIcon, CurrencyDollarIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, CalendarIcon, UserGroupIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 
 import { Card } from '@/components/atoms/Card';
 
@@ -900,32 +900,12 @@ export default function DashboardPage() {
                     {filteredJobs.length} jobs
                   </span>
                   {/* Date Navigation Controls */}
-                  <div className="flex items-center gap-2 ml-auto">
-                    <button 
-                      onClick={() => setSelectedDate(prev => {
-                        const newDate = new Date(prev);
-                        newDate.setDate(newDate.getDate() - 1);
-                        return newDate;
-                      })}
-                      className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors"
-                    >
-                      <ChevronLeftIcon className="w-5 h-5" />
-                    </button>
+                  <div className="ml-auto">
                     <button 
                       onClick={() => setSelectedDate(new Date())}
                       className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                     >
                       Today
-                    </button>
-                    <button 
-                      onClick={() => setSelectedDate(prev => {
-                        const newDate = new Date(prev);
-                        newDate.setDate(newDate.getDate() + 1);
-                        return newDate;
-                      })}
-                      className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors"
-                    >
-                      <ChevronRightIcon className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
