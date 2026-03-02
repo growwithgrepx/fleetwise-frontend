@@ -23,6 +23,8 @@ import { TooltipProps } from "@/types/types";
 import { convertUtcToDisplayTime, getDisplayTimezone } from "@/utils/timezoneUtils";
 import { useJobMonitoring } from "@/hooks/useJobMonitoring";
 import { getAlertSettings } from "@/services/api/settingsApi";
+import { getJobById } from "@/services/api/jobsApi";
+import { ApiJob } from "@/types/job";
 
 // Extended Job type for timeline visualization
 type TimelineJob = Job & {
@@ -280,6 +282,10 @@ export default function DashboardPage() {
 
   const pickupThreshold = alertSettingsData?.alert_settings?.pickup_threshold_minutes ?? 15;
 
+  // State for storing complete job details for priority alerts
+  const [priorityJobDetails, setPriorityJobDetails] = useState<Record<number, ApiJob | null>>({});
+  const [priorityJobsLoaded, setPriorityJobsLoaded] = useState(false);
+
   // Convert server-side alerts to priority alerts format
   const priorityAlerts: PriorityAlert[] = useMemo(() => {
     if (!monitoringAlerts || monitoringAlerts.length === 0) {
@@ -288,12 +294,14 @@ export default function DashboardPage() {
 
     return monitoringAlerts
       .filter(alert => !alert.dismissed) // Only active alerts
-      .slice(0, 5) // Limit to top 5 for priority dashboard
       .map(alert => {
-        // Determine correct alert text based on elapsed time
+        // Calculate isOverdue for severity - keep this even if elapsed text is hidden
+        const isOverdue = alert.elapsedTime > 0;
+        
+        // TEMPORARILY HIDDEN: Determine correct alert text based on elapsed time
         // Positive elapsed time = overdue (pickup time has passed)
         // Negative elapsed time = approaching (pickup time in future)
-        const isOverdue = alert.elapsedTime > 0;
+        /*
         let alertText = '';
         
         if (isOverdue) {
@@ -325,17 +333,54 @@ export default function DashboardPage() {
             alertText = `in ${minutes}m`;
           }
         }
+        */
+        
+        // Use complete job details if available, otherwise fall back to monitoring alert data
+        const completeJobData = priorityJobDetails[alert.jobId];
         
         return {
-          text: `Job #${alert.jobId} ${alertText}`,
+          text: `Job #${alert.jobId}`,  // TEMPORARILY: Hide delay message
           link: `/jobs/${alert.jobId}`,
           severity: isOverdue ? 'critical' : 'warning',
-          driverName: alert.driverName || 'Unassigned',
-          driverId: undefined, // Not available in current alert structure
+          driverName: completeJobData?.driver?.name || alert.jobData?.driver?.name || alert.driverName || 'Unassigned',
+          driverId: completeJobData?.driver?.id || alert.jobData?.driver?.id || undefined,
         };
       });
-  }, [monitoringAlerts]);
+  }, [monitoringAlerts, priorityJobDetails]);
 
+  // Fetch complete job details for priority alerts
+  useEffect(() => {
+    if (priorityAlerts.length > 0 && !priorityJobsLoaded) {
+      // Extract job IDs from priority alerts
+      const jobIdsToFetch = priorityAlerts
+        .filter(alert => !priorityJobDetails[alert.link.replace('/jobs/', '')]) // Extract job ID from link
+        .map(alert => parseInt(alert.link.replace('/jobs/', ''), 10));
+      
+      if (jobIdsToFetch.length > 0) {
+        setPriorityJobsLoaded(true);
+        
+        // Fetch all job details in parallel
+        const promises = jobIdsToFetch.map(jobId => 
+          getJobById(jobId).catch(error => {
+            console.error(`Failed to fetch job details for job ${jobId}:`, error);
+            return null;
+          })
+        );
+        
+        Promise.all(promises).then(results => {
+          // Update priorityJobDetails with the fetched data
+          setPriorityJobDetails(prev => {
+            const newMap = { ...prev };
+            jobIdsToFetch.forEach((jobId, index) => {
+              newMap[jobId] = results[index];
+            });
+            return newMap;
+          });
+        });
+      }
+    }
+  }, [priorityAlerts, priorityJobsLoaded, priorityJobDetails]);
+  
   const { data: driversData, isLoading: driversLoading } = useGetAllDrivers();
 
   // --- Data Processing for KPIs ---
