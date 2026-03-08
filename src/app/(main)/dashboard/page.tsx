@@ -20,7 +20,7 @@ import PriorityDashboard, { PriorityAlert } from '@/components/organisms/Priorit
 import JobMonitoringAlertsPanel from '@/components/organisms/JobMonitoringAlertsPanel';
 import { useGetAllDrivers } from '@/hooks/useDrivers';
 import { TooltipProps } from "@/types/types";
-import { convertUtcToDisplayTime, getDisplayTimezone } from "@/utils/timezoneUtils";
+import { getDisplayTimezone } from "@/utils/timezoneUtils";
 import { useJobMonitoring } from "@/hooks/useJobMonitoring";
 import { getAlertSettings } from "@/services/api/settingsApi";
 import { getJobById } from "@/services/api/jobsApi";
@@ -173,7 +173,7 @@ const FloatingActionButton = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const actions = [
-    { icon: <HiOutlineDocumentAdd className="w-6 h-6" />, label: 'Create Job', href: '/jobs/create' },
+    { icon: <HiOutlineDocumentAdd className="w-6 h-6" />, label: 'Create Job', href: '/jobs/new' },
     { icon: <HiOutlineDocumentReport className="w-6 h-6" />, label: 'Bulk Import', href: '/jobs/import' },
     { icon: <HiOutlineCalculator className="w-6 h-6" />, label: 'Generate Invoice', href: '/billing/generate' },
     { icon: <HiOutlineBell className="w-6 h-6" />, label: 'Send Notification', href: '/notifications/create' },
@@ -251,13 +251,30 @@ export default function DashboardPage() {
   const { data: jobsResponse, isLoading: jobsLoading, isError: jobsError } = useQuery({
     queryKey: ["jobs", "dashboard"],
     queryFn: () => {
-      const startDate = new Date();
-      startDate.setHours(0, 0, 0, 0);
-      return getJobs({ pickup_date_start: startDate.toISOString().split('T')[0] });
+      // Get current date in user's display timezone
+      const userTimezone = getDisplayTimezone();
+      const nowInUserTz = new Date(new Date().toLocaleString('en-US', { timeZone: userTimezone }));
+      const dateStr = nowInUserTz.toISOString().split('T')[0];
+      
+      console.log('[Dashboard] Current UTC time:', new Date().toISOString());
+      console.log('[Dashboard] User timezone:', userTimezone);
+      console.log('[Dashboard] Current date in user timezone:', dateStr);
+      
+      return getJobs({ pickup_date: dateStr });
     },
-    select: (data) => data ?? { items: [], total: 0 },
+    select: (data) => {
+      console.log('[Dashboard] Jobs response received:', data);
+      console.log('[Dashboard] Jobs response items:', data?.items);
+      console.log('[Dashboard] Jobs response total:', data?.total);
+      return data ?? { items: [], total: 0 };
+    },
   });
-  const jobs = useMemo(() => jobsResponse?.items ?? [], [jobsResponse]);
+  const jobs = useMemo(() => {
+    const result = jobsResponse?.items ?? [];
+    console.log('[Dashboard] Jobs loaded:', result.length, 'jobs');
+    console.log('[Dashboard] Jobs data:', result);
+    return result;
+  }, [jobsResponse]);
 
   // --- Alert System Integration ---
   const { alerts: monitoringAlerts, isLoading: alertsLoading, error: alertsError } = useJobMonitoring();
@@ -484,6 +501,7 @@ export default function DashboardPage() {
       console.log(`User timezone: ${userTimezone}`);
       console.log(`Today in user timezone: ${today.toISOString()}`);
       console.log(`Tomorrow in user timezone: ${tomorrow.toISOString()}`);
+      console.log(`Total jobs from API: ${jobs.length}`);
     }
     
     const todayJobs = jobs.filter(job => {
@@ -498,16 +516,14 @@ export default function DashboardPage() {
       
       const isToday = jobDateInUserTz >= today && jobDateInUserTz < tomorrow;
       
-      if (process.env.NODE_ENV === 'development' && job.id === 234) {
-        console.log(`Job ${job.id}: pickup_date=${pickupDateStr}`);
-        console.log(`Job ${job.id}: jobDateInUserTz=${jobDateInUserTz.toISOString()}`);
-        console.log(`Job ${job.id}: today=${today.toISOString()}`);
-        console.log(`Job ${job.id}: tomorrow=${tomorrow.toISOString()}`);
-        console.log(`Job ${job.id}: isToday=${isToday}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Job ${job.id}: pickup_date=${pickupDateStr}, jobDate=${jobDateInUserTz.toISOString()}, isToday=${isToday}`);
       }
       
       return isToday;
     });
+    
+    console.log(`[Dashboard] Filtered to ${todayJobs.length} jobs for today`);
     
     // Debug: Log all today's jobs for analysis
     if (process.env.NODE_ENV === 'development') {
@@ -523,7 +539,7 @@ export default function DashboardPage() {
       // We need to convert the UTC time to display timezone for proper positioning
       
       // Convert pickup_time to display timezone for consistent positioning
-      const displayPickupTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
+      const displayPickupTime = job.pickup_time;
       const [pickupHour, pickupMinute] = displayPickupTime.split(':').map(Number);
       
       // Get the company timezone for reference
@@ -639,7 +655,7 @@ export default function DashboardPage() {
       const verticalOffset = (jobLaneMap[job.id] || 0) * 60; // 60px per lane
       
       // Calculate end percent using the converted display time
-      const displayDropoffTime = job.dropoff_time ? convertUtcToDisplayTime(job.dropoff_time, job.pickup_date) : null;
+      const displayDropoffTime = job.dropoff_time ? job.dropoff_time : null;
       const endPercent = isEndingTomorrow ? 100 :
         displayDropoffTime ?
           ((parseInt(displayDropoffTime.split(':')[0]) * 60 + parseInt(displayDropoffTime.split(':')[1])) / (24 * 60)) * 100 :
@@ -1025,7 +1041,7 @@ export default function DashboardPage() {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors"
-                      onClick={() => router.push('/jobs/create')}
+                      onClick={() => router.push('/jobs/new')}
                     >
                       Schedule New Job
                     </motion.button>
@@ -1179,9 +1195,9 @@ export default function DashboardPage() {
                                           <div className="truncate">{job.service_type}</div>
                                           <div className="text-slate-400">Time:</div>
                                           <div className="font-mono">
-                                            {convertUtcToDisplayTime(job.pickup_time, job.pickup_date) || 'Not specified'}
+                                            {job.pickup_time || 'Not specified'}
                                             {' → '}
-                                            {job.dropoff_time ? convertUtcToDisplayTime(job.dropoff_time, job.pickup_date) : 'Not specified'}
+                                            {job.dropoff_time ? job.dropoff_time : 'Not specified'}
                                           </div>
                                           <div className="text-slate-400">From:</div>
                                           <div className="truncate text-xs">{job.pickup_location || 'Not specified'}</div>

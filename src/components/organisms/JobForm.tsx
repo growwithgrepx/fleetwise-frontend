@@ -34,7 +34,7 @@ import PhoneInput from '@/components/molecules/PhoneInput';
 import { useUser } from '@/context/UserContext';
 import { getUserRole } from '@/utils/roleUtils';
 import { useGetVehicleById } from '@/hooks/useVehicles';
-import { convertDisplayToUtc, convertUtcToDisplayTime, formatDisplayDate, formatDisplayTime, formatHtmlDateInput, getDisplayTimezone, parseDisplayDate, formatUtcTime } from '@/utils/timezoneUtils';
+import { convertUtcToDisplayTime, formatDisplayDate, formatDisplayTime, formatHtmlDateInput, getDisplayTimezone, formatUtcTime } from '@/utils/timezoneUtils';
 
 import { 
   createJob, 
@@ -1384,29 +1384,17 @@ if (!driverExists) {
       
     const { pickup_date, pickup_time, ...rest } = formData;
     console.log('[JobForm] Form data:', { pickup_date, pickup_time, ...rest });
-      
-    // Convert the display date/time to UTC for API submission
-    // Use parseDisplayDate to properly handle timezone-aware parsing
-    console.log('[JobForm] Converting display time to UTC');
+
+    // IMPORTANT: Backend handles all timezone conversion
+    // Send user input directly to backend - DO NOT CONVERT HERE
+    // The backend will convert display timezone → UTC
+    console.log('[JobForm] Sending user input directly to backend (no frontend conversion)');
     console.log('[JobForm] Display date:', pickup_date);
     console.log('[JobForm] Display time:', pickup_time);
-      
-    const displayDateTime = parseDisplayDate(pickup_date, pickup_time);
-    console.log('[JobForm] Display datetime (UTC):', displayDateTime.toISOString());
-      
-    const utcDateTime = convertDisplayToUtc(displayDateTime);
-    console.log('[JobForm] Final UTC datetime:', utcDateTime.toISOString());
-      
-    // Extract date and time in ISO format for backend (YYYY-MM-DD) and display format (HH:MM)
-    const formattedDate = utcDateTime.toISOString().split('T')[0]; // YYYY-MM-DD for backend
-    const formattedTime = formatDisplayTime(displayDateTime); // HH:MM local time for backend
-      
-    console.log('[JobForm] Formatted date (YYYY-MM-DD):', formattedDate);
-    console.log('[JobForm] Formatted time (HH:MM):', formattedTime);
-      
+
     const submitData = {
-      pickup_date: formattedDate,
-      pickup_time: formattedTime,
+      pickup_date: pickup_date,        // Send as-is (in display timezone)
+      pickup_time: pickup_time,        // Send as-is (in display timezone)
       ...rest
     };
       
@@ -2384,80 +2372,32 @@ if (!driverExists) {
       console.log('[JobForm] Type of dropoff_time:', typeof formData.dropoff_time);
       console.log('[JobForm] === END HANDLE SAVE START DEBUG ===');
       
-      // Convert pickup time to UTC before saving
-      console.log('[JobForm] Converting pickup time to UTC before saving');
+      // IMPORTANT: Backend handles all timezone conversion
+      // Send user input directly to backend - DO NOT CONVERT HERE
+      // The backend will convert display timezone → UTC
+      console.log('[JobForm] Sending user input directly to backend (no frontend conversion)');
       console.log('[JobForm] Original pickup_date:', formData.pickup_date);
       console.log('[JobForm] Original pickup_time:', formData.pickup_time);
-      console.log('[JobForm] Date format validation:', {
-        type: typeof formData.pickup_date,
-        length: formData.pickup_date?.length,
-        matchesFormat: formData.pickup_date?.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)
-      });
-      
-      // Convert HTML date input format (YYYY-MM-DD) to display format (DD/MM/YYYY)
-      let displayDate = formData.pickup_date;
+      console.log('[JobForm] Dropoff time:', formData.dropoff_time);
+
+      // Convert HTML date input format (YYYY-MM-DD) if needed
+      let dateToSubmit = formData.pickup_date;
       if (formData.pickup_date && formData.pickup_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        // Convert YYYY-MM-DD to DD/MM/YYYY
+        // Convert YYYY-MM-DD to DD/MM/YYYY (display format)
         const [year, month, day] = formData.pickup_date.split('-');
-        displayDate = `${day}/${month}/${year}`;
-        console.log('[JobForm] Converted HTML date format:', displayDate);
+        dateToSubmit = `${day}/${month}/${year}`;
+        console.log('[JobForm] Converted HTML date format to display:', dateToSubmit);
       }
-      
-      // parseDisplayDate already returns a UTC date, no need for additional conversion
-      const utcDateTime = parseDisplayDate(displayDate, formData.pickup_time);
-      console.log('[JobForm] UTC datetime (from parseDisplayDate):', utcDateTime.toISOString());
-      
-      // Extract date and time in ISO format for backend (YYYY-MM-DD) and UTC time (HH:MM)
-      const finalFormattedDate = utcDateTime.toISOString().split('T')[0]; // YYYY-MM-DD for backend
-      // Extract UTC time directly from the UTC date object
-      const utcHours = utcDateTime.getUTCHours().toString().padStart(2, '0');
-      const utcMinutes = utcDateTime.getUTCMinutes().toString().padStart(2, '0');
-      const finalFormattedTime = `${utcHours}:${utcMinutes}`; // HH:MM in UTC for backend
-      
-      console.log('[JobForm] Extracted date (YYYY-MM-DD):', finalFormattedDate);
-      console.log('[JobForm] Extracted time (HH:MM):', finalFormattedTime);
-      
-      // Use the final formatted values
-      const formattedDate = finalFormattedDate;
-      const formattedTime = finalFormattedTime;
-      
-      // Convert dropoff_time to UTC if it exists
-      let formattedDropoffTime = formData.dropoff_time;
-      console.log('[JobForm] === DETAILED DROP-OFF TIME CONVERSION ===');
-      console.log('[JobForm] Input data:');
-      console.log('[JobForm]   formData.dropoff_time:', formData.dropoff_time);
-      console.log('[JobForm]   Type:', typeof formData.dropoff_time);
-      console.log('[JobForm]   Truthy check:', !!formData.dropoff_time);
-      console.log('[JobForm]   Length (if string):', typeof formData.dropoff_time === 'string' ? formData.dropoff_time.length : 'N/A');
-      
-      if (formData.dropoff_time) {
-        console.log('[JobForm] Starting conversion process...');
-        console.log('[JobForm]   User entered time:', formData.dropoff_time);
-        console.log('[JobForm]   Using date:', displayDate);
-        console.log('[JobForm]   Current display timezone:', getDisplayTimezone());
-        
-        // parseDisplayDate already returns a UTC date, no need for additional conversion
-        const utcDropoffDateTime = parseDisplayDate(displayDate, formData.dropoff_time);
-        console.log('[JobForm] Dropoff UTC datetime (from parseDisplayDate):', utcDropoffDateTime.toISOString());
-        // Extract UTC time components
-        const utcHours = utcDropoffDateTime.getUTCHours().toString().padStart(2, '0');
-        const utcMinutes = utcDropoffDateTime.getUTCMinutes().toString().padStart(2, '0');
-        formattedDropoffTime = `${utcHours}:${utcMinutes}`;
-        
-        console.log('[JobForm] Converted dropoff_time to UTC (identical to pickup_time logic):', {
-          original: formData.dropoff_time,
-          converted: formattedDropoffTime,
-          date: displayDate,
-          utcDateTime: utcDropoffDateTime.toISOString()
-        });
-      } else {
-        console.log('[JobForm] No dropoff_time provided, skipping conversion');
-        console.log('[JobForm]   Keeping value:', formattedDropoffTime);
-      }
-      console.log('[JobForm] === END DETAILED DROP-OFF TIME CONVERSION ===');
-      
-      console.log('[JobForm] Converted date (YYYY-MM-DD):', formattedDate);
-      console.log('[JobForm] Converted time (HH:MM):', formattedTime);
+
+      // Send display timezone values directly - backend will convert
+      const formattedDate = dateToSubmit;
+      const formattedTime = formData.pickup_time;
+      const formattedDropoffTime = formData.dropoff_time;
+
+      console.log('[JobForm] Submitting to backend:');
+      console.log('[JobForm]   pickup_date (display TZ):', formattedDate);
+      console.log('[JobForm]   pickup_time (display TZ):', formattedTime);
+      console.log('[JobForm]   dropoff_time (display TZ):', formattedDropoffTime);
       
       // Determine the final status before saving
       const finalStatus = determineJobStatus(formData);

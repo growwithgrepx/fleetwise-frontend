@@ -6,7 +6,6 @@ import { useUser } from "@/context/UserContext";
 import { useJobs } from "@/hooks/useJobs";
 import { format, startOfMonth, endOfMonth, parseISO, isValid } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { convertUtcToDisplayTime } from "@/utils/timezoneUtils";
 
 import { Badge } from "@/components/atoms/Badge";
 
@@ -663,7 +662,7 @@ const CustomerDashboardPage = () => {
                         {selectedJob.pickup_date ? (() => {
                           const jobDate = parseISO(selectedJob.pickup_date);
                           return isValid(jobDate) ? format(jobDate, 'MMM dd, yyyy') : 'Invalid Date';
-                        })() : 'No Date'} at {convertUtcToDisplayTime(selectedJob.pickup_time, selectedJob.pickup_date)}
+                        })() : 'No Date'} at {selectedJob.pickup_time}
                       </p>
                     </div>
                   </div>

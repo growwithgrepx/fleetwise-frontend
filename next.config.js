@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 
 // Ensure we always have a valid absolute URL for API rewrites in dev
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || `http://localhost:5000`;
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || `http://127.0.0.1:5000`;
 
 const nextConfig = {
   // Allow builds to complete even with ESLint warnings
