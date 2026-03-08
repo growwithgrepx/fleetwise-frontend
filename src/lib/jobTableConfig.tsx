@@ -1,7 +1,7 @@
 import React from 'react';
 import { HighlightedCell } from '@/components/molecules/HighlightedCell';
 import { EntityTableColumn } from '@/components/organisms/EntityTable';
-import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
+// Timezone conversion removed - API now returns display timezone values directly
 
 export interface ApiJob {
   id: number | string;
@@ -80,9 +80,8 @@ export const getJobTableColumns = (search: string): EntityTableColumn<ApiJob & {
     stringLabel: 'Pickup Time',
     width: '100px',
     render: (job: ApiJob) => {
-      // Convert UTC time from database to display timezone
-      const displayTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
-      return <HighlightedCell text={displayTime} searchTerm={search} />;
+      // API returns pickup_time in display timezone - display as-is
+      return <HighlightedCell text={job.pickup_time} searchTerm={search} />;
     }
   },
   {

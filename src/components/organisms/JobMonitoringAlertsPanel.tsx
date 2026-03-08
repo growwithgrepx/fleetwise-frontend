@@ -10,7 +10,7 @@ import {
 import JobDetailsModal from './JobDetailsModal';
 import { getJobById } from '@/services/api/jobsApi';
 import { ApiJob } from '@/types/job';
-import { getDisplayTimezone, convertUtcToDisplayTime } from '@/utils/timezoneUtils';
+import { getDisplayTimezone } from '@/utils/timezoneUtils';
 
 // Helper function to format pickup time - handles both display timezone time and UTC ISO formats
 const formatPickupTimeInDisplayTimezone = (pickupTimeValue: string, displayTimezone: string): string => {
@@ -44,11 +44,9 @@ const formatPickupTimeInDisplayTimezone = (pickupTimeValue: string, displayTimez
       // and use the same conversion method as in normalizeJobForDisplay
       const [datePart, timePart] = pickupTimeValue.split(', ');
       
-      // Use the same convertUtcToDisplayTime function as used in job normalization
-      const convertedTime = convertUtcToDisplayTime(timePart, datePart);
-      
-      // Reconstruct the full datetime string in the same format
-      return `${datePart}, ${convertedTime}`;
+      // API already returns time in display timezone - use as-is
+      // No conversion needed
+      return `${datePart}, ${timePart}`;
     } else if (pickupTimeValue.match(/^\d{2}:\d{2}$/)) {
       // If it's just a time format "HH:MM", we need to combine with today's date to properly convert
       const [hour, minute] = pickupTimeValue.split(':').map(Number);

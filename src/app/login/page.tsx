@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '../../context/UserContext';
 import Link from 'next/link';
 import { getUserRole } from '@/utils/roleUtils';
-import { formatUtcForDisplay } from '@/utils/timezoneUtils';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -71,8 +70,9 @@ export default function LoginPage() {
                   ? result.locked_until
                   : `${result.locked_until}Z`)
               : result.locked_until;
-          // Convert UTC time to display timezone for display
-          const displayTime = formatUtcForDisplay(lockedUntilUtc, 'datetime');
+          // Format the locked until time for display
+          const lockedDate = new Date(lockedUntilUtc);
+          const displayTime = lockedDate.toLocaleString('en-GB', { timeZone: 'UTC' });
           errorMsg += ` (Account locked until: ${displayTime})`;
         }
 

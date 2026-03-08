@@ -7,7 +7,7 @@ import { useUser } from '@/context/UserContext';
 import { Card } from '@/components/atoms/Card';
 import { Button } from '@/components/atoms/Button';
 import { format, addDays, subDays, parseISO, differenceInHours, isSameDay, isToday, isYesterday, startOfDay, isWithinInterval } from 'date-fns';
-import { parseDisplayDate, convertUtcToDisplayTime, convertUtcToDisplay, getDisplayTimezone } from '@/utils/timezoneUtils';
+import { getDisplayTimezone } from '@/utils/timezoneUtils';
 import { 
   TruckIcon, 
   UserIcon, 
@@ -409,8 +409,8 @@ export default function DriverCalendarPage() {
             if (process.env.NODE_ENV === 'development') {
               // Use timezone-safe date functions
               // Parse the leave dates which come from backend in DD/MM/YYYY format
-              const leaveStartDate = startOfDay(parseDisplayDate(leave.start_date));
-              const leaveEndDate = startOfDay(parseDisplayDate(leave.end_date));
+              const leaveStartDate = startOfDay(new Date(leave.start_date));
+              const leaveEndDate = startOfDay(new Date(leave.end_date));
               const checkDate = startOfDay(date);
               
               console.log(`Checking leave:`, {
@@ -428,8 +428,8 @@ export default function DriverCalendarPage() {
             
             // Use timezone-safe date functions
             // Parse the leave dates which come from backend in DD/MM/YYYY format
-            const leaveStartDate = startOfDay(parseDisplayDate(leave.start_date));
-            const leaveEndDate = startOfDay(parseDisplayDate(leave.end_date));
+            const leaveStartDate = startOfDay(new Date(leave.start_date));
+            const leaveEndDate = startOfDay(new Date(leave.end_date));
             const checkDate = startOfDay(date);
             
             return isWithinInterval(checkDate, { start: leaveStartDate, end: leaveEndDate });
@@ -495,7 +495,7 @@ export default function DriverCalendarPage() {
               if (!job.pickup_time) return;
               
               // Parse pickup time - convert from UTC to display timezone first
-              const displayPickupTime = convertUtcToDisplayTime(job.pickup_time, job.pickup_date);
+              const displayPickupTime = job.pickup_time;
               const [pickupHour, pickupMinute] = displayPickupTime.split(':').map(Number);
               const startTime = `${pickupHour.toString().padStart(2, '0')}:${pickupMinute.toString().padStart(2, '0')}`;
               
@@ -509,10 +509,8 @@ export default function DriverCalendarPage() {
               // Prioritize dropoff_time if available for duration calculation
               if (job.dropoff_time) {
                 // Convert BOTH pickup & dropoff to display timezone
-                const displayDropoffTime = convertUtcToDisplayTime(
-                  job.dropoff_time,
-                  job.pickup_date
-                );
+                const displayDropoffTime = 
+                  job.dropoff_time;
 
                 const [dropoffHour, dropoffMinute] = displayDropoffTime
                   .split(':')
@@ -1112,9 +1110,9 @@ export default function DriverCalendarPage() {
                         
                         if (block.type === 'job' && block.job) {
                           // Use the actual job times, converting from UTC to display time
-                          pickupTimeStr = convertUtcToDisplayTime(block.job.pickup_time, block.date);
+                          pickupTimeStr = block.job.pickup_time;
                           dropoffTimeStr = block.job.dropoff_time ? 
-                            convertUtcToDisplayTime(block.job.dropoff_time, block.date) : 
+                            block.job.dropoff_time : 
                             (() => {
                               // If no dropoff time, estimate based on service type
                               let estimatedDurationMinutes = 60; // Default 1 hour
@@ -1311,7 +1309,7 @@ export default function DriverCalendarPage() {
                     </div>
                     <div className="flex">
                       <span className="text-gray-400 w-32">Time:</span>
-                      <span className="text-white">{convertUtcToDisplayTime(selectedJob.pickup_time, selectedJob.pickup_date)}</span>
+                      <span className="text-white">{selectedJob.pickup_time}</span>
                     </div>
                     <div className="flex">
                       <span className="text-gray-400 w-32">Location:</span>
@@ -1327,7 +1325,7 @@ export default function DriverCalendarPage() {
                       <span className="text-gray-400 w-32">Time:</span>
                       <span className="text-white">
                         {selectedJob.dropoff_time 
-                          ? convertUtcToDisplayTime(selectedJob.dropoff_time, selectedJob.pickup_date)
+                          ? selectedJob.dropoff_time
                           : `Auto: ${calculateAutoDropoffTime(selectedJob.pickup_time)}`}
                       </span>
                     </div>

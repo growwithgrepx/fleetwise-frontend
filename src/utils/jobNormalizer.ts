@@ -1,5 +1,5 @@
 import { ApiJob, NormalizedJobDisplay } from '@/types/job';
-import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
+// Timezone conversion removed - API now returns display timezone values directly
 
 /**
  * Safely extracts a string value from unknown data
@@ -62,7 +62,7 @@ export function normalizeJobForDisplay(apiJob: ApiJob): NormalizedJobDisplay {
     pickupLocation: apiJob.pickup_location ?? '',
     dropoffLocation: apiJob.dropoff_location ?? '',
     pickupDate: apiJob.pickup_date ?? '',
-    pickupTime: apiJob.pickup_time ? convertUtcToDisplayTime(apiJob.pickup_time, apiJob.pickup_date) : '',
+    pickupTime: apiJob.pickup_time ?? '',  // API returns time in display timezone - use as-is
     passengerName: apiJob.passenger_name ? `${apiJob.passenger_name}${apiJob.passenger_mobile ? ` (${apiJob.passenger_mobile})` : ''}`: '',
 
     // Pricing
