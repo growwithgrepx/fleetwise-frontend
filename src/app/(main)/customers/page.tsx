@@ -82,13 +82,25 @@ export default function CustomersPage() {
     { 
       label: (
         <span className="inline-flex items-center gap-1 cursor-pointer select-none" onClick={() => handleSort('name')}>
-          Name
+          Customer Company Name
           {sortBy === 'name' ? (
             sortDir === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />
           ) : null}
         </span>
       ), 
       accessor: 'name', 
+      filterable: true 
+    },
+    { 
+      label: (
+        <span className="inline-flex items-center gap-1 cursor-pointer select-none" onClick={() => handleSort('company_name')}>
+          Contact Person
+          {sortBy === 'company_name' ? (
+            sortDir === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />
+          ) : null}
+        </span>
+      ), 
+      accessor: 'company_name', 
       filterable: true 
     },
     { 
