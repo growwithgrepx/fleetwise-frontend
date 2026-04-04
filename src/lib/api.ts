@@ -60,7 +60,7 @@ api.interceptors.response.use(
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx
-      const data = error.response.data as any;
+      let data = error.response.data as any;
       let msg = 'An error occurred';
       
       // Handle 403 Forbidden - authentication issue
@@ -103,6 +103,23 @@ api.interceptors.response.use(
           window.location.href = '/login';
         }
         return Promise.reject(new Error(msg));
+      }
+
+      // If the caller requested `responseType: "blob"`, Axios will give us a Blob even for JSON errors.
+      // Decode it so we can surface the real message instead of `{}`.
+      try {
+        if (typeof Blob !== 'undefined' && data instanceof Blob) {
+          const text = await data.text();
+          if (text) {
+            try {
+              data = JSON.parse(text);
+            } catch {
+              data = text;
+            }
+          }
+        }
+      } catch {
+        // If decoding fails, fall through to generic handling below.
       }
       
       // Handle different types of error responses
