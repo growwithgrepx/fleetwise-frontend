@@ -873,6 +873,7 @@ if (!driverExists) {
         base_discount_percent: job.base_discount_percent || 0,
         customer_discount_percent: job.customer_discount_percent || 0,
         additional_discount_percent: job.additional_discount_percent || 0,
+        vehicle_type_id: job.vehicle_type_id, // Required for contractor auto-calc pricing lookup
         // Invoice Information
         invoice_id: job.invoice_id || null,
         invoice_number: job.invoice_number || '',
@@ -1894,16 +1895,17 @@ if (!driverExists) {
     // 1. Pricing data becomes available (customerMidnightSurchargePricing or midnightSurchargePricing)
     // 2. Any pricing-relevant field changed
     if (job && job.id && initialFormData) {
-      if (safeNumber(formData.base_price) !== 0 && formData.base_price !== undefined) {
-        // Check if any pricing-relevant field changed
-        const pricingFieldsChanged =
-          formData.pickup_time !== initialFormData.pickup_time ||
-          formData.service_type !== initialFormData.service_type ||
-          formData.vehicle_type !== initialFormData.vehicle_type ||
-          formData.customer_id !== initialFormData.customer_id;
+      // Preserve the saved midnight_surcharge value from the job on initial load
+      // Only recalculate if pricing-relevant fields actually changed
+      const pricingFieldsChanged =
+        formData.pickup_time !== initialFormData.pickup_time ||
+        formData.service_type !== initialFormData.service_type ||
+        formData.vehicle_type !== initialFormData.vehicle_type ||
+        formData.customer_id !== initialFormData.customer_id;
 
-        // Always recalculate midnight surcharge when pickup time is in midnight period
-        // This handles the case where job was created without midnight surcharge pricing
+      // Only recalculate midnight surcharge if pricing-relevant fields changed
+      // AND we have pricing data, OR the saved value is 0 but pricing exists
+      if (pricingFieldsChanged && (customerMidnightSurchargePricing || formData.midnight_surcharge === 0)) {
         const calculatedMidnightSurchargeValue = calculateMidnightSurcharge(
           formData.pickup_time,
           customerMidnightSurchargePricing,
@@ -1920,17 +1922,17 @@ if (!driverExists) {
             midnight_surcharge: calculatedMidnightSurchargeValue
           }));
         }
+      }
 
-        // If nothing else changed, we're done
-        if (!pricingFieldsChanged) return;
+      // If nothing else changed, we're done
+      if (!pricingFieldsChanged) return;
 
-        // If only pickup_time changed, we already updated midnight_surcharge above
-        if (formData.pickup_time !== initialFormData.pickup_time &&
-            formData.service_type === initialFormData.service_type &&
-            formData.vehicle_type === initialFormData.vehicle_type &&
-            formData.customer_id === initialFormData.customer_id) {
-          return;
-        }
+      // If only pickup_time changed, we already updated midnight_surcharge above
+      if (formData.pickup_time !== initialFormData.pickup_time &&
+          formData.service_type === initialFormData.service_type &&
+          formData.vehicle_type === initialFormData.vehicle_type &&
+          formData.customer_id === initialFormData.customer_id) {
+        return;
       }
     }
 
