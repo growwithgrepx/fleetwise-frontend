@@ -1616,7 +1616,7 @@ if (!driverExists) {
     dropoffLoc1Price + dropoffLoc2Price + dropoffLoc3Price + dropoffLoc4Price + dropoffLoc5Price;
   
   const calculatedPrice = subtotal - additionalDiscount;
-  const finalPrice = job?.id ? safeNumber(job.final_price) : calculatedPrice;
+  const finalPrice = calculatedPrice;
   // Handle input changes
   const handleInputChange = (field: keyof JobFormData, value: any) => {
     console.log(`[JobForm] handleInputChange called for field: ${field}, value:`, value);
