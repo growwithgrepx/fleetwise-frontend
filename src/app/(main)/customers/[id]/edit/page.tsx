@@ -5,6 +5,8 @@ import { useRouter, useParams } from "next/navigation";
 import { CustomerForm, CustomerFormValues } from "@/components/organisms/CustomerForm";
 import { useGetCustomerById, useUpdateCustomer } from "@/hooks/useCustomers";
 import type { Customer } from "@/types/customer";
+import { useUser } from "@/context/UserContext";
+import { getUserRole } from "@/utils/roleUtils";
 
 
 
@@ -223,8 +225,11 @@ async function upsertPricingRows(custId: number, pricing: CustomerFormValues["pr
 export default function EditCustomerPage() {
   const router = useRouter();
   const { id } = useParams();
+  const { user } = useUser();
+  const isAdmin = getUserRole(user) === 'admin';
   //const [pricingData, setPricingData] = useState<any[] | null>(null);
   const [matrix, setMatrix] = useState<CustomerMatrixResponse | null>(null);
+  const [isMatrixLoading, setIsMatrixLoading] = useState(false);
   const { data: customer, isLoading } = useGetCustomerById(id as string);
   const updateCustomerMutation = useUpdateCustomer();
   const [error, setError] = useState<string | null>(null);
@@ -258,14 +263,21 @@ useEffect(() => {
   if (!customer?.id) return;
 
   let cancelled = false;
+  setIsMatrixLoading(true);
 
   (async () => {
     try {
-      setError(null);
       const m = await fetchCustomerMatrix(String(customer.id));
-      if (!cancelled) setMatrix(m);
+      if (!cancelled) {
+        setMatrix(m);
+        setIsMatrixLoading(false);
+      }
     } catch (err: any) {
-      if (!cancelled) setError(err.message || "Failed to fetch pricing matrix");
+      if (!cancelled) {
+        console.warn("Failed to fetch pricing matrix:", err);
+        setIsMatrixLoading(false);
+        // Don't set error state - just log it and continue with empty matrix
+      }
     }
   })();
 
@@ -291,24 +303,54 @@ const handleSubmit = async (data: CustomerFormValues) => {
 };
 
 
-if (isLoading || !customer) return <p>Loading...</p>;
+if (isLoading || !customer) {
+  return (
+    <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+        <p className="text-gray-300">Loading customer data...</p>
+      </div>
+    </div>
+  );
+}
+
 const safeMatrix: CustomerMatrixResponse = matrix ?? { services: [], vehicle_types: [], matrix: [] };
 const initialData = mapCustomerToForm(customer, safeMatrix);
 
 return (
   <div className="container mx-auto px-4 py-8">
-    <h1 className="text-3xl font-bold text-white mb-6">Edit Customer</h1>
-    {error && <p className="text-red-500 mb-4">{error}</p>}
-    {!safeMatrix.services.length && (
-      <p className="text-yellow-400 mb-4">
-        Pricing matrix unavailable. You can still edit core customer details.
-      </p>
+    <div className="flex items-center justify-between mb-6">
+      <h1 className="text-3xl font-bold text-white">Edit Customer</h1>
+      {!isAdmin && (
+        <div className="px-4 py-2 bg-yellow-900/50 border border-yellow-700 rounded-lg">
+          <p className="text-sm text-yellow-200">
+            <span className="font-semibold">View Only Mode</span> — You don't have permission to edit this customer
+          </p>
+        </div>
+      )}
+    </div>
+    
+    {error && (
+      <div className="mb-4 p-4 bg-red-900/50 border border-red-700 rounded-lg">
+        <p className="text-red-200">{error}</p>
+      </div>
     )}
+    
+    {!isMatrixLoading && !safeMatrix.services.length && (
+      <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+        <p className="text-yellow-300">
+          Pricing matrix unavailable. You can still edit core customer details.
+        </p>
+      </div>
+    )}
+    
     <CustomerForm
-  key={customer.id + (safeMatrix.services.length ? "-matrix" : "-nomatrix")}
-  initialData={initialData}
-  onSubmit={handleSubmit}
-  isSubmitting={updateCustomerMutation.isPending}
-/>
+      key={customer.id + (safeMatrix.services.length ? "-matrix" : "-nomatrix")}
+      initialData={initialData}
+      onSubmit={handleSubmit}
+      isSubmitting={updateCustomerMutation.isPending}
+      isAdmin={isAdmin}
+    />
   </div>
-);}
+);
+}
