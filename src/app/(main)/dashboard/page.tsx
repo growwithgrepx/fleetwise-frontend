@@ -417,17 +417,26 @@ export default function DashboardPage() {
       const scheduled = dayJobs.filter(j => ['new', 'pending', 'confirmed'].includes((j.status || '').toLowerCase())).length;
       const completed = dayJobs.filter(j => ['jc', 'sd'].includes((j.status || '').toLowerCase())).length;
       const unassigned = dayJobs.filter(j => ['new', 'pending', 'confirmed'].includes((j.status || '').toLowerCase()) && !j.driver_id).length;
-      return { scheduled, completed, unassigned };
+      const inProgress = dayJobs.filter(j => ['otw', 'ots', 'pob'].includes((j.status || '').toLowerCase())).length;
+      return { scheduled, completed, unassigned, inProgress };
     };
     
     const todayStats = getStatsForDay(todayStart, tomorrowStart);
     const yesterdayStats = getStatsForDay(yesterdayStart, todayStart);
-    const inProgress = jobs.filter(j => ['otw', 'ots', 'pob'].includes((j.status || '').toLowerCase())).length;
-    const pendingInvoices = jobs.filter(j => !j.invoice_id).length;
+    
+    // For in-progress jobs, include jobs that are actively in progress regardless of pickup date
+    // (a job that started yesterday but still in progress should count)
+    const allInProgress = jobs.filter(j => ['otw', 'ots', 'pob'].includes((j.status || '').toLowerCase())).length;
+    
+    // Pending invoices should only count COMPLETED jobs that don't have an invoice yet
+    // Jobs that are new/pending/in-progress shouldn't have invoices yet, so they shouldn't count
+    const pendingInvoices = jobs.filter(j => 
+      ['jc', 'sd'].includes((j.status || '').toLowerCase()) && !j.invoice_id
+    ).length;
     
     return {
       todaysScheduled: { value: todayStats.scheduled, trendData: [{ name: 'Yesterday', value: yesterdayStats.scheduled }, { name: 'Today', value: todayStats.scheduled }] },
-      inProgress: { value: inProgress, trendData: [{ name: 'Yesterday', value: inProgress }, { name: 'Today', value: inProgress }] },
+      inProgress: { value: allInProgress, trendData: [{ name: 'Yesterday', value: allInProgress }, { name: 'Today', value: allInProgress }] },
       jobsCompleted: { value: todayStats.completed, trendData: [{ name: 'Yesterday', value: yesterdayStats.completed }, { name: 'Today', value: todayStats.completed }] },
       unassignedJobs: { value: todayStats.unassigned, trendData: [{ name: 'Yesterday', value: yesterdayStats.unassigned }, { name: 'Today', value: todayStats.unassigned }] },
       pendingInvoices: { value: pendingInvoices, trendData: [{ name: 'Yesterday', value: 0 }, { name: 'Today', value: pendingInvoices }] },
@@ -903,7 +912,7 @@ export default function DashboardPage() {
                     icon={<CalendarIcon className="w-6 h-6" />}
                   />
                 ) : (
-                  <KpiCard title="Jobs In Progress" value={kpiStats.inProgress.value} trendData={kpiStats.inProgress.trendData} previousValue={kpiStats.inProgress.trendData[0]?.value} targetValue={0} />
+                  <KpiCard title="Jobs In Progress" value={kpiStats.inProgress.value} trendData={kpiStats.inProgress.trendData} previousValue={kpiStats.inProgress.trendData[0]?.value} />
                 )}
               </Card>
               <Card className="flex flex-col items-center justify-center p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300">
@@ -923,7 +932,7 @@ export default function DashboardPage() {
                     icon={<UserGroupIcon className="w-6 h-6" />}
                   />
                 ) : (
-                  <KpiCard title="Unassigned Jobs" value={kpiStats.unassignedJobs.value} trendData={kpiStats.unassignedJobs.trendData} previousValue={kpiStats.unassignedJobs.trendData[0]?.value} targetValue={0} />
+                  <KpiCard title="Unassigned Jobs" value={kpiStats.unassignedJobs.value} trendData={kpiStats.unassignedJobs.trendData} previousValue={kpiStats.unassignedJobs.trendData[0]?.value} />
                 )}
               </Card>
               <Card className="flex flex-col items-center justify-center p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300">
@@ -933,7 +942,7 @@ export default function DashboardPage() {
                     icon={<CurrencyDollarIcon className="w-6 h-6" />}
                   />
                 ) : (
-                  <KpiCard title="Pending Invoices" value={kpiStats.pendingInvoices.value} trendData={kpiStats.pendingInvoices.trendData} previousValue={kpiStats.pendingInvoices.trendData[0]?.value} targetValue={0} />
+                  <KpiCard title="Pending Invoices" value={kpiStats.pendingInvoices.value} trendData={kpiStats.pendingInvoices.trendData} previousValue={kpiStats.pendingInvoices.trendData[0]?.value} />
                 )}
               </Card>
             </>

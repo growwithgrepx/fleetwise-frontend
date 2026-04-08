@@ -17,6 +17,7 @@ import { useContractorServicePricing } from '@/hooks/useContractorServicePricing
 import toast from 'react-hot-toast';
 import { QuickAddModal } from '@/components/molecules/QuickAddModal';
 import { QuickAddButton } from '@/components/atoms/QuickAddButton';
+import { SearchableSelect } from '@/components/atoms/SearchableSelect';
 import { useCustomerServicePricing } from '@/hooks/useCustomerServicePricing';
 import { 
   customerQuickAddSchema,
@@ -2885,23 +2886,25 @@ if (!driverExists) {
                   <span>Core Job Info</span>
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <SelectField
+                  {/* Customer - Searchable Dropdown */}
+                  <SearchableSelect
                     label="Customer"
-                    value={formData.customer_id || ""}
+                    options={
+                      (allCustomers || []).map((c) => ({ value: c.id, label: c.name }))
+                    }
+                    value={formData.customer_id ?? null}
                     onChange={(v) => {
                       // Only allow changes if fields are not locked
                       if (!fieldsLocked) {
-                        // If empty string is selected, set customer_id to 0 instead of null to match validation
-                        const customerId = v === "" ? 0 : Number(v);
+                        const customerId = typeof v === 'number' ? v : Number(v);
                         console.log('[JobForm] Customer selection changed:', { 
                           selectedValue: v, 
                           convertedCustomerId: customerId,
                           previousCustomerId: formData.customer_id
                         });
                         
-                        // Additional validation to ensure we don't set invalid values
-                        if (v === "") {
-                          // Clear any existing customer-related data when "Select Customer" is chosen
+                        // Clear any existing customer-related data when null is selected
+                        if (!customerId || customerId === 0) {
                           setFormData(prev => ({
                             ...prev,
                             customer_id: 0,
@@ -2915,17 +2918,12 @@ if (!driverExists) {
                         }
                       }
                     }}
+                    placeholder="Select Customer"
+                    searchPlaceholder="Search customers..."
                     required
                     error={errors.customer_id}
-                    // showQuickAdd={!fieldsLocked}
-                    // quickAddType="customer"
-                    showQuickAdd={false}
-                    options={[
-                      { value: "", label: "Select Customer" },
-                      ...(allCustomers || []).map((c) => ({ value: c.id, label: c.name })),
-                    ]}
-                    className={fieldsLocked ? "opacity-75" : ""}
                     disabled={isFieldLocked("customer_id")}
+                    className={fieldsLocked ? "opacity-75" : ""}
                   />
 		  {/* Customer Reference ID */}
                   <div className="space-y-2">
@@ -2965,62 +2963,59 @@ if (!driverExists) {
                   </div>
 		  <div className="space-y-2">
 		  </div>
-                  {/* Service Field */}
-                  <SelectField
+                  {/* Service Field - Searchable */}
+                  <SearchableSelect
                     label="Service"
-                    value={formData.service_type || ''}
+                    options={
+                      allServices
+                        .filter(s => s.is_ancillary === false)
+                        .map(s => ({ value: s.name, label: s.name }))
+                    }
+                    value={formData.service_type ?? null}
                     onChange={v => {
                       // Only allow changes if fields are not locked
                       if (!isFieldLocked("service_type")) {
-                        handleInputChange('service_type', v);
+                        const serviceValue = String(v);
+                        handleInputChange('service_type', serviceValue);
                         // Find the selected service for service_id reference
-                        const selectedService = allServices.find(s => s.name === v);
+                        const selectedService = allServices.find(s => s.name === serviceValue);
                         if (selectedService) {
                           // Set service_id for backend reference
                           handleInputChange('service_id', selectedService.id);
-
-                          // Don't set any pricing when only service is selected
-                          // Pricing should only be set when both customer AND service AND vehicle_type are selected
-                          // This will be handled by the CustomerServicePricing useEffect
                         }
                       }
                     }}
+                    placeholder="Select Service"
+                    searchPlaceholder="Search services..."
                     required
                     error={errors.service_type}
-                    // showQuickAdd={!fieldsLocked}
-                    // quickAddType="service"
-                    showQuickAdd={false}
-                    options={[
-                      { value: '', label: 'Select Service' },
-                      ...allServices
-                        .filter(s => s.is_ancillary === false) // Explicit false check to filter out ancillary services
-                        .map(s => ({ value: s.name, label: s.name }))
-                    ]}
-                    // className={fieldsLocked ? "opacity-75" : ""}
                     disabled={isFieldLocked("service_type")}
                   />
                   
-                  <SelectField 
-                    label="Vehicle Type" 
-                    value={formData.vehicle_type || ''} 
+                  {/* Vehicle Type - Searchable */}
+                  <SearchableSelect
+                    label="Vehicle Type"
+                    options={
+                      allVehicleTypes.map(vt => ({ value: vt.name, label: vt.name }))
+                    }
+                    value={formData.vehicle_type ?? null}
                     onChange={v => {
-                      const selected = allVehicleTypes.find(vt => vt.name === v);
+                      const vehicleTypeValue = String(v);
+                      const selected = allVehicleTypes.find(vt => vt.name === vehicleTypeValue);
                       setFormData(prev => {
                         const updated = {
                           ...prev,
-                          vehicle_type: v,
+                          vehicle_type: vehicleTypeValue,
                           vehicle_type_id: selected ? selected.id : undefined
                         };
                         console.log('[VehicleTypeSelect] Changed:', { vehicle_type: updated.vehicle_type, vehicle_type_id: updated.vehicle_type_id });
                         return updated;
                       });
-                    }} 
-                    required 
+                    }}
+                    placeholder="Select Vehicle Type"
+                    searchPlaceholder="Search vehicle types..."
+                    required
                     error={errors.vehicle_type}
-                    options={[ 
-                      { value: '', label: 'Select Vehicle Type' }, 
-                      ...allVehicleTypes.map(vt => ({ value: vt.name, label: vt.name })) 
-                    ]} 
                     disabled={isFieldLocked("vehicle_type")}
                   />
                 </div>
@@ -3349,27 +3344,27 @@ if (!driverExists) {
 
                 {/* Vehicle and Driver Selection */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <SelectField
+                  {/* Vehicle - Searchable */}
+                  <SearchableSelect
                     label="Vehicle"
-                    value={formData.vehicle_id || ""}
-                    onChange={(v) => {
-                      if (!isFieldLocked("vehicle_id")) {
-                        handleInputChange("vehicle_id", Number(v));
-                      }
-                    }}
-                    error={errors.vehicle_id}
-                    // showQuickAdd={!isFieldLocked("vehicle_id")}
-                    // quickAddType="vehicle"
-                    showQuickAdd={false}
-                    options={[
-                      { value: "", label: "Select Vehicle" },
-                      ...allVehicles.map((v) => ({
+                    options={
+                      allVehicles.map((v) => ({
                         value: v.id,
                         label: `${v.name} (${v.number})`,
-                      })),
-                    ]}
-                    className={isFieldLocked("vehicle_id") ? "opacity-75" : ""}
+                      }))
+                    }
+                    value={formData.vehicle_id ?? null}
+                    onChange={(v) => {
+                      if (!isFieldLocked("vehicle_id")) {
+                        const vehicleId = typeof v === 'number' ? v : Number(v);
+                        handleInputChange("vehicle_id", vehicleId);
+                      }
+                    }}
+                    placeholder="Select Vehicle"
+                    searchPlaceholder="Search vehicles..."
+                    error={errors.vehicle_id}
                     disabled={isFieldLocked("vehicle_id")}
+                    className={isFieldLocked("vehicle_id") ? "opacity-75" : ""}
                   />
                   <div className="space-y-1">
   {/* Driver Label and Buttons */}
@@ -3402,23 +3397,24 @@ if (!driverExists) {
     </div>
   </div>
 
-  {/* Driver Select Field */}
-  <SelectField
+  {/* Driver Select Field - Searchable */}
+  <SearchableSelect
     label=""
-    value={formData.driver_id || ""}
+    options={
+      allDrivers.map((d) => ({ value: d.id, label: d.name }))
+    }
+    value={formData.driver_id ?? null}
     onChange={(v) => {
       if (!isFieldLocked("driver_id")) {
-        handleInputChange("driver_id", parseInt(v, 10));
+        const driverId = typeof v === 'number' ? v : Number(v);
+        handleInputChange("driver_id", driverId);
       }
     }}
+    placeholder="Select Driver"
+    searchPlaceholder="Search drivers..."
     error={errors.driver_id}
-    showQuickAdd={false}
-    options={[
-      { value: "", label: "Select Driver" },
-      ...allDrivers.map((d) => ({ value: d.id, label: d.name })),
-    ]}
-    className={isFieldLocked("driver_id") ? "opacity-75" : ""}
     disabled={isFieldLocked("driver_id")}
+    className={isFieldLocked("driver_id") ? "opacity-75" : ""}
   />
 
   {/* Conflict Warning */}
@@ -3445,27 +3441,27 @@ if (!driverExists) {
 </div>
 
                   
-                  <SelectField
+                  {/* Assigned To (Contractor) - Searchable */}
+                  <SearchableSelect
                     label="Assigned To"
-                    value={formData.contractor_id || ""}
-                    onChange={(v) => {
-                      if (!isFieldLocked("contractor_id")) {
-                        handleInputChange("contractor_id", v ? Number(v) : undefined);
-                      }
-                    }}
-                    // Removed required attribute
-                    error={errors.contractor_id}  
-                    options={[
-                      { value: "", label: "Select Contractor" },
-                      ...allContractors
+                    options={
+                      allContractors
                         .filter(contractor => contractor.status === "Active")
                         .map((contractor) => ({
                           value: contractor.id,
                           label: contractor.name,
                         }))
-                    ]}
-                    // showQuickAdd={!isFieldLocked("contractor_id")}
-                    showQuickAdd={false}
+                    }
+                    value={formData.contractor_id ?? null}
+                    onChange={(v) => {
+                      if (!isFieldLocked("contractor_id")) {
+                        const contractorId = typeof v === 'number' ? v : Number(v);
+                        handleInputChange("contractor_id", contractorId || undefined);
+                      }
+                    }}
+                    placeholder="Select Contractor"
+                    searchPlaceholder="Search contractors..."
+                    error={errors.contractor_id}
                     disabled={isFieldLocked("contractor_id")}
                   />
                 </div>
