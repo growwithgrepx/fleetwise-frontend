@@ -2917,8 +2917,9 @@ if (!driverExists) {
                     }}
                     required
                     error={errors.customer_id}
-                    showQuickAdd={!fieldsLocked}
-                    quickAddType="customer"
+                    // showQuickAdd={!fieldsLocked}
+                    // quickAddType="customer"
+                    showQuickAdd={false}
                     options={[
                       { value: "", label: "Select Customer" },
                       ...(allCustomers || []).map((c) => ({ value: c.id, label: c.name })),
@@ -2986,8 +2987,9 @@ if (!driverExists) {
                     }}
                     required
                     error={errors.service_type}
-                    showQuickAdd={!fieldsLocked}
-                    quickAddType="service"
+                    // showQuickAdd={!fieldsLocked}
+                    // quickAddType="service"
+                    showQuickAdd={false}
                     options={[
                       { value: '', label: 'Select Service' },
                       ...allServices
@@ -3356,8 +3358,9 @@ if (!driverExists) {
                       }
                     }}
                     error={errors.vehicle_id}
-                    showQuickAdd={!isFieldLocked("vehicle_id")}
-                    quickAddType="vehicle"
+                    // showQuickAdd={!isFieldLocked("vehicle_id")}
+                    // quickAddType="vehicle"
+                    showQuickAdd={false}
                     options={[
                       { value: "", label: "Select Vehicle" },
                       ...allVehicles.map((v) => ({
@@ -3387,7 +3390,7 @@ if (!driverExists) {
         {isAiLoading ? "Processing..." : "AI Suggest Driver"}
       </button>
 
-      {/* Quick Add Button */}
+      {/* Quick Add Button - Temporarily Hidden
       <button
         type="button"
         onClick={() => openQuickAddModal("driver")}
@@ -3395,6 +3398,7 @@ if (!driverExists) {
       >
         + Quick Add
       </button>
+      */}
     </div>
   </div>
 
@@ -3460,7 +3464,8 @@ if (!driverExists) {
                           label: contractor.name,
                         }))
                     ]}
-                    showQuickAdd={!isFieldLocked("contractor_id")}
+                    // showQuickAdd={!isFieldLocked("contractor_id")}
+                    showQuickAdd={false}
                     disabled={isFieldLocked("contractor_id")}
                   />
                 </div>

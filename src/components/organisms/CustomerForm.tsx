@@ -72,12 +72,14 @@ interface CustomerFormProps {
   initialData?: Partial<CustomerFormValues>;
   onSubmit: (data: CustomerFormValues) => Promise<void>;
   isSubmitting?: boolean;
+  isAdmin?: boolean;
 }
 
 export const CustomerForm: React.FC<CustomerFormProps> = ({
   initialData,
   onSubmit,
   isSubmitting,
+  isAdmin = true,
 }) => {
   const {
     control,
@@ -239,6 +241,7 @@ useEffect(() => {
           <Input
             {...field}
             className="w-full"
+            disabled={!isAdmin}
             onBlur={(e) => {
               field.onBlur();
               trigger("name");
@@ -260,6 +263,7 @@ useEffect(() => {
           <Input
             {...field}
             className="w-full"
+            disabled={!isAdmin}
             onBlur={(e) => {
               field.onBlur();
               trigger("company_name");
@@ -282,6 +286,7 @@ useEffect(() => {
             type="email"
             id="customer-email"
             className="w-full"
+            disabled={!isAdmin}
             onBlur={(e) => {
               field.onBlur();
               trigger("email");
@@ -302,6 +307,7 @@ useEffect(() => {
           <Input
             {...field}
             className="w-full"
+            disabled={!isAdmin}
             onBlur={(e) => {
               field.onBlur();
               trigger("mobile");
@@ -322,6 +328,7 @@ useEffect(() => {
           <select
             {...field}
             className="w-full px-3 py-2 rounded bg-gray-800 text-white border border-gray-700"
+            disabled={!isAdmin}
             onBlur={(e) => {
               field.onBlur();
               trigger("type");
@@ -346,6 +353,7 @@ useEffect(() => {
           <select
             {...field}
             className="w-full px-3 py-2 rounded bg-gray-800 text-white border border-gray-700"
+            disabled={!isAdmin}
             onBlur={(e) => {
               field.onBlur();
               trigger("status");
@@ -374,6 +382,7 @@ useEffect(() => {
             <Input
               {...field}
               className="w-full"
+              disabled={!isAdmin}
               onBlur={(e) => {
                 field.onBlur();
                 trigger("address");
@@ -395,6 +404,7 @@ useEffect(() => {
           <Input
             {...field}
             className="w-full"
+            disabled={!isAdmin}
             onBlur={(e) => {
               field.onBlur();
               trigger("city");
@@ -415,6 +425,7 @@ useEffect(() => {
           <Input
             {...field}
             className="w-full"
+            disabled={!isAdmin}
             onBlur={(e) => {
               field.onBlur();
               trigger("zip_code");
@@ -435,6 +446,7 @@ useEffect(() => {
           <Input
             {...field}
             className="w-full"
+            disabled={!isAdmin}
             onBlur={(e) => {
               field.onBlur();
               trigger("state");
@@ -455,6 +467,7 @@ useEffect(() => {
           <Input
             {...field}
             className="w-full"
+            disabled={!isAdmin}
             onBlur={(e) => {
               field.onBlur();
               trigger("country");
@@ -512,9 +525,10 @@ useEffect(() => {
                       inputMode="decimal"
                       step="0.01"
                       min="0"
+                      disabled={!isAdmin}
                       className={`w-full px-3 py-2 rounded-lg bg-gray-800 text-white border ${
                         error ? "border-red-500" : "border-gray-700"
-                      }`}
+                      } ${!isAdmin ? "opacity-50 cursor-not-allowed" : ""}`}
                       onChange={(e) => {
                       const raw = e.target.value;
                       // Treat empty or "-" as null (unset), not 0
@@ -551,15 +565,24 @@ useEffect(() => {
 
       <div className="flex justify-end mt-8 gap-3">
         <Button
-    type="button"
-    variant="secondary"
-    onClick={() => router.back()}
-  >
-    Back
-  </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : "Save Customer"}
+          type="button"
+          variant="secondary"
+          onClick={() => router.back()}
+        >
+          Back
         </Button>
+        {isAdmin ? (
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save Customer"}
+          </Button>
+        ) : (
+          <div
+            className="px-6 py-2 bg-gray-700 text-gray-400 rounded-lg cursor-not-allowed opacity-50"
+            title="Only admins can modify customer data"
+          >
+            Save Customer
+          </div>
+        )}
       </div>
     </form>
   );
