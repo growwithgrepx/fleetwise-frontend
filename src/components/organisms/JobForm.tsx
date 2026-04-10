@@ -3401,7 +3401,9 @@ if (!driverExists) {
   <SearchableSelect
     label=""
     options={
-      allDrivers.map((d) => ({ value: d.id, label: d.name }))
+      allDrivers
+        .map((d) => ({ value: d.id, label: d.name }))
+        .sort((a, b) => a.label.localeCompare(b.label))
     }
     value={formData.driver_id ?? null}
     onChange={(v) => {

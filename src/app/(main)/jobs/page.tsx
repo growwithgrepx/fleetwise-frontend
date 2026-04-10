@@ -17,7 +17,7 @@ import { PlusCircle, Upload, ArrowUp, ArrowDown } from 'lucide-react';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { Input } from '@/components/atoms/Input';
 import JobDetailCard from '@/components/organisms/JobDetailCard';
-import { Eye, Pencil, Trash2, Copy } from 'lucide-react';
+import { Eye, Pencil, Trash2, Copy, X } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import JobForm from '@/components/organisms/JobForm';
 import toast from 'react-hot-toast';
@@ -110,17 +110,26 @@ const JobsPage = () => {
   const { setCopiedJobData } = useCopiedJob();
   const [openCreateFromTextModal, setOpenCreateFromTextModal] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+  
+  // Date filter state
+  const [pickupDateFrom, setPickupDateFrom] = useState('');
+  const [pickupDateTo, setPickupDateTo] = useState('');
 
   // ===== Debounced Filters =====
   const debouncedSearch = useDebounce(search, 300);
   const debouncedLocalFilters = useDebounce(localFilters, 500);
 
   useEffect(() => {
+    // Format dates properly for backend (YYYY-MM-DD)
+    // HTML date inputs already return YYYY-MM-DD format, so no conversion needed
+    // But we ensure they're sent correctly
     updateFilters({
       search: debouncedSearch,
-      ...debouncedLocalFilters
+      ...debouncedLocalFilters,
+      pickup_date_start: pickupDateFrom || undefined,
+      pickup_date_end: pickupDateTo || undefined
     });
-  }, [debouncedSearch, debouncedLocalFilters, updateFilters]);
+  }, [debouncedSearch, debouncedLocalFilters, updateFilters, pickupDateFrom, pickupDateTo]);
 
   // ===== Get Job Actions =====
   const jobActions = useJobActions({
@@ -182,6 +191,12 @@ const JobsPage = () => {
     handleFilterChange(col, '');
     setPage(1);
   }, [handleFilterChange]);
+
+  const handleClearDateFilter = useCallback(() => {
+    setPickupDateFrom('');
+    setPickupDateTo('');
+    setPage(1);
+  }, []);
 
   const confirmDelete = async () => {
     if (pendingDeleteId == null) return;
@@ -249,14 +264,54 @@ const JobsPage = () => {
         />
       )}
 
-      {/* Search Bar */}
+      {/* Search Bar and Date Filter */}
       <div className="mb-2 sm:mb-4">
-        <Input
-          placeholder="Search jobs..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value.trim())}
-          className="max-w-md text-sm sm:text-base"
-        />
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+          {/* Search Input */}
+          <div className="flex-1 max-w-md">
+            <Input
+              placeholder="Search jobs..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value.trim())}
+              className="w-full text-sm sm:text-base"
+            />
+          </div>
+
+          {/* Date Range Filter */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="pickup-date-from" className="text-xs font-medium text-text-secondary">From</label>
+              <input
+                id="pickup-date-from"
+                type="date"
+                value={pickupDateFrom}
+                onChange={(e) => setPickupDateFrom(e.target.value)}
+                className="bg-background-light border border-border-color text-text-main rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="pickup-date-to" className="text-xs font-medium text-text-secondary">To</label>
+              <input
+                id="pickup-date-to"
+                type="date"
+                value={pickupDateTo}
+                onChange={(e) => setPickupDateTo(e.target.value)}
+                className="bg-background-light border border-border-color text-text-main rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+              />
+            </div>
+            {(pickupDateFrom || pickupDateTo) && (
+              <button
+                type="button"
+                onClick={handleClearDateFilter}
+                className="text-text-secondary hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-background-dark self-end"
+                aria-label="Clear date filter"
+                title="Clear date filter"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Status Tabs */}
