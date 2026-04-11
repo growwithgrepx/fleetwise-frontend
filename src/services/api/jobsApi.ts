@@ -8,6 +8,7 @@ export interface JobFilters {
   type_of_service?: string;
   pickup_date?: string;
   pickup_date_start?: string;
+  pickup_date_end?: string;
   pickup_location?: string;
   dropoff_location?: string;
   status?: string;
