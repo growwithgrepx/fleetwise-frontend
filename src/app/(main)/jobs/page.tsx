@@ -16,6 +16,7 @@ import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { PlusCircle, Upload, ArrowUp, ArrowDown } from 'lucide-react';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { Input } from '@/components/atoms/Input';
+import { MultiSelectDropdown, MultiSelectOption } from '@/components/atoms/MultiSelectDropdown';
 import JobDetailCard from '@/components/organisms/JobDetailCard';
 import { X } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -26,8 +27,6 @@ import { useUser } from '@/context/UserContext';
 import NotAuthorizedPage from '@/app/not-authorized/page';
 
 // Import refactored components and hooks
-import { JobStatusTabs, type JobStatus } from '@/components/molecules/JobStatusTabs';
-import { CustomerFilterButtons } from '@/components/molecules/CustomerFilterButtons';
 import { useJobFiltering } from '@/hooks/useJobFiltering';
 import { useJobSorting } from '@/hooks/useJobSorting';
 import { useJobPagination } from '@/hooks/useJobPagination';
@@ -43,6 +42,11 @@ import { UpdateJobStatusModal } from '@/components/molecules/UpdateJobStatusModa
 import { useQueryClient } from '@tanstack/react-query';
 
 // Job status configuration
+interface JobStatus {
+  label: string;
+  value: string;
+}
+
 const jobStatuses: JobStatus[] = [
   { label: 'All', value: 'all' },
   { label: 'New', value: 'new' },
@@ -139,7 +143,10 @@ const JobsPage = () => {
   const {
     filteredCustomers,
     statusCounts,
-    customerCounts
+    customerCounts,
+    // NEW – Job Page Compact Layout
+    driverCounts,
+    jobDrivers,
   } = useJobsData(isDriver);
 
   const { setCopiedJobData } = useCopiedJob();
@@ -161,6 +168,33 @@ const JobsPage = () => {
   const [updateStatusModalOpen, setUpdateStatusModalOpen] = useState(false);
   const [jobToUpdate, setJobToUpdate] = useState<Job | null>(null);
 
+  // ── Job Page Compact Layout additions ─────────────────────────────────────
+  // Multi-select filters for Customer and Driver
+  const [selectedCustomers, setSelectedCustomers] = useState<(string | number)[]>([]);
+  const [selectedDrivers, setSelectedDrivers] = useState<(string | number)[]>([]);
+
+  // Time-of-day filter (frontend-side, applied after backend fetch)
+  const [pickupTimeFrom, setPickupTimeFrom] = useState('');
+  const [pickupTimeTo, setPickupTimeTo] = useState('');
+
+  // Quick-date helper: set date range to today
+  const handleQuickToday = useCallback(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    setPickupDateFrom(today);
+    setPickupDateTo(today);
+    setPage(1);
+  }, [setPage]);
+
+  // Quick-date helper: set date range to tomorrow
+  const handleQuickTomorrow = useCallback(() => {
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    setPickupDateFrom(tomorrow);
+    setPickupDateTo(tomorrow);
+    setPage(1);
+  }, [setPage]);
+
+  // ──────────────────────────────────────────────────────────────────────────
+
   // ===== Debounced Filters =====
   const debouncedSearch = useDebounce(search, 300);
   const debouncedLocalFilters = useDebounce(localFilters, 500);
@@ -173,7 +207,7 @@ const JobsPage = () => {
       search: debouncedSearch,
       ...debouncedLocalFilters,
       pickup_date_start: pickupDateFrom || undefined,
-      pickup_date_end: pickupDateTo || undefined
+      pickup_date_end: pickupDateTo || undefined,
     });
   }, [debouncedSearch, debouncedLocalFilters, updateFilters, pickupDateFrom, pickupDateTo]);
 
@@ -409,23 +443,47 @@ const JobsPage = () => {
 
   // ===== Process and Paginate Jobs =====
   const sortedJobs = getSortedJobs(jobs ?? []);
-  const driverFilteredJobs = useMemo(() => {
-    if (!driverFilterKey) return sortedJobs;
-    if (driverFilterKey === '__unassigned__') {
-      return sortedJobs.filter((j) => !j.driver_id);
+
+  // Job Page Compact Layout: frontend time-of-day filter (applied after backend date filter)
+  const timeFilteredJobs = React.useMemo(() => {
+    if (!pickupTimeFrom && !pickupTimeTo) return sortedJobs;
+    return sortedJobs.filter((job) => {
+      const t = (job.pickup_time || '').slice(0, 5); // 'HH:MM'
+      if (pickupTimeFrom && t < pickupTimeFrom) return false;
+      if (pickupTimeTo && t > pickupTimeTo) return false;
+      return true;
+    });
+  }, [sortedJobs, pickupTimeFrom, pickupTimeTo]);
+
+  // Multi-select customer and driver filtering (frontend-side)
+  const multiSelectFilteredJobs = React.useMemo(() => {
+    let filtered = timeFilteredJobs;
+
+    // Apply customer filter if any selected
+    if (selectedCustomers.length > 0) {
+      filtered = filtered.filter((job) =>
+        job.customer_name && selectedCustomers.includes(job.customer_name)
+      );
     }
-    return sortedJobs.filter(
-      (j) => ((j as Job & { driver_name?: string }).driver_name || '') === driverFilterKey
-    );
-  }, [sortedJobs, driverFilterKey]);
-  const paginationInfo = paginate(driverFilteredJobs);
+
+    // Apply driver filter if any selected
+    if (selectedDrivers.length > 0) {
+      filtered = filtered.filter((job) =>
+        job.driver_name && selectedDrivers.includes(job.driver_name)
+      );
+    }
+
+    return filtered;
+  }, [timeFilteredJobs, selectedCustomers, selectedDrivers]);
+
+  const paginationInfo = paginate(multiSelectFilteredJobs);
 
   if (error) return <div>Error loading jobs</div>;
   if (["driver"].includes(role)) return <NotAuthorizedPage />;
 
   return (
-    <div className="w-full flex flex-col gap-3 sm:gap-4 md:gap-6 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
-      {!["driver"].includes(role) && (
+    <div className="w-full flex flex-col gap-2 sm:gap-3 px-2 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4">
+      {!['driver'].includes(role) && (
         <EntityHeader
           title="Jobs"
           onAddClick={() => router.push('/jobs/new')}
@@ -433,149 +491,155 @@ const JobsPage = () => {
           addButtonClassName="!bg-gradient-to-r !from-emerald-600 !to-green-600 hover:!from-emerald-700 hover:!to-green-700"
           extraActions={
             <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push('/jobs/bulk-upload')}
-                className="flex w-full items-center justify-center gap-2 border-border-color text-xs sm:w-auto sm:text-sm"
-              >
-                <Upload className="h-4 w-4" />
+              <AnimatedButton onClick={() => router.push('/jobs/bulk-upload')} variant="outline" className="flex items-center text-xs">
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
                 Bulk Upload
-              </Button>
-              <AnimatedButton
-                onClick={() => setOpenCreateFromTextModal(true)}
-                className="flex w-full items-center text-xs sm:w-auto sm:text-sm"
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
+              </AnimatedButton>
+              <AnimatedButton onClick={() => setOpenCreateFromTextModal(true)} variant="outline" className="flex items-center text-xs">
+                <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
                 Create from Text
               </AnimatedButton>
             </>
           }
-          className="mb-2 sm:mb-4"
+          className="mb-1"
         />
       )}
 
-      {/* Search + date range (Jobs page layout) */}
-      <div className="mb-2 sm:mb-4">
-        <div className="flex flex-col gap-4">
-          <div className="flex-1">
-            <h3 className="mb-2 text-sm font-bold text-text-main">Search</h3>
-            <Input
-              placeholder="Search jobs, passengers, refs…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value.trim())}
-              className="w-full max-w-2xl text-sm sm:text-base"
-            />
-          </div>
+      {/* ── Compact Filter Bar (Job Page Compact Layout) ───────────────────────────── */}
+      <div className="flex flex-wrap items-end gap-2 bg-background-light border border-border-color rounded-lg px-3 py-2.5">
+        {/* FREE TEXT SEARCH */}
+        <div className="flex flex-col gap-0.5">
+          <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">Free Text Search</label>
+          <Input
+            placeholder="Search jobs, passengers, refs..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value.trim())}
+            className="w-56 text-xs h-8"
+          />
+        </div>
 
-          <div>
-            <h3 className="mb-2 text-sm font-bold text-text-main">By date &amp; time</h3>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    { key: 'today' as const, label: 'Today' },
-                    { key: 'tomorrow' as const, label: 'Tomorrow' },
-                    { key: 'week' as const, label: 'This week' },
-                    { key: 'all' as const, label: 'All dates' },
-                  ]
-                ).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => applyDatePreset(key)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all sm:text-sm ${
-                      (key === 'all' && !pickupDateFrom && !pickupDateTo) ||
-                      (key === 'today' && datePreset === 'today') ||
-                      (key === 'tomorrow' && datePreset === 'tomorrow') ||
-                      (key === 'week' && datePreset === 'week')
-                        ? 'bg-primary text-white shadow-md'
-                        : 'border border-border-color bg-transparent text-text-main hover:border-primary'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="pickup-date-from" className="text-xs font-medium text-text-secondary">
-                    Start
-                  </label>
-                  <input
-                    id="pickup-date-from"
-                    type="date"
-                    value={pickupDateFrom}
-                    onChange={(e) => {
-                      setPickupDateFrom(e.target.value);
-                      setDatePreset('custom');
-                    }}
-                    className="rounded-lg border border-border-color bg-background-light px-3 py-2 text-sm text-text-main transition-all hover:border-primary/50 focus:border-transparent focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="pickup-date-to" className="text-xs font-medium text-text-secondary">
-                    End
-                  </label>
-                  <input
-                    id="pickup-date-to"
-                    type="date"
-                    value={pickupDateTo}
-                    onChange={(e) => {
-                      setPickupDateTo(e.target.value);
-                      setDatePreset('custom');
-                    }}
-                    className="rounded-lg border border-border-color bg-background-light px-3 py-2 text-sm text-text-main transition-all hover:border-primary/50 focus:border-transparent focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                {(pickupDateFrom || pickupDateTo) && (
-                  <button
-                    type="button"
-                    onClick={handleClearDateFilter}
-                    className="self-end rounded-lg p-1.5 text-text-secondary transition-colors hover:bg-background-dark hover:text-red-400"
-                    aria-label="Clear date filter"
-                    title="Clear date filter"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
+        <div className="w-px h-8 bg-border-color self-end" />
+
+        {/* BY DATE & TIME */}
+        <div className="flex flex-col gap-0.5">
+          <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">By Date &amp; Time</label>
+          <div className="flex items-center gap-1.5">
+            <input
+              id="pickup-date-from"
+              type="date"
+              value={pickupDateFrom}
+              onChange={(e) => { setPickupDateFrom(e.target.value); setPage(1); }}
+              className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+            />
+            <input
+              id="pickup-time-from"
+              type="time"
+              value={pickupTimeFrom}
+              onChange={(e) => { setPickupTimeFrom(e.target.value); setPage(1); }}
+              className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 w-24 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+            />
+            <span className="text-text-secondary text-xs">&mdash;</span>
+            <input
+              id="pickup-date-to"
+              type="date"
+              value={pickupDateTo}
+              onChange={(e) => { setPickupDateTo(e.target.value); setPage(1); }}
+              className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+            />
+            <input
+              id="pickup-time-to"
+              type="time"
+              value={pickupTimeTo}
+              onChange={(e) => { setPickupTimeTo(e.target.value); setPage(1); }}
+              className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 w-24 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+            />
+            {(pickupDateFrom || pickupDateTo || pickupTimeFrom || pickupTimeTo) && (
+              <button
+                type="button"
+                onClick={() => { handleClearDateFilter(); setPickupTimeFrom(''); setPickupTimeTo(''); }}
+                className="text-text-secondary hover:text-red-400 transition-colors p-1 rounded hover:bg-background-dark"
+                aria-label="Clear date/time filter"
+                title="Clear date/time filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Quick-date buttons + Multi-select filters */}
+        <div className="flex flex-col gap-0.5">
+          <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">Quick Filters</label>
+          <div className="flex items-center gap-1.5">
+            {/* Today & Tomorrow buttons */}
+            <button
+              type="button"
+              onClick={handleQuickToday}
+              className="px-2 py-1 text-xs rounded border border-border-color text-text-main hover:border-primary hover:text-primary bg-background h-8 transition-all whitespace-nowrap"
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={handleQuickTomorrow}
+              className="px-2 py-1 text-xs rounded border border-border-color text-text-main hover:border-primary hover:text-primary bg-background h-8 transition-all whitespace-nowrap"
+            >
+              Tomorrow
+            </button>
+
+            {/* Multi-select: Filter by Customer */}
+            <MultiSelectDropdown
+              options={filteredCustomers.map((c) => ({ id: c.name, label: c.name }))}
+              selected={selectedCustomers}
+              onChange={(selected) => { setSelectedCustomers(selected); setPage(1); }}
+              placeholder="All Customers"
+            />
+
+            {/* Multi-select: Filter by Driver */}
+            <MultiSelectDropdown
+              options={jobDrivers.map((d) => ({ id: d.name, label: d.name }))}
+              selected={selectedDrivers}
+              onChange={(selected) => { setSelectedDrivers(selected); setPage(1); }}
+              placeholder="All Drivers"
+            />
           </div>
         </div>
       </div>
+      {/* ───────────────────────────────────────────────────────────────────────────── */}
 
-      {/* Status Tabs */}
-      <JobStatusTabs
-        statuses={jobStatuses}
-        counts={statusCounts}
-        activeStatus={localFilters.status}
-        onChange={handleTabChange}
-        sectionTitle="By status"
-      />
+      {/* Status Filter Bar */}
+      <div className="flex flex-col gap-0.5 bg-background-light border border-border-color rounded-lg px-3 py-2.5">
+        <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">Filter by Status</label>
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+          {jobStatuses.map((status) => {
+            const tabValue = status.value === 'all' ? '' : status.value;
+            const isActive = (localFilters.status ?? '') === tabValue;
+            const count = status.value === 'all' ? statusCounts['all'] || 0 : statusCounts[status.value] || 0;
 
-      {/* Customer Filter Buttons */}
-      {!["customer", "driver"].includes(role) && (
-        <CustomerFilterButtons
-          customers={filteredCustomers}
-          counts={customerCounts}
-          selectedCustomer={localFilters.customer_name || ''}
-          onChange={(customerName) => handleImmediateFilterChange('customer_name', customerName)}
-          sectionTitle="By customer"
-        />
-      )}
-
-      {!['customer', 'driver'].includes(role) && (
-        <DriverFilterButtons
-          drivers={driverFilterOptions.drivers}
-          unassignedCount={driverFilterOptions.unassigned}
-          selectedKey={driverFilterKey}
-          onChange={(key) => {
-            setDriverFilterKey(key);
-            setPage(1);
-          }}
-        />
-      )}
+            return (
+              <button
+                key={status.value}
+                type="button"
+                onClick={() => handleTabChange(tabValue)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 border h-8 ${
+                  isActive
+                    ? 'bg-primary text-white border-primary shadow-lg'
+                    : 'bg-background text-text-main border-border-color hover:border-primary hover:text-primary'
+                }`}
+              >
+                <span>{status.label}</span>
+                <span
+                  className={`flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full text-[10px] font-semibold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-background-dark text-text-secondary'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Pagination Info */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center sm:justify-between mb-2">

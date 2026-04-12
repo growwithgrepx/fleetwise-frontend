@@ -30,9 +30,10 @@ export const EntityHeader: React.FC<EntityHeaderProps> = ({
         {onAddClick && (
           <AnimatedButton 
             onClick={onAddClick}
-            className="flex items-center justify-center sm:justify-start w-full sm:w-auto min-w-[120px]"
+            variant="outline"
+            className="flex items-center justify-center sm:justify-start w-full sm:w-auto text-xs"
           >
-            <PlusCircle className="mr-2 h-4 w-4" />
+            <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
             <span>{addLabel}</span>
           </AnimatedButton>
         )}
