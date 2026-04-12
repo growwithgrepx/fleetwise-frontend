@@ -16,6 +16,7 @@ import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { PlusCircle, Upload, ArrowUp, ArrowDown } from 'lucide-react';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { Input } from '@/components/atoms/Input';
+import { MultiSelectDropdown, MultiSelectOption } from '@/components/atoms/MultiSelectDropdown';
 import JobDetailCard from '@/components/organisms/JobDetailCard';
 import { Eye, Pencil, Trash2, Copy, X } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -26,9 +27,6 @@ import { useUser } from '@/context/UserContext';
 import NotAuthorizedPage from '@/app/not-authorized/page';
 
 // Import refactored components and hooks
-import { JobStatusTabs, type JobStatus } from '@/components/molecules/JobStatusTabs';
-import { CustomerFilterButtons } from '@/components/molecules/CustomerFilterButtons';
-import { DriverFilterButtons } from '@/components/molecules/DriverFilterButtons'; // Job Page Compact Layout
 import { useJobFiltering } from '@/hooks/useJobFiltering';
 import { useJobSorting } from '@/hooks/useJobSorting';
 import { useJobPagination } from '@/hooks/useJobPagination';
@@ -39,6 +37,11 @@ import { useJobActions } from '@/hooks/useJobActions';
 import { getJobTableColumns } from '@/lib/jobTableConfig';
 
 // Job status configuration
+interface JobStatus {
+  label: string;
+  value: string;
+}
+
 const jobStatuses: JobStatus[] = [
   { label: 'All', value: 'all' },
   { label: 'New', value: 'new' },
@@ -120,8 +123,9 @@ const JobsPage = () => {
   const [pickupDateTo, setPickupDateTo] = useState('');
 
   // ── Job Page Compact Layout additions ─────────────────────────────────────
-  // Driver filter (backend-side via driver_name filter)
-  const [selectedDriver, setSelectedDriver] = useState('');
+  // Multi-select filters for Customer and Driver
+  const [selectedCustomers, setSelectedCustomers] = useState<(string | number)[]>([]);
+  const [selectedDrivers, setSelectedDrivers] = useState<(string | number)[]>([]);
 
   // Time-of-day filter (frontend-side, applied after backend fetch)
   const [pickupTimeFrom, setPickupTimeFrom] = useState('');
@@ -143,26 +147,6 @@ const JobsPage = () => {
     setPage(1);
   }, [setPage]);
 
-  // Quick-date helper: set date range to current week (Mon–Sun)
-  const handleQuickThisWeek = useCallback(() => {
-    const now = new Date();
-    const day = now.getDay(); // 0=Sun
-    const diffToMon = (day === 0 ? -6 : 1 - day);
-    const mon = new Date(now);
-    mon.setDate(now.getDate() + diffToMon);
-    const sun = new Date(mon);
-    sun.setDate(mon.getDate() + 6);
-    setPickupDateFrom(mon.toISOString().slice(0, 10));
-    setPickupDateTo(sun.toISOString().slice(0, 10));
-    setPage(1);
-  }, [setPage]);
-
-  // Quick-date helper: clear all date filters
-  const handleQuickAllDates = useCallback(() => {
-    setPickupDateFrom('');
-    setPickupDateTo('');
-    setPage(1);
-  }, [setPage]);
   // ──────────────────────────────────────────────────────────────────────────
 
   // ===== Debounced Filters =====
@@ -178,10 +162,8 @@ const JobsPage = () => {
       ...debouncedLocalFilters,
       pickup_date_start: pickupDateFrom || undefined,
       pickup_date_end: pickupDateTo || undefined,
-      // Job Page Compact Layout: driver filter (backend-side)
-      driver_name: selectedDriver === 'unassigned' ? '' : selectedDriver || undefined,
     });
-  }, [debouncedSearch, debouncedLocalFilters, updateFilters, pickupDateFrom, pickupDateTo, selectedDriver]);
+  }, [debouncedSearch, debouncedLocalFilters, updateFilters, pickupDateFrom, pickupDateTo]);
 
   // ===== Get Job Actions =====
   const jobActions = useJobActions({
@@ -300,13 +282,28 @@ const JobsPage = () => {
     });
   }, [sortedJobs, pickupTimeFrom, pickupTimeTo]);
 
-  // 'unassigned' driver filter is frontend-only (backend sends empty string which means all)
-  const driverFilteredJobs = React.useMemo(() => {
-    if (selectedDriver !== 'unassigned') return timeFilteredJobs;
-    return timeFilteredJobs.filter((job) => !job.driver_name);
-  }, [timeFilteredJobs, selectedDriver]);
+  // Multi-select customer and driver filtering (frontend-side)
+  const multiSelectFilteredJobs = React.useMemo(() => {
+    let filtered = timeFilteredJobs;
 
-  const paginationInfo = paginate(driverFilteredJobs);
+    // Apply customer filter if any selected
+    if (selectedCustomers.length > 0) {
+      filtered = filtered.filter((job) =>
+        job.customer_name && selectedCustomers.includes(job.customer_name)
+      );
+    }
+
+    // Apply driver filter if any selected
+    if (selectedDrivers.length > 0) {
+      filtered = filtered.filter((job) =>
+        job.driver_name && selectedDrivers.includes(job.driver_name)
+      );
+    }
+
+    return filtered;
+  }, [timeFilteredJobs, selectedCustomers, selectedDrivers]);
+
+  const paginationInfo = paginate(multiSelectFilteredJobs);
 
   if (error) return <div>Error loading jobs</div>;
   if (["driver"].includes(role)) return <NotAuthorizedPage />;
@@ -396,54 +393,79 @@ const JobsPage = () => {
           </div>
         </div>
 
-        {/* Quick-date buttons */}
-        <div className="flex items-end gap-1 pb-0">
-          {[
-            { label: 'Today', action: handleQuickToday },
-            { label: 'Tomorrow', action: handleQuickTomorrow },
-            { label: 'This week', action: handleQuickThisWeek },
-            { label: 'All dates', action: handleQuickAllDates },
-          ].map(({ label, action }) => (
+        {/* Quick-date buttons + Multi-select filters */}
+        <div className="flex flex-col gap-0.5">
+          <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">Quick Filters</label>
+          <div className="flex items-center gap-1.5">
+            {/* Today & Tomorrow buttons */}
             <button
-              key={label}
               type="button"
-              onClick={action}
+              onClick={handleQuickToday}
               className="px-2 py-1 text-xs rounded border border-border-color text-text-main hover:border-primary hover:text-primary bg-background h-8 transition-all whitespace-nowrap"
             >
-              {label}
+              Today
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={handleQuickTomorrow}
+              className="px-2 py-1 text-xs rounded border border-border-color text-text-main hover:border-primary hover:text-primary bg-background h-8 transition-all whitespace-nowrap"
+            >
+              Tomorrow
+            </button>
+
+            {/* Multi-select: Filter by Customer */}
+            <MultiSelectDropdown
+              options={filteredCustomers.map((c) => ({ id: c.name, label: c.name }))}
+              selected={selectedCustomers}
+              onChange={(selected) => { setSelectedCustomers(selected); setPage(1); }}
+              placeholder="All Customers"
+            />
+
+            {/* Multi-select: Filter by Driver */}
+            <MultiSelectDropdown
+              options={jobDrivers.map((d) => ({ id: d.name, label: d.name }))}
+              selected={selectedDrivers}
+              onChange={(selected) => { setSelectedDrivers(selected); setPage(1); }}
+              placeholder="All Drivers"
+            />
+          </div>
         </div>
       </div>
       {/* ───────────────────────────────────────────────────────────────────────────── */}
 
-      {/* Status Tabs */}
-      <JobStatusTabs
-        statuses={jobStatuses}
-        counts={statusCounts}
-        activeStatus={localFilters.status}
-        onChange={handleTabChange}
-      />
+      {/* Status Filter Bar */}
+      <div className="flex flex-col gap-0.5 bg-background-light border border-border-color rounded-lg px-3 py-2.5">
+        <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">Filter by Status</label>
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+          {jobStatuses.map((status) => {
+            const tabValue = status.value === 'all' ? '' : status.value;
+            const isActive = (localFilters.status ?? '') === tabValue;
+            const count = status.value === 'all' ? statusCounts['all'] || 0 : statusCounts[status.value] || 0;
 
-      {/* Customer Filter Buttons */}
-      {!["customer", "driver"].includes(role) && (
-        <CustomerFilterButtons
-          customers={filteredCustomers}
-          counts={customerCounts}
-          selectedCustomer={localFilters.customer_name || ''}
-          onChange={(customerName) => handleImmediateFilterChange('customer_name', customerName)}
-        />
-      )}
-
-      {/* Driver Filter Buttons – Job Page Compact Layout */}
-      {!["customer", "driver"].includes(role) && (
-        <DriverFilterButtons
-          drivers={jobDrivers}
-          counts={driverCounts}
-          selectedDriver={selectedDriver}
-          onChange={(name) => { setSelectedDriver(name); setPage(1); }}
-        />
-      )}
+            return (
+              <button
+                key={status.value}
+                type="button"
+                onClick={() => handleTabChange(tabValue)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 border h-8 ${
+                  isActive
+                    ? 'bg-primary text-white border-primary shadow-lg'
+                    : 'bg-background text-text-main border-border-color hover:border-primary hover:text-primary'
+                }`}
+              >
+                <span>{status.label}</span>
+                <span
+                  className={`flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full text-[10px] font-semibold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-background-dark text-text-secondary'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Pagination Info */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center sm:justify-between mb-2">
