@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Tooltip animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.15s ease-out;
+}
+
 /* Custom base styles */
 @layer base {
   html {

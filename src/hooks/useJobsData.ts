@@ -37,6 +37,35 @@ export const useJobsData = (isDriver: boolean) => {
   const allJobs = (allJobsData?.items || []) as Job[];
   const customers = (customersData || []) as Customer[];
 
+  // ── Driver counts (for DriverFilterButtons) ──────────────────────────────
+  // Derived from the same allJobs fetch – no extra API call needed.
+  // 'unassigned' key counts jobs that have no driver_name.
+  const driverCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    let unassigned = 0;
+    allJobs.forEach((job) => {
+      if (job.driver_name) {
+        counts[job.driver_name] = (counts[job.driver_name] || 0) + 1;
+      } else {
+        unassigned++;
+      }
+    });
+    if (unassigned > 0) counts['unassigned'] = unassigned;
+    return counts;
+  }, [allJobs]);
+
+  // Unique drivers sorted by name, only those with ≥1 job.
+  const jobDrivers = useMemo(() => {
+    const seen = new Map<string, { id: number | string; name: string }>();
+    allJobs.forEach((job, idx) => {
+      if (job.driver_name && !seen.has(job.driver_name)) {
+        seen.set(job.driver_name, { id: job.driver_id ?? idx, name: job.driver_name });
+      }
+    });
+    return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [allJobs]);
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Calculate customer counts
   const customerCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -81,6 +110,9 @@ export const useJobsData = (isDriver: boolean) => {
     customerCounts,
     sortedCustomers,
     filteredCustomers,
-    statusCounts
+    statusCounts,
+    // NEW – driver filter data (Job Page Compact Layout)
+    driverCounts,
+    jobDrivers,
   };
 };
