@@ -75,7 +75,7 @@ export function JobCategoryRow({
     <>
       <div
         className={clsx(
-          'flex items-center gap-4 px-4 py-3 border-b',
+          'grid grid-cols-[40px_40px_80px_140px_1fr_1fr_1fr_1fr_140px_160px_200px] items-center px-4 py-3 border-b',
           'hover:bg-opacity-50 transition-colors',
           isSelected && 'bg-opacity-75',
           !isEditing && 'cursor-pointer'
@@ -86,7 +86,7 @@ export function JobCategoryRow({
         }}
       >
         {/* Checkbox */}
-        <div className="flex-shrink-0 p-1" onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
@@ -98,7 +98,7 @@ export function JobCategoryRow({
         {/* Expand/Collapse Button */}
         <button
           onClick={() => onToggleExpansion(row.row_number)}
-          className="flex-shrink-0 p-1 hover:bg-opacity-75 rounded transition-colors"
+          className="hover:bg-opacity-75 rounded transition-colors"
           title={isExpanded ? 'Collapse' : 'Expand'}
         >
           {isExpanded ? (
@@ -109,7 +109,7 @@ export function JobCategoryRow({
         </button>
 
         {/* Status Icon */}
-        <div className="flex-shrink-0 w-5 h-5">
+        <div>
           {row.is_valid ? (
             <CheckCircleIcon className="w-5 h-5 text-green-500" />
           ) : (
@@ -118,45 +118,50 @@ export function JobCategoryRow({
         </div>
 
         {/* Row Number */}
-        <div className="w-16 flex-shrink-0">
+        <div className="text-left">
           <p className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
             #{row.row_number}
           </p>
         </div>
 
         {/* Customer */}
-        <div className="flex-1 min-w-0 px-2">
+        <div className="min-w-0 text-left">
           <p className="text-sm font-medium text-text-main truncate">{row.customer}</p>
         </div>
 
         {/* Service */}
-        <div className="flex-1 min-w-0 px-2">
+        <div className="min-w-0 text-left">
           <p className="text-sm text-text-secondary truncate">{row.service}</p>
         </div>
 
+        {/* Pickup Location */}
+        <div className="min-w-0 text-left">
+          <p className="text-sm text-text-secondary truncate" title={row.pickup_location}>
+            {row.pickup_location}
+          </p>
+        </div>
+
+        {/* Drop-off Location */}
+        <div className="min-w-0 text-left">
+          <p className="text-sm text-text-secondary truncate" title={row.dropoff_location}>
+            {row.dropoff_location}
+          </p>
+        </div>
+
         {/* Pickup Date */}
-        <div className="w-32 flex-shrink-0 px-2">
+        <div className="text-left">
           <p className="text-sm text-text-secondary">{row.pickup_date}</p>
         </div>
 
-        {/* Error message for error category */}
-        {category === 'error' && !isEditing && (
-          <div className="flex-1 min-w-0 px-2">
-            <p className="text-sm text-red-600 font-medium truncate">
-              {row.error_message || 'Invalid'}
-            </p>
-          </div>
-        )}
+        {/* Pickup Time */}
+        <div className="text-right pr-4">
+          <p className="text-sm font-bold" style={{ color: '#22D3EE' }}>
+            {row.pickup_time || '—'}
+          </p>
+        </div>
 
-        {/* Job ID if available */}
-        {row.job_id && !isEditing && (
-          <div className="w-32 flex-shrink-0 px-2">
-            <p className="text-sm font-medium text-green-600">{row.job_id}</p>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex items-center gap-2 ml-4 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        {/* Actions / Status */}
+        <div className="flex items-center gap-2 pl-4" onClick={(e) => e.stopPropagation()}>
           {!isEditing && (
             <button
               onClick={() => onStartEditing(row)}
