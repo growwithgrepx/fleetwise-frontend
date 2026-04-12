@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -16,6 +16,9 @@ interface JobCategorySectionProps {
   user?: any;
   isLoadingReferenceData?: boolean;
 }
+
+type SortField = 'time' | 'arr_dep' | 'pickup_dropoff';
+type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -35,6 +38,8 @@ export default function JobCategorySection({
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortField, setSortField] = useState<SortField>('time');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const editingDataRef = React.useRef<Record<number, ExcelRow>>({});
   const userRole = (user?.roles?.[0]?.name || "guest").toLowerCase();
 
@@ -66,6 +71,48 @@ export default function JobCategorySection({
   };
 
   const config = categoryConfig[category];
+
+  // Sorting logic
+  const sortedRows = useMemo(() => {
+    const sorted = [...rows].sort((a, b) => {
+      let comparison = 0;
+
+      // Primary sort: Time (ascending by default)
+      if (sortField === 'time') {
+        const timeA = a.pickup_time || '';
+        const timeB = b.pickup_time || '';
+        comparison = timeA.localeCompare(timeB);
+      }
+      // Secondary sort: Arr/Dep (service type)
+      else if (sortField === 'arr_dep') {
+        const serviceA = a.service || '';
+        const serviceB = b.service || '';
+        comparison = serviceA.localeCompare(serviceB);
+      }
+      // Tertiary sort: Pick up / Drop off location
+      else if (sortField === 'pickup_dropoff') {
+        const pickupA = a.pickup_location || '';
+        const pickupB = b.pickup_location || '';
+        comparison = pickupA.localeCompare(pickupB);
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [rows, sortField, sortDirection]);
+
+  const handleSortChange = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to ascending
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1); // Reset to first page when sorting changes
+  };
 
   const toggleRowSelection = useCallback((rowNumber: number) => {
     setSelectedRows(prev => {
@@ -122,19 +169,19 @@ export default function JobCategorySection({
 
   if (rows.length === 0) return null;
 
-  const totalPages = Math.ceil(rows.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(sortedRows.length / ITEMS_PER_PAGE);
   
   // Clamp current page when rows change
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(1);
     }
-  }, [rows.length, totalPages, currentPage]);
+  }, [sortedRows.length, totalPages, currentPage]);
 
   const clampedPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
   const startIndex = (clampedPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedRows = rows.slice(startIndex, endIndex);
+  const paginatedRows = sortedRows.slice(startIndex, endIndex);
 
   return (
     <div
@@ -213,6 +260,105 @@ export default function JobCategorySection({
         </div>
       </div>
 
+      {/* Verification Help Text */}
+      <div
+        className="mb-4 p-3 rounded-lg border"
+        style={{
+          backgroundColor: 'rgba(59, 130, 246, 0.05)',
+          borderColor: 'rgba(59, 130, 246, 0.2)'
+        }}
+      >
+        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+          <strong style={{ color: 'var(--color-text-main)' }}>💡 Tip:</strong> Jobs are automatically sorted by Pickup Time (earliest first). Click sort options to reorganize.
+        </p>
+      </div>
+
+      {/* Sort Pills */}
+      <div className="flex items-center gap-3 mb-4">
+        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
+          Sort by:
+        </span>
+        <div className="flex items-center gap-2">
+          {[
+            { field: 'time' as SortField, label: 'Time' },
+            { field: 'arr_dep' as SortField, label: 'Arrival / Departure' },
+            { field: 'pickup_dropoff' as SortField, label: 'Pickup / Drop-off' }
+          ].map(({ field, label }) => {
+            const isActive = sortField === field;
+            const direction = isActive && sortDirection === 'desc' ? ' ↓' : isActive ? ' ↑' : '';
+            
+            return (
+              <button
+                key={field}
+                onClick={() => handleSortChange(field)}
+                className={clsx(
+                  'px-4 py-1.5 rounded-lg text-xs font-medium transition-all border',
+                  isActive
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-lg'
+                    : 'bg-background text-text-main border-border-color hover:border-blue-600 hover:text-blue-600'
+                )}
+                style={isActive ? undefined : {
+                  backgroundColor: 'var(--color-bg)',
+                  color: 'var(--color-text-main)',
+                  borderColor: 'var(--color-border)'
+                }}
+              >
+                {label}{direction}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Table Header */}
+      <div
+        className="grid grid-cols-[40px_40px_80px_140px_1fr_1fr_1fr_1fr_140px_160px_200px] items-center px-4 py-3 border-b-2 text-xs font-semibold uppercase tracking-wide"
+        style={{
+          borderColor: 'var(--color-border)',
+          color: 'var(--color-text-secondary)'
+        }}
+      >
+        {/* Checkbox - matches row checkbox area */}
+        <div></div>
+        
+        {/* Expand button - matches row expand area */}
+        <div></div>
+        
+        {/* Status icon - matches row status icon */}
+        <div></div>
+        
+        {/* Job # */}
+        <div className="text-left">Job #</div>
+        
+        {/* Customer */}
+        <div className="text-left">Customer</div>
+        
+        {/* Service */}
+        <div className="text-left">Service</div>
+        
+        {/* Pickup Location */}
+        <div className="text-left">Pickup Location</div>
+        
+        {/* Drop-off Location */}
+        <div className="text-left">Drop-off Location</div>
+        
+        {/* Pickup Date */}
+        <div className="text-left">Pickup Date</div>
+        
+        {/* Pickup Time */}
+        <div className="text-right pr-4">
+          <div className="flex items-center justify-end gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs font-bold">Pickup Time</span>
+          </div>
+        </div>
+        
+        {/* Status / Actions */}
+        <div className="text-left pl-4">Status / Actions</div>
+      </div>
+
       {/* Rows */}
       <div className="space-y-0">
         {paginatedRows.map((row) => (
@@ -241,7 +387,7 @@ export default function JobCategorySection({
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between border-t" style={{ borderColor: 'var(--color-border)' }}>
           <div className="pt-4 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Showing {startIndex + 1} to {Math.min(endIndex, rows.length)} of {rows.length} rows
+            Showing {startIndex + 1} to {Math.min(endIndex, sortedRows.length)} of {sortedRows.length} rows
           </div>
           <div className="pt-4 flex items-center gap-2">
             <button
