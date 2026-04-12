@@ -2,23 +2,23 @@
 
 import React, { useEffect, useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useJobs } from '@/hooks/useJobs';
+import { useJobs, jobKeys } from '@/hooks/useJobs';
 import * as jobsApi from '@/services/api/jobsApi';
 import { useCopiedJob } from '@/context/CopiedJobContext';
 import { Job, JobFormData, ApiJob } from '@/types/job';
-import { safeStringValue } from '@/utils/jobNormalizer';
-import { EntityTable, EntityTableColumn, EntityTableAction } from '@/components/organisms/EntityTable';
-import { createStandardEntityActions } from '@/components/common/StandardActions';
+import {
+  JobsEntityTable,
+  type EntityTableColumn,
+} from '@/components/organisms/jobs/JobsEntityTable';
 import { EntityHeader } from '@/components/organisms/EntityHeader';
 import { CreateJobFromTextModal } from '@/components/organisms/CreateJobFromTextModal';
-import { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { PlusCircle, Upload, ArrowUp, ArrowDown } from 'lucide-react';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { Input } from '@/components/atoms/Input';
 import { MultiSelectDropdown, MultiSelectOption } from '@/components/atoms/MultiSelectDropdown';
 import JobDetailCard from '@/components/organisms/JobDetailCard';
-import { Eye, Pencil, Trash2, Copy, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import JobForm from '@/components/organisms/JobForm';
 import toast from 'react-hot-toast';
@@ -33,8 +33,13 @@ import { useJobPagination } from '@/hooks/useJobPagination';
 import { useJobDeletion } from '@/hooks/useJobDeletion';
 import { useJobEditing } from '@/hooks/useJobEditing';
 import { useJobsData } from '@/hooks/useJobsData';
-import { useJobActions } from '@/hooks/useJobActions';
-import { getJobTableColumns } from '@/lib/jobTableConfig';
+import { useJobsPageTableActions } from '@/hooks/useJobsPageTableActions';
+import { getJobsPageTableColumns } from '@/lib/jobsPageTableConfig';
+import { DriverFilterButtons } from '@/components/molecules/DriverFilterButtons';
+import { Button } from '@/components/ui/button';
+import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
+import { UpdateJobStatusModal } from '@/components/molecules/UpdateJobStatusModal';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Job status configuration
 interface JobStatus {
@@ -55,9 +60,39 @@ const jobStatuses: JobStatus[] = [
   { label: 'Canceled', value: 'canceled' }
 ];
 
+const JOB_STATUS_LABELS: Record<string, string> = {
+  new: 'New',
+  pending: 'Pending',
+  confirmed: 'Confirmed',
+  otw: 'On The Way',
+  ots: 'On The Spot',
+  pob: 'Passenger On Board',
+  jc: 'Job Completed',
+  sd: 'Stand Down',
+  canceled: 'Canceled',
+};
+
+const CANCELLATION_REASONS = [
+  'Customer Request',
+  'Driver Unavailable',
+  'Operational Issue',
+  'Entered in Error',
+] as const;
+
 const JobsPage = () => {
   const router = useRouter();
-  const { jobs, isLoading, error, updateFilters, deleteJobAsync, updateJobAsync, filters } = useJobs();
+  const queryClient = useQueryClient();
+  const {
+    jobs,
+    isLoading,
+    error,
+    updateFilters,
+    deleteJobAsync,
+    updateJobAsync,
+    filters,
+    cancelJobAsync,
+    reinstateJobAsync,
+  } = useJobs();
   const { user } = useUser();
   const role = (user?.roles?.[0]?.name || "guest").toLowerCase();
   const isDriver = role === "driver";
@@ -84,7 +119,7 @@ const JobsPage = () => {
     setPage,
     setPageSize,
     paginate
-  } = useJobPagination(10);
+  } = useJobPagination(50);
 
   const {
     deletingId,
@@ -121,6 +156,17 @@ const JobsPage = () => {
   // Date filter state
   const [pickupDateFrom, setPickupDateFrom] = useState('');
   const [pickupDateTo, setPickupDateTo] = useState('');
+  const [datePreset, setDatePreset] = useState<'today' | 'tomorrow' | 'week' | 'custom' | null>(null);
+  const [driverFilterKey, setDriverFilterKey] = useState('');
+
+  const canManageLifecycle = !['driver', 'customer', 'guest'].includes(role);
+
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [reinstateDialogOpen, setReinstateDialogOpen] = useState(false);
+  const [jobToProcess, setJobToProcess] = useState<Job | null>(null);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [updateStatusModalOpen, setUpdateStatusModalOpen] = useState(false);
+  const [jobToUpdate, setJobToUpdate] = useState<Job | null>(null);
 
   // ── Job Page Compact Layout additions ─────────────────────────────────────
   // Multi-select filters for Customer and Driver
@@ -165,14 +211,73 @@ const JobsPage = () => {
     });
   }, [debouncedSearch, debouncedLocalFilters, updateFilters, pickupDateFrom, pickupDateTo]);
 
+  const handleOpenCancelJob = useCallback((job: Job) => {
+    setJobToProcess(job);
+    setCancelDialogOpen(true);
+  }, []);
+
+  const handleOpenReinstate = useCallback((job: Job) => {
+    setJobToProcess(job);
+    setReinstateDialogOpen(true);
+  }, []);
+
+  const handleUpdateStatus = useCallback((job: Job) => {
+    if (job.status === 'sd' || job.status === 'jc') {
+      toast.error(
+        `Cannot update status for a job in ${JOB_STATUS_LABELS[job.status]} state.`
+      );
+      return;
+    }
+    if (job.status === 'canceled') {
+      toast.error(
+        'Cannot update status for a canceled job. Please re-instate the job first.'
+      );
+      return;
+    }
+    setJobToUpdate(job);
+    setUpdateStatusModalOpen(true);
+  }, []);
+
+  const confirmJobCancel = async () => {
+    if (!jobToProcess) return;
+    try {
+      await cancelJobAsync(jobToProcess.id, cancellationReason);
+      toast.success('Job canceled successfully');
+      setCancelDialogOpen(false);
+      setJobToProcess(null);
+      setCancellationReason('');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to cancel job';
+      toast.error(message);
+    }
+  };
+
+  const confirmJobReinstate = async () => {
+    if (!jobToProcess) return;
+    try {
+      await reinstateJobAsync(jobToProcess.id);
+      toast.success('Job re-instated successfully');
+      setReinstateDialogOpen(false);
+      setJobToProcess(null);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to re-instate job';
+      toast.error(message);
+    }
+  };
+
   // ===== Get Job Actions =====
-  const jobActions = useJobActions({
+  const jobActions = useJobsPageTableActions({
     role,
-    onView: (job: Job) => {
-      setExpandedJobId(expandedJobId === job.id ? null : job.id);
+    canManageLifecycle,
+    onToggleDetail: (job: Job) => {
+      setExpandedJobId((prev) => (prev === job.id ? null : job.id));
     },
     onEdit: handleEdit,
     onDelete: handleDelete,
+    onUpdateStatus: handleUpdateStatus,
+    onCancelJob: handleOpenCancelJob,
+    onReinstate: handleOpenReinstate,
     onCopy: async (job: Job) => {
       try {
         const latestJob = await jobsApi.getJobById(job.id);
@@ -203,10 +308,82 @@ const JobsPage = () => {
     isDeleting: (job: Job) => deletingId === job.id
   });
 
-  // ===== Table Columns =====
+  // ===== Table Columns (Jobs page only; sortable headers) =====
   const columns = useMemo<EntityTableColumn<ApiJob & { stringLabel?: string }>[]>(
-    () => getJobTableColumns(search),
-    [search]
+    () =>
+      getJobsPageTableColumns(search).map((col) => ({
+        ...col,
+        label: (
+          <span
+            className="inline-flex cursor-pointer items-center gap-1 select-none"
+            onClick={() => handleSort(col.accessor as string)}
+          >
+            {col.label as string}
+            {sortBy === col.accessor ? (
+              sortDir === 'asc' ? (
+                <ArrowUp className="inline h-3 w-3" />
+              ) : (
+                <ArrowDown className="inline h-3 w-3" />
+              )
+            ) : null}
+          </span>
+        ),
+      })),
+    [search, sortBy, sortDir, handleSort]
+  );
+
+  const driverFilterOptions = useMemo(() => {
+    const list = jobs ?? [];
+    const map = new Map<string, number>();
+    let unassigned = 0;
+    for (const j of list) {
+      if (!j.driver_id) unassigned += 1;
+      else {
+        const n = ((j as Job & { driver_name?: string }).driver_name || '').trim() || 'Unknown';
+        map.set(n, (map.get(n) || 0) + 1);
+      }
+    }
+    const drivers = [...map.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({ key: label, label, count }));
+    return { drivers, unassigned };
+  }, [jobs]);
+
+  const applyDatePreset = useCallback(
+    (preset: 'today' | 'tomorrow' | 'week' | 'all') => {
+      const now = new Date();
+      if (preset === 'all') {
+        setDatePreset(null);
+        setPickupDateFrom('');
+        setPickupDateTo('');
+        setPage(1);
+        return;
+      }
+      if (preset === 'today') {
+        const d = format(now, 'yyyy-MM-dd');
+        setPickupDateFrom(d);
+        setPickupDateTo(d);
+        setDatePreset('today');
+        setPage(1);
+        return;
+      }
+      if (preset === 'tomorrow') {
+        const t = addDays(now, 1);
+        const d = format(t, 'yyyy-MM-dd');
+        setPickupDateFrom(d);
+        setPickupDateTo(d);
+        setDatePreset('tomorrow');
+        setPage(1);
+        return;
+      }
+      const start = startOfWeek(now, { weekStartsOn: 1 });
+      const end = endOfWeek(now, { weekStartsOn: 1 });
+      setPickupDateFrom(format(start, 'yyyy-MM-dd'));
+      setPickupDateTo(format(end, 'yyyy-MM-dd'));
+      setDatePreset('week');
+      setPage(1);
+    },
+    [setPage]
   );
 
   // ===== Handlers =====
@@ -221,16 +398,12 @@ const JobsPage = () => {
     setPage(1);
   }, [filters, handleFilterChange, updateFilters]);
 
-  const handleClearFilter = useCallback((col: string) => {
-    handleFilterChange(col, '');
-    setPage(1);
-  }, [handleFilterChange]);
-
   const handleClearDateFilter = useCallback(() => {
     setPickupDateFrom('');
     setPickupDateTo('');
+    setDatePreset(null);
     setPage(1);
-  }, []);
+  }, [setPage]);
 
   const confirmDelete = async () => {
     if (pendingDeleteId == null) return;
@@ -315,6 +488,7 @@ const JobsPage = () => {
           title="Jobs"
           onAddClick={() => router.push('/jobs/new')}
           addLabel="Add Job"
+          addButtonClassName="!bg-gradient-to-r !from-emerald-600 !to-green-600 hover:!from-emerald-700 hover:!to-green-700"
           extraActions={
             <>
               <AnimatedButton onClick={() => router.push('/jobs/bulk-upload')} variant="outline" className="flex items-center text-xs">
@@ -488,79 +662,53 @@ const JobsPage = () => {
         </div>
       </div>
 
-      {/* Jobs Table */}
-      <div className="flex-grow rounded-lg sm:rounded-xl shadow-lg bg-background-light border border-border-color overflow-hidden flex flex-col">
-        <div className="w-full flex-grow flex flex-col min-w-0">
-          <div className="overflow-x-auto flex-grow" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <EntityTable
+      {/* Jobs table (dedicated component — does not affect other pages) */}
+      <div className="flex min-w-0 flex-grow flex-col overflow-hidden rounded-lg border border-border-color bg-background-light shadow-lg sm:rounded-xl">
+        <div className="flex min-w-0 flex-grow flex-col">
+          <JobsEntityTable<ApiJob>
             data={paginationInfo.paginatedJobs}
-            columns={columns.map(col => ({
-              ...col,
-              label: (
-                <span className="inline-flex items-center gap-1 cursor-pointer select-none" onClick={() => handleSort(col.accessor as string)}>
-                  {col.label}
-                  {sortBy === col.accessor ? (
-                    sortDir === 'asc' ? <ArrowUp className="w-3 h-3 inline" /> : <ArrowDown className="w-3 h-3 inline" />
-                  ) : null}
-                </span>
-              ),
-              filterable: true,
-              stringLabel: col.stringLabel,
-              renderFilter: (value: string, onChange: (v: string) => void) => (
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    className="w-full bg-background-light border border-border-color text-text-main placeholder-text-secondary focus:ring-2 focus:ring-primary rounded px-2 py-1 text-xs mt-1 pr-6"
-                    placeholder={`Filter ${(col.stringLabel || col.accessor).toString().toLowerCase()}...`}
-                    value={value}
-                    onChange={e => onChange(e.target.value)}
-                  />
-                  {value && (
-                    <button
-                      type="button"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 text-text-secondary hover:text-red-500 text-xs"
-                      onClick={() => handleClearFilter(col.accessor as string)}
-                      tabIndex={-1}
-                      aria-label="Clear filter"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ),
-            }))}
+            columns={columns}
             isLoading={isLoading}
             actions={jobActions}
             renderExpandedRow={(job) => (
-              <div className="py-6 px-8">
+              <div className="px-4 py-4 sm:px-8 sm:py-6">
                 <JobDetailCard job={job} />
               </div>
             )}
-            rowClassName={(job) => expandedJobId === job.id ? 'bg-primary/10' : ''}
-            onRowClick={(job) => setExpandedJobId(expandedJobId === job.id ? null : job.id)}
+            rowClassName={(job) =>
+              [
+                expandedJobId === job.id ? 'ring-1 ring-primary/30' : '',
+                job.status === 'canceled' ? 'opacity-70' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
+            }
+            onRowClick={(job) =>
+              setExpandedJobId((prev) => (prev === job.id ? null : job.id))
+            }
             expandedRowId={expandedJobId}
             filters={localFilters}
             onFilterChange={handleFilterChange}
           />
         </div>
-      </div>
 
-        {/* Page Navigation - Inside Table Container */}
         {paginationInfo.totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 py-3 sm:py-4 border-t border-border-color px-2 sm:px-4">
-            <div className="flex items-center justify-center sm:justify-end gap-1">
+          <div className="flex flex-col gap-2 border-t border-border-color px-2 py-3 sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-4 sm:py-4">
+            <div className="flex items-center justify-center gap-1 sm:justify-end">
               <button
+                type="button"
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
-                className="px-2 py-1 text-xs sm:text-sm rounded-lg font-medium transition-colors border border-border-color text-text-main hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg border border-border-color px-2 py-1 text-xs font-medium text-text-main transition-colors hover:border-primary disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
               >
                 &lt;
               </button>
               {Array.from({ length: paginationInfo.totalPages }, (_, i) => i + 1).map((pageNum) => (
                 <button
                   key={pageNum}
+                  type="button"
                   onClick={() => setPage(pageNum)}
-                  className={`px-2 py-1 text-xs sm:text-sm rounded-lg font-medium transition-colors ${
+                  className={`rounded-lg px-2 py-1 text-xs font-medium transition-colors sm:text-sm ${
                     pageNum === page
                       ? 'bg-primary text-white'
                       : 'border border-border-color text-text-main hover:border-primary'
@@ -570,9 +718,10 @@ const JobsPage = () => {
                 </button>
               ))}
               <button
+                type="button"
                 onClick={() => setPage(Math.min(paginationInfo.totalPages, page + 1))}
                 disabled={page === paginationInfo.totalPages}
-                className="px-2 py-1 text-xs sm:text-sm rounded-lg font-medium transition-colors border border-border-color text-text-main hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg border border-border-color px-2 py-1 text-xs font-medium text-text-main transition-colors hover:border-primary disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
               >
                 &gt;
               </button>
@@ -620,6 +769,91 @@ const JobsPage = () => {
         onConfirm={confirmDelete}
         onCancel={handleCancelDelete}
       />
+
+      {cancelDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div
+            className="mx-3 max-h-[90vh] w-full max-w-md animate-fade-in overflow-y-auto rounded-lg border border-border-color bg-background-light p-4 shadow-xl sm:mx-4 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+          >
+            <h2 className="mb-2 text-base font-bold text-text-main sm:text-lg">
+              Cancel Job
+            </h2>
+            <p className="mb-4 text-text-secondary">
+              Are you sure you want to cancel this job? Please select a reason for
+              cancellation.
+            </p>
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-text-main">
+                Cancellation Reason
+              </label>
+              <select
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+                className="w-full rounded-lg border-border-color bg-background-light px-3 py-2 text-sm text-text-main transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="">Select a reason</option>
+                {CANCELLATION_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {reason}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex w-full flex-col justify-end gap-2 sm:w-auto sm:flex-row">
+              <button
+                type="button"
+                className="w-full rounded border border-border-color bg-background-light px-4 py-2 text-text-main hover:bg-background focus:outline-none focus:ring-2 focus:ring-primary sm:w-auto"
+                onClick={() => {
+                  setCancelDialogOpen(false);
+                  setJobToProcess(null);
+                  setCancellationReason('');
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="w-full rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 sm:w-auto"
+                onClick={confirmJobCancel}
+                disabled={!cancellationReason}
+              >
+                Cancel Job
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={reinstateDialogOpen}
+        title="Re-instate Job"
+        description="Are you sure you want to re-instate this job? This will restore the job to its previous status."
+        confirmLabel="Re-instate Job"
+        cancelLabel="Close"
+        onConfirm={confirmJobReinstate}
+        onCancel={() => {
+          setReinstateDialogOpen(false);
+          setJobToProcess(null);
+        }}
+      />
+
+      {updateStatusModalOpen && jobToUpdate && (
+        <UpdateJobStatusModal
+          job={jobToUpdate}
+          isOpen={updateStatusModalOpen}
+          onClose={() => {
+            setUpdateStatusModalOpen(false);
+            setJobToUpdate(null);
+          }}
+          onStatusUpdated={() => {
+            queryClient.invalidateQueries({ queryKey: jobKeys.all });
+            setUpdateStatusModalOpen(false);
+            setJobToUpdate(null);
+          }}
+        />
+      )}
     </div>
   );
 };
