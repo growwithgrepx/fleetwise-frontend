@@ -749,8 +749,8 @@ const JobsPage = () => {
       )}
 
       {/* Jobs table (dedicated component — does not affect other pages) */}
-      <div className="flex min-w-0 flex-grow flex-col overflow-hidden rounded-lg border border-border-color bg-background-light shadow-lg sm:rounded-xl">
-        <div className="flex min-w-0 flex-grow flex-col">
+      <div className="flex min-w-0 flex-grow flex-col rounded-xl border border-border-color bg-background-light">
+        <div className="flex min-w-0 flex-col">
           <JobsEntityTable<ApiJob>
             data={paginationInfo.paginatedJobs}
             columns={columns}

@@ -73,14 +73,12 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
   useEffect(() => {
     const handleScroll = () => {
       if (tableContainerRef.current) {
-        setIsScrolled(tableContainerRef.current.scrollTop > 0);
+        const rect = tableContainerRef.current.getBoundingClientRect();
+        setIsScrolled(rect.top < 0);
       }
     };
-    const container = tableContainerRef.current;
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-      return () => container.removeEventListener("scroll", handleScroll);
-    }
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const setContentRef =
@@ -113,7 +111,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
   return (
     <div
       className={clsx(
-        "rounded-lg border border-border-color/80 bg-background-light/95 shadow-inner backdrop-blur-sm",
+        "rounded-xl border border-border-color bg-background-light",
         className
       )}
     >
@@ -124,25 +122,39 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
           </div>
         </div>
       )}
-      <div
-        ref={tableContainerRef}
-        className={clsx(
-          "max-h-[calc(100vh-220px)] overflow-x-auto overflow-y-auto",
-          containerClassName
-        )}
-      >
-        <table
-          className="w-full border-collapse text-left text-[11px] text-text-main sm:text-xs"
-          style={{ tableLayout: "auto", minWidth: "1100px" }}
+      <div className="relative">
+        {/* Right fade shadow for horizontal scroll indication */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background-light/80 to-transparent z-10 opacity-0 transition-opacity duration-200" id="table-scroll-shadow" />
+        
+        <div
+          ref={tableContainerRef}
+          className={clsx(
+            "overflow-x-auto scrollbar-hide scroll-smooth",
+            containerClassName
+          )}
+          onScroll={() => {
+            if (tableContainerRef.current) {
+              const { scrollLeft, scrollWidth, clientWidth } = tableContainerRef.current;
+              const shadow = document.getElementById('table-scroll-shadow');
+              if (shadow) {
+                shadow.style.opacity = scrollLeft > 0 && scrollLeft < scrollWidth - clientWidth - 10 ? '1' : '0';
+              }
+            }
+          }}
         >
+          <div className="inline-block min-w-full align-middle">
+            <table
+              className="border-collapse text-left text-[11px] text-text-main sm:text-xs"
+              style={{ minWidth: '1200px' }}
+            >
           <thead
             className={clsx(
-              "sticky top-0 z-10 border-b border-border-color bg-background-light/95 backdrop-blur-md transition-shadow",
-              isScrolled ? "shadow-[0_6px_12px_-4px_rgba(0,0,0,0.45)]" : ""
+              "sticky top-0 z-10 border-b border-border-color bg-background-light transition-shadow",
+              isScrolled ? "shadow-md" : ""
             )}
           >
             <tr>
-              <th className="w-10 min-w-[2.5rem] px-2 py-2 sm:px-3">
+              <th className="sticky left-0 z-20 w-10 min-w-[2.5rem] bg-background-light px-2 py-2 sm:px-3">
                 <input
                   type="checkbox"
                   onChange={handleSelectAll}
@@ -158,7 +170,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                   style={
                     col.width
                       ? { width: col.width, minWidth: col.width }
-                      : { minWidth: "96px" }
+                      : { minWidth: col.filterable ? "120px" : "96px" }
                   }
                 >
                   <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-text-secondary sm:text-[11px]">
@@ -167,7 +179,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                   {col.filterable && onFilterChange && (
                     <input
                       type="text"
-                      className="mt-0.5 w-full rounded border border-border-color bg-background-dark/40 px-1.5 py-1 text-[10px] text-text-main placeholder:text-text-secondary/70 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-xs"
+                      className="mt-0.5 w-full min-w-[80px] rounded-lg border border-border-color bg-background-light px-2.5 py-1.5 text-[11px] text-text-main placeholder:text-text-secondary/60 focus:border-primary focus:bg-background-light focus:outline-none focus:ring-2 focus:ring-primary/30 sm:text-xs transition-all duration-150"
                       placeholder="Filter…"
                       title={`Filter ${(col.stringLabel || col.accessor).toString().toLowerCase()}`}
                       value={filters[col.accessor as string] || ""}
@@ -177,7 +189,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                 </th>
               ))}
               {hasActionColumn && (
-                <th className="min-w-[140px] px-2 py-2 text-center sm:px-3">
+                <th className="sticky right-0 z-20 min-w-[160px] bg-background-light px-2 py-2 text-center sm:px-3">
                   <div className="mb-1 text-center text-[10px] font-bold uppercase tracking-wider text-text-secondary">
                     Actions
                   </div>
@@ -240,7 +252,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                         }
                       }}
                     >
-                      <td className="w-10 min-w-[2.5rem] px-2 py-2 align-middle sm:px-3">
+                      <td className="sticky left-0 z-10 w-10 min-w-[2.5rem] bg-background-light px-2 py-2 align-middle sm:px-3">
                         <input
                           type="checkbox"
                           checked={selectedRows.includes(row.id)}
@@ -273,7 +285,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                         </td>
                       ))}
                       {rowActions.length > 0 && (
-                        <td className="min-w-[140px] px-2 py-2 text-center align-middle sm:px-3">
+                        <td className="sticky right-0 z-10 min-w-[160px] bg-background-light px-2 py-2 text-center align-middle sm:px-3">
                           <div className="flex flex-wrap items-center justify-center gap-0.5 sm:gap-1">
                             {rowActions.map((action) => {
                               const isDisabled = action.disabled
@@ -339,6 +351,8 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
             )}
           </tbody>
         </table>
+          </div>
+        </div>
       </div>
     </div>
   );

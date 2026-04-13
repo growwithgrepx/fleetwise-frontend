@@ -37,7 +37,7 @@ export function getJobsPageTableColumns(
       accessor: 'id',
       filterable: true,
       stringLabel: 'Job ID',
-      width: '72px',
+      width: '80px',
       render: (job) => <HighlightedCell text={String(job.id)} searchTerm={search} />,
     },
     {
@@ -45,7 +45,7 @@ export function getJobsPageTableColumns(
       accessor: 'booking_ref',
       filterable: true,
       stringLabel: 'Booking Ref',
-      width: '110px',
+      width: '120px',
       render: (job) => <HighlightedCell text={job.booking_ref || '—'} searchTerm={search} />,
     },
     {
@@ -53,7 +53,7 @@ export function getJobsPageTableColumns(
       accessor: 'customer_name',
       filterable: true,
       stringLabel: 'Customer',
-      width: '140px',
+      width: '150px',
       render: (job) => <HighlightedCell text={job.customer_name} searchTerm={search} />,
     },
     {
@@ -61,7 +61,7 @@ export function getJobsPageTableColumns(
       accessor: 'passenger_name',
       filterable: true,
       stringLabel: 'Passenger',
-      width: '140px',
+      width: '120px',
       render: (job) => <HighlightedCell text={job.passenger_name} searchTerm={search} />,
     },
     {
@@ -69,7 +69,7 @@ export function getJobsPageTableColumns(
       accessor: 'driver_name',
       filterable: true,
       stringLabel: 'Driver',
-      width: '120px',
+      width: '110px',
       render: (job) => (
         <HighlightedCell
           text={(job as ApiJob & { driver_name?: string }).driver_name || '—'}
@@ -82,7 +82,7 @@ export function getJobsPageTableColumns(
       accessor: 'service_type',
       filterable: true,
       stringLabel: 'Service',
-      width: '160px',
+      width: '130px',
       render: (job) => (
         <HighlightedCell text={job.service_type || '—'} searchTerm={search} />
       ),
@@ -92,7 +92,7 @@ export function getJobsPageTableColumns(
       accessor: 'pickup_location',
       filterable: true,
       stringLabel: 'Pickup',
-      width: '130px',
+      width: '140px',
       render: (job) => <HighlightedCell text={job.pickup_location} searchTerm={search} />,
     },
     {
@@ -100,7 +100,7 @@ export function getJobsPageTableColumns(
       accessor: 'dropoff_location',
       filterable: true,
       stringLabel: 'Drop-off',
-      width: '130px',
+      width: '140px',
       render: (job) => <HighlightedCell text={job.dropoff_location} searchTerm={search} />,
     },
     {
@@ -108,7 +108,7 @@ export function getJobsPageTableColumns(
       accessor: 'pickup_date',
       filterable: true,
       stringLabel: 'Date',
-      width: '100px',
+      width: '110px',
       render: (job) => <HighlightedCell text={job.pickup_date} searchTerm={search} />,
     },
     {
@@ -116,7 +116,7 @@ export function getJobsPageTableColumns(
       accessor: 'pickup_time',
       filterable: true,
       stringLabel: 'Time',
-      width: '90px',
+      width: '100px',
       render: (job) => <HighlightedCell text={job.pickup_time} searchTerm={search} />,
     },
     {
@@ -124,7 +124,7 @@ export function getJobsPageTableColumns(
       accessor: 'status',
       filterable: true,
       stringLabel: 'Status',
-      width: '110px',
+      width: '120px',
       render: (job) => <JobStatusBadge status={job.status} />,
     },
   ];
