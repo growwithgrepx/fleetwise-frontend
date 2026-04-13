@@ -530,6 +530,7 @@ const JobsPage = () => {
               value={pickupDateFrom}
               onChange={(e) => { setPickupDateFrom(e.target.value); setPage(1); }}
               className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+              title="Filter jobs from this date onwards (optional)"
             />
             <input
               id="pickup-time-from"
@@ -537,6 +538,7 @@ const JobsPage = () => {
               value={pickupTimeFrom}
               onChange={(e) => { setPickupTimeFrom(e.target.value); setPage(1); }}
               className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 w-24 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+              title="Filter jobs from this time onwards (optional)"
             />
             <span className="text-text-secondary text-xs">&mdash;</span>
             <input
@@ -545,6 +547,7 @@ const JobsPage = () => {
               value={pickupDateTo}
               onChange={(e) => { setPickupDateTo(e.target.value); setPage(1); }}
               className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+              title="Filter jobs up to this date (optional)"
             />
             <input
               id="pickup-time-to"
@@ -552,6 +555,7 @@ const JobsPage = () => {
               value={pickupTimeTo}
               onChange={(e) => { setPickupTimeTo(e.target.value); setPage(1); }}
               className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 w-24 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+              title="Filter jobs up to this time (optional)"
             />
             {(pickupDateFrom || pickupDateTo || pickupTimeFrom || pickupTimeTo) && (
               <button
