@@ -45,7 +45,7 @@ export function getJobsPageTableColumns(
       accessor: 'booking_ref',
       filterable: true,
       stringLabel: 'Booking Ref',
-      width: '120px',
+      width: '150px',
       render: (job) => <HighlightedCell text={job.booking_ref || '—'} searchTerm={search} />,
     },
     {

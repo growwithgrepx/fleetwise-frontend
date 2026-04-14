@@ -129,7 +129,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
         <div
           ref={tableContainerRef}
           className={clsx(
-            "overflow-x-auto scrollbar-hide scroll-smooth",
+            "overflow-x-auto scroll-smooth [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-color hover:[&::-webkit-scrollbar-thumb]:bg-primary/50",
             containerClassName
           )}
           onScroll={() => {
@@ -189,7 +189,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                 </th>
               ))}
               {hasActionColumn && (
-                <th className="sticky right-0 z-20 min-w-[160px] bg-background-light px-2 py-2 text-center sm:px-3">
+                <th className="sticky right-0 z-20 min-w-[220px] bg-background-light px-2 py-2 text-center sm:px-3">
                   <div className="mb-1 text-center text-[10px] font-bold uppercase tracking-wider text-text-secondary">
                     Actions
                   </div>
@@ -285,8 +285,8 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                         </td>
                       ))}
                       {rowActions.length > 0 && (
-                        <td className="sticky right-0 z-10 min-w-[160px] bg-background-light px-2 py-2 text-center align-middle sm:px-3">
-                          <div className="flex flex-wrap items-center justify-center gap-0.5 sm:gap-1">
+                        <td className="sticky right-0 z-10 min-w-[220px] bg-background-light px-2 py-2 text-center align-middle sm:px-3">
+                          <div className="flex flex-nowrap items-center justify-center gap-0.5 sm:gap-1">
                             {rowActions.map((action) => {
                               const isDisabled = action.disabled
                                 ? action.disabled(row)

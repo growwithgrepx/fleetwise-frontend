@@ -1348,7 +1348,7 @@ export default function DashboardPage() {
                   <p className="text-sm opacity-60 mt-1">Upcoming pickups will appear here</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-slate-700">
+                <div className="overflow-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800/50 rounded-lg border border-slate-700" style={{ maxHeight: '320px' }}>
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-slate-800 text-slate-300 uppercase text-xs tracking-wider">
