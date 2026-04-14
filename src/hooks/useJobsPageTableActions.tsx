@@ -49,13 +49,13 @@ export function useJobsPageTableActions({
 
     return (job: Job) => {
       let row: EntityTableAction<Job>[] = [
-        {
-          label: "Detail",
-          icon: <FileText className="text-sky-400" />,
-          onClick: onToggleDetail,
-          ariaLabel: "View job details",
-          title: "View / details",
-        },
+        // {
+        //   label: "Detail",
+        //   icon: <FileText className="text-sky-400" />,
+        //   onClick: onToggleDetail,
+        //   ariaLabel: "View job details",
+        //   title: "View / details",
+        // },
         {
           label: "Edit",
           icon: <Pencil className="text-zinc-300" />,

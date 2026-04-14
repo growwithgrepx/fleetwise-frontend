@@ -130,7 +130,13 @@ export async function getJobs(filters: JobFilters = {}, signal?: AbortSignal): P
     }
   });
 
-  const response = await api.get<JobsResponse>(`/api/jobs/table?${params.toString()}`, { signal });
+  const url = `/api/jobs/table?${params.toString()}`;
+  console.log('[Jobs API] Fetching:', url);
+  console.log('[Jobs API] Filters:', filters);
+  
+  const response = await api.get<JobsResponse>(url, { signal });
+  console.log('[Jobs API] Response count:', response.data.items.length, 'Total:', response.data.total);
+  
   const processedItems = response.data.items.map(job => ({
     ...job,
     // Ensure final_price is a proper number, not a string with leading zeros

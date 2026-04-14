@@ -13,12 +13,11 @@ import {
 import { EntityHeader } from '@/components/organisms/EntityHeader';
 import { CreateJobFromTextModal } from '@/components/organisms/CreateJobFromTextModal';
 import { AnimatedButton } from "@/components/ui/AnimatedButton";
-import { PlusCircle, Upload, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowUpDown, X, PlusCircle, Upload } from 'lucide-react';
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { Input } from '@/components/atoms/Input';
 import { MultiSelectDropdown, MultiSelectOption } from '@/components/atoms/MultiSelectDropdown';
 import JobDetailCard from '@/components/organisms/JobDetailCard';
-import { X } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import JobForm from '@/components/organisms/JobForm';
 import toast from 'react-hot-toast';
@@ -107,9 +106,10 @@ const JobsPage = () => {
   } = useJobFiltering();
 
   const {
-    sortBy,
-    sortDir,
+    sorts,
     handleSort,
+    removeSort,
+    clearSorts,
     getSortedJobs
   } = useJobSorting();
 
@@ -308,28 +308,56 @@ const JobsPage = () => {
     isDeleting: (job: Job) => deletingId === job.id
   });
 
-  // ===== Table Columns (Jobs page only; sortable headers) =====
+  // ===== Table Columns (Jobs page only; multi-column sortable headers) =====
   const columns = useMemo<EntityTableColumn<ApiJob & { stringLabel?: string }>[]>(
     () =>
-      getJobsPageTableColumns(search).map((col) => ({
-        ...col,
-        label: (
-          <span
-            className="inline-flex cursor-pointer items-center gap-1 select-none"
-            onClick={() => handleSort(col.accessor as string)}
-          >
-            {col.label as string}
-            {sortBy === col.accessor ? (
-              sortDir === 'asc' ? (
-                <ArrowUp className="inline h-3 w-3" />
+      getJobsPageTableColumns(search).map((col) => {
+        const accessor = col.accessor as string;
+        const sortIdx = sorts.findIndex((s) => s.col === accessor);
+        const isActive = sortIdx !== -1;
+        const activeSortEntry = isActive ? sorts[sortIdx] : null;
+        const multiSort = sorts.length > 1;
+
+        return {
+          ...col,
+          accessor: accessor as keyof (ApiJob & { stringLabel?: string }),
+          label: (
+            <span
+              className="inline-flex cursor-pointer items-center gap-1 select-none group"
+              onClick={() => handleSort(accessor)}
+              title={
+                !isActive
+                  ? `Sort by ${col.stringLabel || accessor} (asc)`
+                  : activeSortEntry!.dir === 'asc'
+                  ? `Sort by ${col.stringLabel || accessor} (desc)`
+                  : `Remove sort on ${col.stringLabel || accessor}`
+              }
+            >
+              <span className="group-hover:text-primary transition-colors">
+                {col.label as string}
+              </span>
+              {isActive ? (
+                <span className="inline-flex items-center gap-0.5">
+                  {/* Priority badge — only shown when 2+ columns are sorted */}
+                  {multiSort && (
+                    <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-primary text-white text-[8px] font-bold leading-none">
+                      {sortIdx + 1}
+                    </span>
+                  )}
+                  {activeSortEntry!.dir === 'asc' ? (
+                    <ArrowUp className="h-3 w-3 text-primary" />
+                  ) : (
+                    <ArrowDown className="h-3 w-3 text-primary" />
+                  )}
+                </span>
               ) : (
-                <ArrowDown className="inline h-3 w-3" />
-              )
-            ) : null}
-          </span>
-        ),
-      })),
-    [search, sortBy, sortDir, handleSort]
+                <ArrowUpDown className="h-3 w-3 text-text-secondary/40 group-hover:text-primary/60 transition-colors" />
+              )}
+            </span>
+          ),
+        };
+      }),
+    [search, sorts, handleSort]
   );
 
   const driverFilterOptions = useMemo(() => {
@@ -488,7 +516,6 @@ const JobsPage = () => {
           title="Jobs"
           onAddClick={() => router.push('/jobs/new')}
           addLabel="Add Job"
-          addButtonClassName="!bg-gradient-to-r !from-emerald-600 !to-green-600 hover:!from-emerald-700 hover:!to-green-700"
           extraActions={
             <>
               <AnimatedButton onClick={() => router.push('/jobs/bulk-upload')} variant="outline" className="flex items-center text-xs">
@@ -530,6 +557,7 @@ const JobsPage = () => {
               value={pickupDateFrom}
               onChange={(e) => { setPickupDateFrom(e.target.value); setPage(1); }}
               className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+              title="Filter jobs from this date onwards (optional)"
             />
             <input
               id="pickup-time-from"
@@ -537,6 +565,7 @@ const JobsPage = () => {
               value={pickupTimeFrom}
               onChange={(e) => { setPickupTimeFrom(e.target.value); setPage(1); }}
               className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 w-24 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+              title="Filter jobs from this time onwards (optional)"
             />
             <span className="text-text-secondary text-xs">&mdash;</span>
             <input
@@ -545,6 +574,7 @@ const JobsPage = () => {
               value={pickupDateTo}
               onChange={(e) => { setPickupDateTo(e.target.value); setPage(1); }}
               className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+              title="Filter jobs up to this date (optional)"
             />
             <input
               id="pickup-time-to"
@@ -552,6 +582,7 @@ const JobsPage = () => {
               value={pickupTimeTo}
               onChange={(e) => { setPickupTimeTo(e.target.value); setPage(1); }}
               className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 w-24 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+              title="Filter jobs up to this time (optional)"
             />
             {(pickupDateFrom || pickupDateTo || pickupTimeFrom || pickupTimeTo) && (
               <button
@@ -662,9 +693,64 @@ const JobsPage = () => {
         </div>
       </div>
 
+      {/* Active sorts pill bar — shown when any column is sorted */}
+      {sorts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 px-1">
+          <span className="text-[10px] font-semibold text-text-secondary uppercase tracking-wide whitespace-nowrap">
+            Sorted by:
+          </span>
+          {sorts.map((s, idx) => {
+            // Find the human-readable label for this column
+            const colDef = getJobsPageTableColumns('').find(
+              (c) => c.accessor === s.col
+            );
+            const label = colDef?.stringLabel || s.col;
+            return (
+              <span
+                key={s.col}
+                className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+              >
+                {/* Priority number when multiple sorts are active */}
+                {sorts.length > 1 && (
+                  <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-primary text-white text-[7px] font-bold leading-none flex-shrink-0">
+                    {idx + 1}
+                  </span>
+                )}
+                <span>{label}</span>
+                {s.dir === 'asc' ? (
+                  <ArrowUp className="h-2.5 w-2.5" />
+                ) : (
+                  <ArrowDown className="h-2.5 w-2.5" />
+                )}
+                {/* Remove this single sort */}
+                <button
+                  type="button"
+                  onClick={() => removeSort(s.col)}
+                  className="hover:text-red-400 transition-colors ml-0.5"
+                  aria-label={`Remove sort on ${label}`}
+                  title={`Remove sort on ${label}`}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            );
+          })}
+          {/* Clear all button — only when 2+ sorts are active */}
+          {sorts.length > 1 && (
+            <button
+              type="button"
+              onClick={clearSorts}
+              className="text-[10px] text-text-secondary hover:text-red-400 transition-colors underline underline-offset-2 whitespace-nowrap"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Jobs table (dedicated component — does not affect other pages) */}
-      <div className="flex min-w-0 flex-grow flex-col overflow-hidden rounded-lg border border-border-color bg-background-light shadow-lg sm:rounded-xl">
-        <div className="flex min-w-0 flex-grow flex-col">
+      <div className="flex min-w-0 flex-grow flex-col rounded-xl border border-border-color bg-background-light">
+        <div className="flex min-w-0 flex-col">
           <JobsEntityTable<ApiJob>
             data={paginationInfo.paginatedJobs}
             columns={columns}
