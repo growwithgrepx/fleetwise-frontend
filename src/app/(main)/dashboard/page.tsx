@@ -782,6 +782,28 @@ export default function DashboardPage() {
     };
   }, [jobs]);
 
+  // Next 5-hour jobs (Excel table)
+  const next5HrJobs = useMemo(() => {
+    const userTimezone = getDisplayTimezone();
+    const now = new Date();
+    const nowInUserTz = new Date(now.toLocaleString('en-US', { timeZone: userTimezone }));
+    const fiveHoursLater = new Date(nowInUserTz.getTime() + 5 * 60 * 60 * 1000);
+
+    return jobs
+      .filter(job => {
+        if (!job.pickup_date || !job.pickup_time) return false;
+        const [y, mo, d] = job.pickup_date.split('-').map(Number);
+        const [h, min] = job.pickup_time.split(':').map(Number);
+        const pickupDt = new Date(y, mo - 1, d, h, min);
+        return pickupDt >= nowInUserTz && pickupDt <= fiveHoursLater;
+      })
+      .sort((a, b) => {
+        const dtA = new Date(`${a.pickup_date}T${a.pickup_time}`);
+        const dtB = new Date(`${b.pickup_date}T${b.pickup_time}`);
+        return dtA.getTime() - dtB.getTime();
+      });
+  }, [jobs]);
+
   // Revenue analytics data
   const revenueByDay = useMemo(() => {
     if (!jobs) return [];
@@ -1297,126 +1319,157 @@ export default function DashboardPage() {
         {/* DRIVER CALENDAR VIEW (FULL WIDTH) */}
         
 
-        {/* REVENUE INTELLIGENCE (FULL WIDTH) */}
-        <motion.div 
+        {/* NEXT 5 HR JOBS — EXCEL TABLE VIEW */}
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
           className="grid grid-cols-1 gap-6 sm:gap-8 mb-8 w-full"
         >
           <div className="flex flex-col px-4 sm:px-6 lg:px-8">
-            <Card className="p-4 sm:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark h-full flex flex-col justify-between">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-white">Revenue Intelligence</h2>
-                <ActionButton onClick={() => router.push('/jobs')} variant="secondary">View All</ActionButton>
-              </div>
-              <div className="flex flex-col h-full">
-                {/* KPI Metrics */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-6">
-                  <div className="text-center p-2 sm:p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-lg sm:text-2xl font-bold text-green-400">${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
-                    <div className="text-xs sm:text-sm text-gray-400">Total Revenue</div>
-                  </div>
-                  <div className="text-center p-2 sm:p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-lg sm:text-2xl font-bold text-blue-400">${paidRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
-                    <div className="text-xs sm:text-sm text-gray-400">Paid</div>
-                  </div>
-                  <div className="text-center p-2 sm:p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-lg sm:text-2xl font-bold text-orange-400">${pendingRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
-                    <div className="text-xs sm:text-sm text-gray-400">Pending</div>
-                  </div>
-                  <div className="text-center p-2 sm:p-3 bg-background-light rounded-lg border border-gray-600">
-                    <div className="text-lg sm:text-2xl font-bold text-red-400">${overdueRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}</div>
-                    <div className="text-xs sm:text-sm text-gray-400">Overdue</div>
-                  </div>
+            <Card className="p-4 sm:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark h-full flex flex-col">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-7 bg-gradient-to-b from-amber-400 to-amber-600 rounded-full" />
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">Next 5-Hour Jobs</h2>
+                  <span className="px-2.5 py-1 bg-amber-600/20 text-amber-300 text-xs font-semibold rounded-full border border-amber-600/30">
+                    {next5HrJobs.length} upcoming
+                  </span>
                 </div>
-                
-                {/* Charts Row - responsive stacking */}
-                <div className="flex flex-col lg:flex-row gap-4 flex-1">
-                  {/* Revenue Trend Chart */}
-                  <div className="flex-1 bg-background-light rounded-lg p-3 sm:p-4 border border-gray-600 min-h-[160px] sm:min-h-fit">
-                    <h4 className="text-xs sm:text-sm font-semibold text-white mb-3">Revenue Trend (14d)</h4>
-                    <ResponsiveContainer width="100%" height={120}>
-                      <BarChart data={revenueByDay}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        <XAxis 
-                          dataKey="date" 
-                          stroke="#9CA3AF"
-                          fontSize={12}
-                          angle={-45}
-                          textAnchor="end"
-                          height={60}
-                          tickFormatter={(value) => {
-                            const date = new Date(value);
-                            return date.toLocaleDateString('en-US', { 
-                              day: '2-digit', 
-                              month: 'short', 
-                              year: '2-digit' 
-                            });
-                          }}
-                        />
-                        <YAxis stroke="#9CA3AF" fontSize={12} domain={[0, 'dataMax + 100']} />
-                        <Bar dataKey="revenue" fill="#3b82f6" radius={[2, 2, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  {/* Payment Status Chart */}
-                  <div className="w-full lg:w-48 bg-background-light rounded-lg p-3 sm:p-4 border border-gray-600 min-h-[160px] sm:min-h-fit">
-                    <h4 className="text-xs sm:text-sm font-semibold text-white mb-3">Payment Status</h4>
-                    <ResponsiveContainer width="100%" height={100}>
-                      <PieChart>
-                        <Pie
-                          data={invoiceStatusData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={30}
-                          outerRadius={50}
-                          paddingAngle={2}
-                          dataKey="value"
-                        >
-                          {invoiceStatusData.map((entry, index) => (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={
-                                entry.name === 'Completed' ? '#4ade80' :
-                                entry.name === 'Active' ? '#93c5fd' :
-                                entry.name === 'Canceled' ? '#fca5a5' :
-                                '#d1d5db'
-                              } 
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: '#1f2937', 
-                            border: '1px solid #374151',
-                            borderRadius: '8px',
-                            color: '#f9fafb'
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex flex-col gap-1 mt-2">
-                      {invoiceStatusData.map((item, index) => (
-                        <div key={index} className="flex items-center gap-2 text-xs sm:text-sm">
-                          <div 
-                            className="w-2 sm:w-3 h-2 sm:h-3 rounded-sm" 
-                            style={{ 
-                              backgroundColor: 
-                                item.name === 'Completed' ? '#4ade80' :
-                                item.name === 'Active' ? '#93c5fd' :
-                                item.name === 'Canceled' ? '#fca5a5' :
-                                '#d1d5db'
-                            }}
-                          />
-                          <span className="text-gray-300 text-xs sm:text-sm">{item.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <ActionButton onClick={() => router.push('/jobs')} variant="secondary">View All Jobs</ActionButton>
               </div>
+
+              {/* Excel-style table */}
+              {next5HrJobs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-14 text-gray-400">
+                  <CalendarIcon className="w-12 h-12 mb-3 opacity-40" />
+                  <p className="text-base font-medium">No jobs in the next 5 hours</p>
+                  <p className="text-sm opacity-60 mt-1">Upcoming pickups will appear here</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-slate-700">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-800 text-slate-300 uppercase text-xs tracking-wider">
+                        {['#', 'Pickup Time', 'ETA', 'Customer / Passenger', 'Service', 'Driver', 'From', 'To', 'Status'].map((col) => (
+                          <th
+                            key={col}
+                            className="px-3 py-3 text-left font-semibold border-b border-r border-slate-700 last:border-r-0 whitespace-nowrap"
+                          >
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {next5HrJobs.map((job, idx) => {
+                        // Countdown
+                        const userTimezone = getDisplayTimezone();
+                        const nowTz = new Date(new Date().toLocaleString('en-US', { timeZone: userTimezone }));
+                        const [jy, jmo, jd] = job.pickup_date.split('-').map(Number);
+                        const [jh, jmin] = job.pickup_time.split(':').map(Number);
+                        const pickupDt = new Date(jy, jmo - 1, jd, jh, jmin);
+                        const diffMs = pickupDt.getTime() - nowTz.getTime();
+                        const diffMin = Math.max(0, Math.floor(diffMs / 60000));
+                        const etaHours = Math.floor(diffMin / 60);
+                        const etaMins = diffMin % 60;
+                        const etaLabel = etaHours > 0 ? `${etaHours}h ${etaMins}m` : `${etaMins}m`;
+                        const isUrgent = diffMin <= 30;
+
+                        // Row status colour
+                        const statusRaw = (job.status || '').toLowerCase();
+                        const statusLabel = (STATUS_LABELS as any)[statusRaw] || statusRaw;
+                        const statusPill: Record<string, string> = {
+                          new: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+                          pending: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+                          confirmed: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+                          otw: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
+                          ots: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+                          pob: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40',
+                        };
+                        const pillClass = statusPill[statusRaw] || 'bg-slate-500/20 text-slate-300 border-slate-500/40';
+
+                        return (
+                          <tr
+                            key={job.id}
+                            className={`border-b border-slate-700/60 transition-colors cursor-pointer ${
+                              idx % 2 === 0 ? 'bg-slate-900/60' : 'bg-slate-800/40'
+                            } hover:bg-blue-900/30`}
+                            onClick={() => router.push(`/jobs/${job.id}`)}
+                          >
+                            {/* Job # */}
+                            <td className="px-3 py-2.5 border-r border-slate-700/50 font-mono font-bold text-blue-400 whitespace-nowrap">
+                              #{job.id}
+                            </td>
+
+                            {/* Pickup Time */}
+                            <td className="px-3 py-2.5 border-r border-slate-700/50 font-mono text-white whitespace-nowrap">
+                              {job.pickup_time?.slice(0, 5)}
+                            </td>
+
+                            {/* ETA countdown */}
+                            <td className="px-3 py-2.5 border-r border-slate-700/50 whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${
+                                  isUrgent
+                                    ? 'bg-red-500/20 text-red-300 border-red-500/40 animate-pulse'
+                                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                }`}
+                              >
+                                {isUrgent ? '⚡' : '⏱'} {etaLabel}
+                              </span>
+                            </td>
+
+                            {/* Customer / Passenger */}
+                            <td className="px-3 py-2.5 border-r border-slate-700/50 max-w-[160px]">
+                              <div className="truncate font-medium text-white">
+                                {job.customer?.name || job.passenger_name || '—'}
+                              </div>
+                              {job.customer?.name && job.passenger_name && job.customer.name !== job.passenger_name && (
+                                <div className="truncate text-xs text-slate-400">{job.passenger_name}</div>
+                              )}
+                            </td>
+
+                            {/* Service */}
+                            <td className="px-3 py-2.5 border-r border-slate-700/50 text-slate-200 whitespace-nowrap">
+                              {job.service_type || '—'}
+                            </td>
+
+                            {/* Driver */}
+                            <td className="px-3 py-2.5 border-r border-slate-700/50 whitespace-nowrap">
+                              {job.driver_id ? (
+                                <span className="text-green-400 font-medium">
+                                  {(job as any).driver?.name || `Driver #${job.driver_id}`}
+                                </span>
+                              ) : (
+                                <span className="text-red-400 text-xs font-semibold">Unassigned</span>
+                              )}
+                            </td>
+
+                            {/* From */}
+                            <td className="px-3 py-2.5 border-r border-slate-700/50 max-w-[180px]">
+                              <div className="truncate text-slate-300 text-xs">{job.pickup_location || '—'}</div>
+                            </td>
+
+                            {/* To */}
+                            <td className="px-3 py-2.5 border-r border-slate-700/50 max-w-[180px]">
+                              <div className="truncate text-slate-300 text-xs">{job.dropoff_location || '—'}</div>
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-3 py-2.5">
+                              <span className={`px-2 py-0.5 rounded border text-xs font-semibold ${pillClass}`}>
+                                {statusLabel}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </Card>
           </div>
         </motion.div>
