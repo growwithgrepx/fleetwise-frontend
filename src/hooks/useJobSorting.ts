@@ -19,10 +19,8 @@ export interface SortEntry {
  *  - getSortedJobs applies all active sorts in priority order (index 0 = highest).
  */
 export const useJobSorting = () => {
-  // Default: date descending so newest jobs appear first
-  const [sorts, setSorts] = useState<SortEntry[]>([
-    { col: 'pickup_date', dir: 'desc' },
-  ]);
+  // User-initiated sorts only — pickup_date:desc is a silent fallback applied in getSortedJobs
+  const [sorts, setSorts] = useState<SortEntry[]>([]);
 
   /**
    * Handle a column header click.
@@ -56,13 +54,19 @@ export const useJobSorting = () => {
 
   /**
    * Apply all active sorts in priority order.
+   * When no user sorts are active, falls back to pickup_date descending (newest first).
    * Falls back to stable input order when all sort keys are equal.
    */
   const getSortedJobs = useCallback(
     (jobs: Job[]) => {
-      if (sorts.length === 0) return jobs;
+      // Build effective sort list: user sorts first, then silent date fallback
+      const effectiveSorts: SortEntry[] =
+        sorts.length > 0
+          ? [...sorts, { col: 'pickup_date', dir: 'desc' as const }]
+          : [{ col: 'pickup_date', dir: 'desc' as const }];
+
       return [...jobs].sort((a, b) => {
-        for (const { col, dir } of sorts) {
+        for (const { col, dir } of effectiveSorts) {
           const aVal = a[col];
           const bVal = b[col];
           if (aVal == null && bVal == null) continue;

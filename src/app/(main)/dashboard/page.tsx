@@ -1348,18 +1348,22 @@ export default function DashboardPage() {
                   <p className="text-sm opacity-60 mt-1">Upcoming pickups will appear here</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-slate-700">
-                  <table className="w-full text-sm border-collapse">
+                <div className="overflow-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800/50 rounded-lg border border-slate-700" style={{ maxHeight: '320px' }}>
+                  <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed', minWidth: '1200px' }}>
                     <thead>
-                      <tr className="bg-slate-800 text-slate-300 uppercase text-xs tracking-wider">
-                        {['#', 'Pickup Time', 'ETA', 'Customer / Passenger', 'Service', 'Driver', 'From', 'To', 'Status'].map((col) => (
-                          <th
-                            key={col}
-                            className="px-3 py-3 text-left font-semibold border-b border-r border-slate-700 last:border-r-0 whitespace-nowrap"
-                          >
-                            {col}
-                          </th>
-                        ))}
+                      <tr className="bg-slate-800 text-slate-300 uppercase text-xs tracking-wider sticky top-0 z-10">
+                        {['#', 'Pickup Time', 'ETA', 'Customer / Passenger', 'Service', 'Driver', 'From', 'To', 'Status'].map((col, idx) => {
+                          const widths = ['60px', '90px', '100px', '160px', '110px', '120px', '180px', '180px', '100px'];
+                          return (
+                            <th
+                              key={col}
+                              className="px-3 py-3 text-left font-semibold border-b border-r border-slate-700 last:border-r-0"
+                              style={{ width: widths[idx] || 'auto' }}
+                            >
+                              {col}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
@@ -1422,7 +1426,7 @@ export default function DashboardPage() {
                             </td>
 
                             {/* Customer / Passenger */}
-                            <td className="px-3 py-2.5 border-r border-slate-700/50 max-w-[160px]">
+                            <td className="px-3 py-2.5 border-r border-slate-700/50">
                               <div className="truncate font-medium text-white">
                                 {job.customer?.name || job.passenger_name || '—'}
                               </div>
@@ -1432,12 +1436,12 @@ export default function DashboardPage() {
                             </td>
 
                             {/* Service */}
-                            <td className="px-3 py-2.5 border-r border-slate-700/50 text-slate-200 whitespace-nowrap">
+                            <td className="px-3 py-2.5 border-r border-slate-700/50 text-slate-200 truncate">
                               {job.service_type || '—'}
                             </td>
 
                             {/* Driver */}
-                            <td className="px-3 py-2.5 border-r border-slate-700/50 whitespace-nowrap">
+                            <td className="px-3 py-2.5 border-r border-slate-700/50 truncate">
                               {job.driver_id ? (
                                 <span className="text-green-400 font-medium">
                                   {(job as any).driver?.name || `Driver #${job.driver_id}`}
@@ -1448,12 +1452,12 @@ export default function DashboardPage() {
                             </td>
 
                             {/* From */}
-                            <td className="px-3 py-2.5 border-r border-slate-700/50 max-w-[180px]">
+                            <td className="px-3 py-2.5 border-r border-slate-700/50">
                               <div className="truncate text-slate-300 text-xs">{job.pickup_location || '—'}</div>
                             </td>
 
                             {/* To */}
-                            <td className="px-3 py-2.5 border-r border-slate-700/50 max-w-[180px]">
+                            <td className="px-3 py-2.5 border-r border-slate-700/50">
                               <div className="truncate text-slate-300 text-xs">{job.dropoff_location || '—'}</div>
                             </td>
 
