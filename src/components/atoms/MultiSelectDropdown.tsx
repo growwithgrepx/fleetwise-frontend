@@ -89,14 +89,14 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
         </div>
         <div className="flex items-center gap-1">
           {selected.length > 0 && (
-            <button
-              type="button"
+            <div
+              role="button"
               onClick={handleClear}
-              className="p-0.5 hover:bg-background-dark rounded transition-colors"
+              className="p-0.5 hover:bg-background-dark rounded transition-colors cursor-pointer"
               aria-label="Clear selection"
             >
               <X className="w-3 h-3 text-text-secondary hover:text-text-main" />
-            </button>
+            </div>
           )}
           <ChevronDown
             className={clsx(
