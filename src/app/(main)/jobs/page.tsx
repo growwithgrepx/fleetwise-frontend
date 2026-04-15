@@ -172,6 +172,7 @@ const JobsPage = () => {
   // Multi-select filters for Customer and Driver
   const [selectedCustomers, setSelectedCustomers] = useState<(string | number)[]>([]);
   const [selectedDrivers, setSelectedDrivers] = useState<(string | number)[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<(string | number)[]>([]);
 
   // Time-of-day filter (frontend-side, applied after backend fetch)
   const [pickupTimeFrom, setPickupTimeFrom] = useState('');
@@ -501,8 +502,15 @@ const JobsPage = () => {
       );
     }
 
+    // Apply status filter if any selected
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter((job) =>
+        job.status && selectedStatuses.includes(job.status)
+      );
+    }
+
     return filtered;
-  }, [timeFilteredJobs, selectedCustomers, selectedDrivers]);
+  }, [timeFilteredJobs, selectedCustomers, selectedDrivers, selectedStatuses]);
 
   const paginationInfo = paginate(multiSelectFilteredJobs);
 
@@ -633,44 +641,18 @@ const JobsPage = () => {
               onChange={(selected) => { setSelectedDrivers(selected); setPage(1); }}
               placeholder="All Drivers"
             />
+
+            {/* Multi-select: Filter by Status */}
+            <MultiSelectDropdown
+              options={jobStatuses.filter(s => s.value !== 'all').map((s) => ({ id: s.value, label: s.label }))}
+              selected={selectedStatuses}
+              onChange={(selected) => { setSelectedStatuses(selected); setPage(1); }}
+              placeholder="All Statuses"
+            />
           </div>
         </div>
       </div>
       {/* ───────────────────────────────────────────────────────────────────────────── */}
-
-      {/* Status Filter Bar */}
-      <div className="flex flex-col gap-0.5 bg-background-light border border-border-color rounded-lg px-3 py-2.5">
-        <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">Filter by Status</label>
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-          {jobStatuses.map((status) => {
-            const tabValue = status.value === 'all' ? '' : status.value;
-            const isActive = (localFilters.status ?? '') === tabValue;
-            const count = status.value === 'all' ? statusCounts['all'] || 0 : statusCounts[status.value] || 0;
-
-            return (
-              <button
-                key={status.value}
-                type="button"
-                onClick={() => handleTabChange(tabValue)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 border h-8 ${
-                  isActive
-                    ? 'bg-primary text-white border-primary shadow-lg'
-                    : 'bg-background text-text-main border-border-color hover:border-primary hover:text-primary'
-                }`}
-              >
-                <span>{status.label}</span>
-                <span
-                  className={`flex items-center justify-center min-w-[18px] h-4 px-1 rounded-full text-[10px] font-semibold ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-background-dark text-text-secondary'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {/* Pagination Info */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center sm:justify-between mb-2">
