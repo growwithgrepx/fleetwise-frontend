@@ -466,12 +466,27 @@ const JobsPage = () => {
   };
 
   const handleCreateJobFromText = (text: string) => {
-    const parseResult = parseJobText(text);
-    if (parseResult.errors) {
-      toast.error(`Parse errors: ${parseResult.errors.join(', ')}`);
+    // Guard: empty text (should never reach here due to modal validation, but belt-and-suspenders)
+    if (!text.trim()) {
+      toast.error('Please paste some booking details before submitting.');
       return;
     }
+
+    const parseResult = parseJobText(text);
+
+    if (parseResult.errors && parseResult.errors.length > 0) {
+      // Show each validation error as a separate toast so none get truncated
+      parseResult.errors.forEach((err) => toast.error(err, { duration: 5000 }));
+      return;
+    }
+
+    if (!parseResult.data) {
+      toast.error('Could not extract job data from the pasted text. Please check the format.');
+      return;
+    }
+
     setCopiedJobData(parseResult.data);
+    toast.success('Booking parsed — redirecting to job form…');
     router.push('/jobs/new');
     setOpenCreateFromTextModal(false);
   };

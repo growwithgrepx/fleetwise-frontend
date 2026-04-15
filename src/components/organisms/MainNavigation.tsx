@@ -69,8 +69,8 @@ interface NavSection {
         icon: <BriefcaseIcon className="w-5 h-5" />,
         description: "Manage fleet operations",
         children: [
-          { label: "Manage Jobs", href: "/jobs/manage", icon: <StarIcon className="w-4 h-4" />, description: "Cancel or re-instate jobs" },
-          { label: "Jobs Audit Trail", href: "/jobs/audit-trail", icon: <ClipboardDocumentListIcon className="w-4 h-4" />, description: "View job change history" },
+          // Temporarily hidden - { label: "Manage Jobs", href: "/jobs/manage", icon: <StarIcon className="w-4 h-4" />, description: "Cancel or re-instate jobs" },
+          // Temporarily hidden - { label: "Jobs Audit Trail", href: "/jobs/audit-trail", icon: <ClipboardDocumentListIcon className="w-4 h-4" />, description: "View job change history" },
         ]
       },
       {
