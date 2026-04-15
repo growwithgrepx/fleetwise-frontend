@@ -433,8 +433,9 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
   const hasSelectedTransitions = transitions.some(t => t.selected);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md sm:max-w-2xl mx-3 sm:mx-4 p-4 sm:p-6 max-h-[90vh] overflow-y-auto bg-background-light border border-border-color rounded-lg shadow-xl animate-fade-in" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+      <div className="w-full max-w-4xl mx-auto max-h-[90vh] overflow-y-auto bg-background-light border border-border-color rounded-lg shadow-xl animate-fade-in" role="dialog" aria-modal="true">
+        <div className="p-4 sm:p-6">
         <h2 className="text-base sm:text-lg font-bold text-text-main mb-2">
           {isCanceled ? `Job Status - Canceled (Job #${job.id})` : `Update Job Status (Job #${job.id})`}
         </h2>
@@ -481,22 +482,21 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
                 </div>
                 
                 <div className="border border-border-color rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-[700px] w-full">
+                  <table className="w-full">
                     <thead className="bg-background-light/50">
                       <tr>
-                        <th className="text-left p-2 w-10">
+                        <th className="text-left p-3 w-12">
                           <span className="sr-only">Select</span>
                         </th>
-                        <th className="text-left p-2">Status</th>
-                        <th className="text-left p-2">Date/Time</th>
-                        <th className="text-left p-2">Remark</th>
+                        <th className="text-left p-3 min-w-[140px]">Status</th>
+                        <th className="text-left p-3 min-w-[240px]">Date/Time</th>
+                        <th className="text-left p-3 min-w-[200px]">Remark</th>
                       </tr>
                     </thead>
                     <tbody>
                       {transitions.map((transition, index) => (
                         <tr key={index} className="border-t border-border-color/50 hover:bg-background-light/30">
-                          <td className="p-2">
+                          <td className="p-3 align-middle">
                             <input
                               type="checkbox"
                               checked={transition.selected}
@@ -505,14 +505,14 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
                               className="form-checkbox h-4 w-4 text-primary bg-background-light border-border-color rounded focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                           </td>
-                          <td className="p-2">
-                            <div className="text-sm">
+                          <td className="p-3 align-middle">
+                            <div className="text-sm whitespace-nowrap">
                               <span className="font-medium">{statusLabels[transition.from]}</span>
                               <span className="mx-2">→</span>
                               <span className="font-medium">{statusLabels[transition.to]}</span>
                             </div>
                           </td>
-                          <td className="p-2">
+                          <td className="p-3 align-middle">
                             <div className="relative">
                               <input
                                 type="date"
@@ -564,14 +564,14 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
                               </div>
                             </div>
                           </td>
-                          <td className="p-2">
+                          <td className="p-3 align-middle">
                             <input
                               type="text"
                               value={transition.remark}
                               onChange={(e) => handleTransitionChange(index, 'remark', e.target.value)}
                               placeholder="Add remark..."
                               disabled={isSubmitting}
-                              className="w-full rounded-lg px-2 py-1 text-xs transition-colors bg-background-light border border-border-color text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-full rounded-lg px-3 py-2 text-xs transition-colors bg-background-light border border-border-color text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                           </td>
                         </tr>
@@ -580,9 +580,8 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
                   </table>
                 </div>
               </div>
-              </div>
               
-              <div className="flex flex-col sm:flex-row justify-end gap-2 w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -616,6 +615,7 @@ export const UpdateJobStatusModal: React.FC<UpdateJobStatusModalProps> = ({
             </Button>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
