@@ -37,6 +37,7 @@ import { getJobsPageTableColumns } from '@/lib/jobsPageTableConfig';
 import { DriverFilterButtons } from '@/components/molecules/DriverFilterButtons';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
+import JobAuditTrailModal from '@/components/organisms/JobAuditTrailModal';
 import { UpdateJobStatusModal } from '@/components/molecules/UpdateJobStatusModal';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -168,6 +169,9 @@ const JobsPage = () => {
   const [updateStatusModalOpen, setUpdateStatusModalOpen] = useState(false);
   const [jobToUpdate, setJobToUpdate] = useState<Job | null>(null);
 
+  // Audit trail modal state — opens inline instead of navigating away
+  const [auditTrailJobId, setAuditTrailJobId] = useState<number | null>(null);
+
   // ── Job Page Compact Layout additions ─────────────────────────────────────
   // Multi-select filters for Customer and Driver
   const [selectedCustomers, setSelectedCustomers] = useState<(string | number)[]>([]);
@@ -279,6 +283,8 @@ const JobsPage = () => {
     onUpdateStatus: handleUpdateStatus,
     onCancelJob: handleOpenCancelJob,
     onReinstate: handleOpenReinstate,
+    // Open the inline audit trail modal — no page navigation
+    onViewAuditTrail: (job: Job) => setAuditTrailJobId(job.id as number),
     onCopy: async (job: Job) => {
       try {
         const latestJob = await jobsApi.getJobById(job.id);
@@ -920,6 +926,15 @@ const JobsPage = () => {
             setUpdateStatusModalOpen(false);
             setJobToUpdate(null);
           }}
+        />
+      )}
+
+      {/* Inline Audit Trail Modal — triggered by the History action button */}
+      {auditTrailJobId !== null && (
+        <JobAuditTrailModal
+          jobId={auditTrailJobId}
+          isOpen={true}
+          onClose={() => setAuditTrailJobId(null)}
         />
       )}
     </div>

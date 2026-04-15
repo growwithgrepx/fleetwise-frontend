@@ -27,6 +27,8 @@ interface Params {
   onCancelJob: (job: Job) => void;
   onReinstate: (job: Job) => void;
   isDeleting: (job: Job) => boolean;
+  /** Opens the inline Job Audit Trail modal instead of navigating away */
+  onViewAuditTrail?: (job: Job) => void;
 }
 
 export function useJobsPageTableActions({
@@ -40,6 +42,7 @@ export function useJobsPageTableActions({
   onCancelJob,
   onReinstate,
   isDeleting,
+  onViewAuditTrail,
 }: Params): (job: Job) => EntityTableAction<Job>[] {
   const router = useRouter();
 
@@ -114,9 +117,15 @@ export function useJobsPageTableActions({
         label: "History",
         icon: <Clock className="text-amber-400" />,
         onClick: (j) => {
-          router.push(
-            `/jobs/audit-trail?search=${encodeURIComponent(String(j.id))}`
-          );
+          if (onViewAuditTrail) {
+            // Open inline modal — no page navigation
+            onViewAuditTrail(j);
+          } else {
+            // Fallback: navigate to audit-trail list page
+            router.push(
+              `/jobs/audit-trail?search=${encodeURIComponent(String(j.id))}`
+            );
+          }
         },
         ariaLabel: "Job history / audit",
         title: "Audit trail",
@@ -159,6 +168,7 @@ export function useJobsPageTableActions({
     onCancelJob,
     onReinstate,
     isDeleting,
+    onViewAuditTrail,
     router,
   ]);
 }
