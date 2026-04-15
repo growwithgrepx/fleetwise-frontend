@@ -67,7 +67,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
     typeof actions === "function" ? true : (actions as EntityTableAction<T>[]).length > 0;
 
   const totalColumns = React.useMemo(() => {
-    return 1 + columns.length + (hasActionColumn ? 1 : 0);
+    return columns.length + (hasActionColumn ? 1 : 0);
   }, [columns.length, hasActionColumn]);
 
   useEffect(() => {
@@ -154,15 +154,6 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
             )}
           >
             <tr>
-              <th className="sticky left-0 z-20 w-10 min-w-[2.5rem] bg-background-light px-2 py-2 sm:px-3">
-                <input
-                  type="checkbox"
-                  onChange={handleSelectAll}
-                  checked={isAllSelected}
-                  className="form-checkbox h-3.5 w-3.5 rounded border-border-color bg-background-light text-primary focus:ring-primary/40 sm:h-4 sm:w-4"
-                  aria-label="Select all jobs"
-                />
-              </th>
               {columns.map((col) => (
                 <th
                   key={String(col.accessor)}
@@ -252,16 +243,6 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                         }
                       }}
                     >
-                      <td className="sticky left-0 z-10 w-10 min-w-[2.5rem] bg-background-light px-2 py-2 align-middle sm:px-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedRows.includes(row.id)}
-                          onChange={() => handleSelectRow(row.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="form-checkbox h-3.5 w-3.5 rounded border-border-color text-primary focus:ring-primary/40 sm:h-4 sm:w-4"
-                          aria-label={`Select job ${row.id}`}
-                        />
-                      </td>
                       {columns.map((col) => (
                         <td
                           key={String(col.accessor) + "-" + row.id}

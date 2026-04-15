@@ -761,8 +761,8 @@ const JobsPage = () => {
         </div>
 
         {paginationInfo.totalPages > 1 && (
-          <div className="flex flex-col gap-2 border-t border-border-color px-2 py-3 sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-4 sm:py-4">
-            <div className="flex items-center justify-center gap-1 sm:justify-end">
+          <div className="flex flex-col gap-2 border-t border-border-color px-2 py-3 sm:flex-row sm:items-center sm:justify-center sm:gap-3 sm:px-4 sm:py-4">
+            <div className="flex items-center justify-center gap-1">
               <button
                 type="button"
                 onClick={() => setPage(Math.max(1, page - 1))}
