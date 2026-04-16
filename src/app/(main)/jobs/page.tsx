@@ -767,8 +767,8 @@ const JobsPage = () => {
                     try {
                       const latestJob = await jobsApi.getJobById(j.id as number);
                       if (!latestJob) { toast.error('Job not found'); return; }
-                      const { id, ...rest } = latestJob;
-                      setCopiedJobData({ ...rest, status: 'new' as const, invoice_id: null, invoice_number: undefined, penalty: 0, vehicle_id: 0, driver_id: 0, driver_contact: '' });
+                      const { id, penalty, invoice_id, invoice_number, ...rest } = latestJob as any;
+                      setCopiedJobData({ ...rest, status: 'new' as const, vehicle_id: 0, driver_id: 0, driver_contact: '' });
                       toast.success('Job copied! Redirecting to new job form...');
                       router.push('/jobs/new');
                     } catch (e: any) { toast.error(e.response?.data?.error || 'Failed to copy job'); }
