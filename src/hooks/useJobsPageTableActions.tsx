@@ -27,6 +27,8 @@ interface Params {
   onCancelJob: (job: Job) => void;
   onReinstate: (job: Job) => void;
   isDeleting: (job: Job) => boolean;
+  /** Opens the inline Job Audit Trail modal instead of navigating away */
+  onViewAuditTrail?: (job: Job) => void;
 }
 
 export function useJobsPageTableActions({
@@ -40,6 +42,7 @@ export function useJobsPageTableActions({
   onCancelJob,
   onReinstate,
   isDeleting,
+  onViewAuditTrail,
 }: Params): (job: Job) => EntityTableAction<Job>[] {
   const router = useRouter();
 
@@ -81,41 +84,48 @@ export function useJobsPageTableActions({
       ];
 
       if (canManageLifecycle) {
-        if (job.status !== "sd" && job.status !== "jc") {
-          row.push({
-            label: "Update Status",
-            icon: <RefreshCw className="text-blue-400" />,
-            onClick: (j) => onUpdateStatus(j),
-            ariaLabel: "Update job status",
-            title: "Update Status",
-          });
-        }
-        if (job.status !== "canceled") {
-          row.push({
-            label: "Cancel",
-            icon: <X className="text-red-500" />,
-            onClick: (j) => onCancelJob(j),
-            ariaLabel: "Cancel job",
-            title: "Cancel",
-          });
-        } else {
-          row.push({
-            label: "Re-instate",
-            icon: <RotateCcw className="text-green-500" />,
-            onClick: (j) => onReinstate(j),
-            ariaLabel: "Re-instate job",
-            title: "Re-instate",
-          });
-        }
+        // Always show Update Status — disabled for terminal statuses
+        row.push({
+          label: "Update Status",
+          icon: <RefreshCw className="text-blue-400" />,
+          onClick: (j) => onUpdateStatus(j),
+          ariaLabel: "Update job status",
+          title: "Update Status",
+          disabled: (j: Job) => j.status === "sd" || j.status === "jc" || j.status === "canceled",
+        });
+        // Always show Cancel — disabled for already-canceled / terminal jobs
+        row.push({
+          label: "Cancel",
+          icon: <X className="text-red-500" />,
+          onClick: (j) => onCancelJob(j),
+          ariaLabel: "Cancel job",
+          title: "Cancel",
+          disabled: (j: Job) => j.status === "canceled" || j.status === "sd" || j.status === "jc",
+        });
+        // Always show Re-instate — disabled for non-canceled jobs
+        row.push({
+          label: "Re-instate",
+          icon: <RotateCcw className="text-green-500" />,
+          onClick: (j) => onReinstate(j),
+          ariaLabel: "Re-instate job",
+          title: "Re-instate",
+          disabled: (j: Job) => j.status !== "canceled",
+        });
       }
 
       row.push({
         label: "History",
         icon: <Clock className="text-amber-400" />,
         onClick: (j) => {
-          router.push(
-            `/jobs/audit-trail?search=${encodeURIComponent(String(j.id))}`
-          );
+          if (onViewAuditTrail) {
+            // Open inline modal — no page navigation
+            onViewAuditTrail(j);
+          } else {
+            // Fallback: navigate to audit-trail list page
+            router.push(
+              `/jobs/audit-trail?search=${encodeURIComponent(String(j.id))}`
+            );
+          }
         },
         ariaLabel: "Job history / audit",
         title: "Audit trail",
@@ -158,6 +168,7 @@ export function useJobsPageTableActions({
     onCancelJob,
     onReinstate,
     isDeleting,
+    onViewAuditTrail,
     router,
   ]);
 }

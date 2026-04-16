@@ -16,16 +16,34 @@ export const CreateJobFromTextModal: React.FC<CreateJobFromTextModalProps> = ({
   isLoading = false,
 }) => {
   const [text, setText] = useState('');
+  const [validationError, setValidationError] = useState('');
 
   const handleSubmit = () => {
+    if (!text.trim()) {
+      setValidationError('Please paste some booking details before submitting.');
+      return;
+    }
+    setValidationError('');
     onSubmit(text);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Allow Ctrl+Enter or Cmd+Enter to submit
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       handleSubmit();
     }
+  };
+
+  // Clear validation error when user starts typing
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+    if (validationError) setValidationError('');
+  };
+
+  // Reset state when modal closes
+  const handleClose = () => {
+    setText('');
+    setValidationError('');
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -37,7 +55,7 @@ export const CreateJobFromTextModal: React.FC<CreateJobFromTextModalProps> = ({
           <h2 className="text-base sm:text-xl font-bold text-text-main">Create Job from Text</h2>
           <button
             className="text-text-secondary hover:text-text-main"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close"
           >
             &times;
@@ -51,12 +69,17 @@ export const CreateJobFromTextModal: React.FC<CreateJobFromTextModalProps> = ({
           <Textarea
             id="jobText"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder="Paste the booking details here..."
             rows={10}
-            className="w-full"
+            className={`w-full ${validationError ? 'border-red-500 focus:ring-red-500' : ''}`}
           />
+          {validationError && (
+            <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
+              <span>⚠</span> {validationError}
+            </p>
+          )}
           <p className="text-xs text-text-secondary mt-2">
             Tip: Press Ctrl+Enter (Cmd+Enter on Mac) to submit quickly
           </p>
@@ -65,7 +88,7 @@ export const CreateJobFromTextModal: React.FC<CreateJobFromTextModalProps> = ({
         <div className="flex flex-col sm:flex-row justify-end gap-2 w-full sm:w-auto">
           <AnimatedButton
             variant="outline"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isLoading}
             className="w-full sm:w-auto"
           >
