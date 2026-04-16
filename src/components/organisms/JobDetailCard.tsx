@@ -87,7 +87,7 @@ export default function JobDetailCard({
 
   return (
     <>
-      <div className="bg-background-light p-4 sm:p-6 rounded-lg overflow-x-auto">
+      <div className="bg-background-light p-4 sm:p-6 rounded-lg overflow-x-auto" style={{ maxWidth: '1500px' }}>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 min-w-fit">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-text-main">
@@ -149,14 +149,14 @@ export default function JobDetailCard({
               <DetailItem label="Name" value={normalized.customerName} />
               <DetailItem label="Email" value={normalized.customerEmail} />
               <DetailItem label="Mobile" value={normalized.customerMobile} />
-              <DetailItem label="Company" value={normalized.companyName} />
+              <DetailItem label="Company" value={normalized.companyName} clamp />
               <DetailItem label="Booking Reference" value={job.booking_ref || '-'} />
           </DetailSection>
 
           <DetailSection title="Trip Details">
               <DetailItem label="Service Type" value={normalized.serviceName} />
-              <DetailItem label="Pickup" value={normalized.pickupLocation} />
-              <DetailItem label="Drop-off" value={normalized.dropoffLocation} />
+              <DetailItem label="Pickup" value={normalized.pickupLocation} clamp />
+              <DetailItem label="Drop-off" value={normalized.dropoffLocation} clamp />
               <DetailItem label="Date & Time" value={normalized.pickupDate && normalized.pickupTime ? `${normalized.pickupDate} at ${normalized.pickupTime}` : (normalized.pickupDate || '')} />
               {job.dropoff_time && (
                 <DetailItem label="Drop-off Time" value={job.dropoff_time} />
@@ -221,7 +221,7 @@ export default function JobDetailCard({
               <DetailItem label="Vehicle" value={normalized.vehicle || 'Not Assigned'} />
               <DetailItem label="Driver" value={normalized.driverName || 'Not Assigned'} />
               <DetailItem label="Vehicle Type" value={normalized.vehicleType || 'Not Assigned'} />
-              <DetailItem label="Passenger" value={normalized.passengerName} />
+              <DetailItem label="Passenger" value={normalized.passengerName} clamp />
           </DetailSection>
         </div>
       </div>

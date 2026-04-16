@@ -65,7 +65,11 @@ export function getJobsPageTableColumns(
       filterable: true,
       stringLabel: 'Customer',
       width: '110px',
-      render: (job) => <HighlightedCell text={job.customer_name} searchTerm={search} />,
+      render: (job) => (
+        <div className="line-clamp-2 whitespace-normal leading-tight text-[11px]">
+          {job.customer_name}
+        </div>
+      ),
     },
     {
       label: 'BK REF',
@@ -90,24 +94,36 @@ export function getJobsPageTableColumns(
       accessor: 'pickup_location',
       filterable: true,
       stringLabel: 'Pickup',
-      width: '110px',
-      render: (job) => <HighlightedCell text={job.pickup_location} searchTerm={search} />,
+      width: '180px',
+      render: (job) => (
+        <div className="line-clamp-2 whitespace-normal leading-tight text-[11px]">
+          {job.pickup_location}
+        </div>
+      ),
     },
     {
       label: 'DROP-OFF',
       accessor: 'dropoff_location',
       filterable: true,
       stringLabel: 'Drop-off',
-      width: '110px',
-      render: (job) => <HighlightedCell text={job.dropoff_location} searchTerm={search} />,
+      width: '180px',
+      render: (job) => (
+        <div className="line-clamp-2 whitespace-normal leading-tight text-[11px]">
+          {job.dropoff_location}
+        </div>
+      ),
     },
     {
       label: 'PASSENGER',
       accessor: 'passenger_name',
       filterable: true,
       stringLabel: 'Passenger',
-      width: '100px',
-      render: (job) => <HighlightedCell text={job.passenger_name} searchTerm={search} />,
+      width: '140px',
+      render: (job) => (
+        <div className="line-clamp-2 whitespace-normal leading-tight text-[11px]">
+          {job.passenger_name}
+        </div>
+      ),
     },
     {
       label: 'VEHICLE',
