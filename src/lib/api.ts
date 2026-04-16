@@ -190,6 +190,10 @@ api.interceptors.response.use(
       console.error('API No Response:', error.request);
       return Promise.reject(new Error('No response from server. Please check if the backend server is running.'));
     } else {
+      // Silently ignore aborted requests (e.g. when filters change mid-flight)
+      if (axios.isCancel(error) || error.message === 'canceled' || error.code === 'ERR_CANCELED') {
+        return Promise.reject(error);
+      }
       // Something happened in setting up the request that triggered an Error
       console.error('API Request Error:', error.message);
       return Promise.reject(new Error('Request configuration error'));

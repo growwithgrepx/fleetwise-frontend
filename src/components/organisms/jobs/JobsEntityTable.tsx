@@ -12,6 +12,7 @@ export interface EntityTableColumn<T> {
   render?: (row: T) => React.ReactNode;
   filterable?: boolean;
   width?: string;
+  filterWidth?: string;
   stringLabel?: string;
 }
 
@@ -157,7 +158,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
               {columns.map((col) => (
                 <th
                   key={String(col.accessor)}
-                  className="align-top px-2 py-2 sm:px-3"
+                  className="align-top px-1.5 py-1 sm:px-2"
                   style={
                     col.width
                       ? { width: col.width, minWidth: col.width }
@@ -170,7 +171,8 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                   {col.filterable && onFilterChange && (
                     <input
                       type="text"
-                      className="mt-0.5 w-full min-w-[80px] rounded-lg border border-border-color bg-background-light px-2.5 py-1.5 text-[11px] text-text-main placeholder:text-text-secondary/60 focus:border-primary focus:bg-background-light focus:outline-none focus:ring-2 focus:ring-primary/30 sm:text-xs transition-all duration-150"
+                      className="mt-0.5 w-full rounded-lg border border-border-color bg-background-light px-2.5 py-1.5 text-[11px] text-text-main placeholder:text-text-secondary/60 focus:border-primary focus:bg-background-light focus:outline-none focus:ring-2 focus:ring-primary/30 sm:text-xs transition-all duration-150"
+                      style={{ minWidth: col.filterWidth ?? '80px' }}
                       placeholder="Filter…"
                       title={`Filter ${(col.stringLabel || col.accessor).toString().toLowerCase()}`}
                       value={filters[col.accessor as string] || ""}
@@ -180,7 +182,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                 </th>
               ))}
               {hasActionColumn && (
-                <th className="sticky right-0 z-20 min-w-[220px] bg-background-light px-2 py-2 text-center sm:px-3">
+                <th className="sticky right-0 z-20 min-w-[220px] bg-background-light px-1.5 py-1 text-center sm:px-2">
                   <div className="mb-1 text-center text-[10px] font-bold uppercase tracking-wider text-text-secondary">
                     Actions
                   </div>
@@ -246,7 +248,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                       {columns.map((col) => (
                         <td
                           key={String(col.accessor) + "-" + row.id}
-                          className="max-w-[220px] truncate px-2 py-2 align-middle sm:px-3"
+                          className="max-w-[220px] truncate px-1.5 py-1 align-middle sm:px-2"
                           style={
                             col.width
                               ? { width: col.width, minWidth: col.width }
@@ -266,7 +268,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                         </td>
                       ))}
                       {rowActions.length > 0 && (
-                        <td className="sticky right-0 z-10 min-w-[220px] bg-background-light px-2 py-2 text-center align-middle sm:px-3">
+                        <td className="sticky right-0 z-10 min-w-[220px] bg-background-light px-1.5 py-1 text-center align-middle sm:px-2">
                           <div className="flex flex-nowrap items-center justify-center gap-0.5 sm:gap-1">
                             {rowActions.map((action) => {
                               const isDisabled = action.disabled
