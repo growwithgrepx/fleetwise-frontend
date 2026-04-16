@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import type { ApiJob } from '@/types/job';
+import type { Job } from '@/types/job';
 import { normalizeJobForDisplay } from '@/utils/jobNormalizer';
-// Timezone conversion removed - API now returns display timezone values directly
 import { DetailSection } from '@/components/molecules/DetailSection';
 import { DetailItem } from '@/components/molecules/DetailItem';
-import { Button } from '@/components/atoms/Button';
 import JobSummaryModal from './JobSummaryModal';
 import { generateJobSummary } from '@/utils/jobSummaryGenerator';
+import { Copy, Trash2, RotateCcw, Clock, MessageCircle } from 'lucide-react';
 
 // Local StatusBadge component with the exact styling you specified
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -53,7 +53,25 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
-export default function JobDetailCard({ job }: { job: ApiJob }) {
+interface JobDetailCardProps {
+  job: ApiJob;
+  onCopy?: (job: Job) => void;
+  onDelete?: (job: Job) => void;
+  onReinstate?: (job: Job) => void;
+  onViewAuditTrail?: (job: Job) => void;
+  canDelete?: boolean;
+  canManageLifecycle?: boolean;
+}
+
+export default function JobDetailCard({
+  job,
+  onCopy,
+  onDelete,
+  onReinstate,
+  onViewAuditTrail,
+  canDelete = true,
+  canManageLifecycle = false,
+}: JobDetailCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [jobSummary, setJobSummary] = useState('');
 
@@ -69,7 +87,7 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
 
   return (
     <>
-      <div className="bg-background-light p-4 sm:p-6 rounded-lg overflow-x-auto">
+      <div className="bg-background-light p-4 sm:p-6 rounded-lg overflow-x-auto" style={{ maxWidth: '1500px' }}>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 min-w-fit">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-text-main">
@@ -77,9 +95,53 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
               {normalized.status && <StatusBadge status={String(normalized.status)} />}
             </h2>
           </div>
-          <Button variant="primary" onClick={handleGenerateText} className="text-xs sm:text-sm">
-            Generate Text
-          </Button>
+          {/* Moved-from-row actions + Generate Text icon */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleGenerateText}
+              title="Copy text from job (WhatsApp / message)"
+              className="h-8 w-8 flex items-center justify-center rounded-md text-green-400 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              <MessageCircle className="h-4 w-4" />
+            </button>
+            {onCopy && (
+              <button
+                onClick={() => onCopy(job as unknown as Job)}
+                title="Duplicate"
+                className="h-8 w-8 flex items-center justify-center rounded-md text-blue-400 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+            )}
+            {onDelete && canDelete && (
+              <button
+                onClick={() => onDelete(job as unknown as Job)}
+                title="Delete"
+                className="h-8 w-8 flex items-center justify-center rounded-md text-red-400 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+            {onReinstate && canManageLifecycle && (
+              <button
+                onClick={() => onReinstate(job as unknown as Job)}
+                title="Re-instate"
+                disabled={job.status !== 'canceled'}
+                className="h-8 w-8 flex items-center justify-center rounded-md text-green-500 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            )}
+            {onViewAuditTrail && (
+              <button
+                onClick={() => onViewAuditTrail(job as unknown as Job)}
+                title="Audit trail"
+                className="h-8 w-8 flex items-center justify-center rounded-md text-amber-400 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <Clock className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 sm:gap-x-8 gap-y-6 sm:gap-y-8 min-w-fit">
 
@@ -87,14 +149,14 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
               <DetailItem label="Name" value={normalized.customerName} />
               <DetailItem label="Email" value={normalized.customerEmail} />
               <DetailItem label="Mobile" value={normalized.customerMobile} />
-              <DetailItem label="Company" value={normalized.companyName} />
+              <DetailItem label="Company" value={normalized.companyName} clamp />
               <DetailItem label="Booking Reference" value={job.booking_ref || '-'} />
           </DetailSection>
 
           <DetailSection title="Trip Details">
               <DetailItem label="Service Type" value={normalized.serviceName} />
-              <DetailItem label="Pickup" value={normalized.pickupLocation} />
-              <DetailItem label="Drop-off" value={normalized.dropoffLocation} />
+              <DetailItem label="Pickup" value={normalized.pickupLocation} clamp />
+              <DetailItem label="Drop-off" value={normalized.dropoffLocation} clamp />
               <DetailItem label="Date & Time" value={normalized.pickupDate && normalized.pickupTime ? `${normalized.pickupDate} at ${normalized.pickupTime}` : (normalized.pickupDate || '')} />
               {job.dropoff_time && (
                 <DetailItem label="Drop-off Time" value={job.dropoff_time} />
@@ -159,7 +221,7 @@ export default function JobDetailCard({ job }: { job: ApiJob }) {
               <DetailItem label="Vehicle" value={normalized.vehicle || 'Not Assigned'} />
               <DetailItem label="Driver" value={normalized.driverName || 'Not Assigned'} />
               <DetailItem label="Vehicle Type" value={normalized.vehicleType || 'Not Assigned'} />
-              <DetailItem label="Passenger" value={normalized.passengerName} />
+              <DetailItem label="Passenger" value={normalized.passengerName} clamp />
           </DetailSection>
         </div>
       </div>

@@ -4,13 +4,8 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Pencil,
-  Copy,
-  Trash2,
-  FileText,
-  Clock,
   RefreshCw,
   X,
-  RotateCcw,
 } from "lucide-react";
 import type { EntityTableAction } from "@/components/organisms/jobs/JobsEntityTable";
 import type { Job } from "@/types/job";
@@ -66,21 +61,21 @@ export function useJobsPageTableActions({
           ariaLabel: "Edit job",
           title: "Edit",
         },
-        {
-          label: "Copy",
-          icon: <Copy className="text-blue-400" />,
-          onClick: onCopy,
-          ariaLabel: "Duplicate job",
-          title: "Duplicate",
-        },
-        {
-          label: "Delete",
-          icon: <Trash2 className="text-red-400" />,
-          onClick: (j) => onDelete(j.id),
-          ariaLabel: "Delete job",
-          title: "Delete",
-          disabled: isDeleting,
-        },
+        //{
+        //  label: "Copy",
+        //  icon: <Copy className="text-blue-400" />,
+        //  onClick: onCopy,
+        //  ariaLabel: "Duplicate job",
+        //  title: "Duplicate",
+        //},
+        //{
+        //  label: "Delete",
+        //  icon: <Trash2 className="text-red-400" />,
+        //  onClick: (j) => onDelete(j.id),
+        //  ariaLabel: "Delete job",
+        //  title: "Delete",
+        //  disabled: isDeleting,
+        //},
       ];
 
       if (canManageLifecycle) {
@@ -102,44 +97,16 @@ export function useJobsPageTableActions({
           title: "Cancel",
           disabled: (j: Job) => j.status === "canceled" || j.status === "sd" || j.status === "jc",
         });
-        // Always show Re-instate — disabled for non-canceled jobs
-        row.push({
-          label: "Re-instate",
-          icon: <RotateCcw className="text-green-500" />,
-          onClick: (j) => onReinstate(j),
-          ariaLabel: "Re-instate job",
-          title: "Re-instate",
-          disabled: (j: Job) => j.status !== "canceled",
-        });
-      }
+    }
 
-      row.push({
-        label: "History",
-        icon: <Clock className="text-amber-400" />,
-        onClick: (j) => {
-          if (onViewAuditTrail) {
-            // Open inline modal — no page navigation
-            onViewAuditTrail(j);
-          } else {
-            // Fallback: navigate to audit-trail list page
-            router.push(
-              `/jobs/audit-trail?search=${encodeURIComponent(String(j.id))}`
-            );
-          }
-        },
-        ariaLabel: "Job history / audit",
-        title: "Audit trail",
-      });
+      // Copy, Delete, Re-instate, History moved to job card
 
-      if (restrictedRolesDelete.includes(role)) {
-        row = row.filter((a) => a.label !== "Delete");
-      }
       if (restrictedRolesEdit.includes(role)) {
-        row = row.filter((a) => a.label !== "Edit" && a.label !== "Copy");
+        row = row.filter((a) => a.label !== "Edit");
       }
 
       row = row.map((a) => {
-        if (a.label === "Edit" || a.label === "Delete") {
+        if (a.label === "Edit") {
           return {
             ...a,
             disabled: (j: Job) => {
@@ -160,15 +127,9 @@ export function useJobsPageTableActions({
   }, [
     role,
     canManageLifecycle,
-    onToggleDetail,
     onEdit,
-    onDelete,
-    onCopy,
     onUpdateStatus,
     onCancelJob,
-    onReinstate,
-    isDeleting,
-    onViewAuditTrail,
     router,
   ]);
 }
