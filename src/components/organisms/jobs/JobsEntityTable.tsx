@@ -182,7 +182,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                 </th>
               ))}
               {hasActionColumn && (
-                <th className="sticky right-0 z-20 min-w-[220px] bg-background-light px-1.5 py-1 text-center sm:px-2">
+                <th className="sticky right-0 z-20 min-w-[100px] bg-background-light px-1.5 py-1 text-center sm:px-2">
                   <div className="mb-1 text-center text-[10px] font-bold uppercase tracking-wider text-text-secondary">
                     Actions
                   </div>
@@ -268,7 +268,7 @@ export function JobsEntityTable<T extends { id: string | number; status?: string
                         </td>
                       ))}
                       {rowActions.length > 0 && (
-                        <td className="sticky right-0 z-10 min-w-[220px] bg-background-light px-1.5 py-1 text-center align-middle sm:px-2">
+                        <td className="sticky right-0 z-10 min-w-[100px] bg-background-light px-1.5 py-1 text-center align-middle sm:px-2">
                           <div className="flex flex-nowrap items-center justify-center gap-0.5 sm:gap-1">
                             {rowActions.map((action) => {
                               const isDisabled = action.disabled

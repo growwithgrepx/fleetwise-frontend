@@ -761,7 +761,24 @@ const JobsPage = () => {
             actions={jobActions}
             renderExpandedRow={(job) => (
               <div className="px-4 py-4 sm:px-8 sm:py-6">
-                <JobDetailCard job={job} />
+                <JobDetailCard
+                  job={job}
+                  onCopy={async (j) => {
+                    try {
+                      const latestJob = await jobsApi.getJobById(j.id as number);
+                      if (!latestJob) { toast.error('Job not found'); return; }
+                      const { id, ...rest } = latestJob;
+                      setCopiedJobData({ ...rest, status: 'new' as const, invoice_id: null, invoice_number: undefined, penalty: 0, vehicle_id: 0, driver_id: 0, driver_contact: '' });
+                      toast.success('Job copied! Redirecting to new job form...');
+                      router.push('/jobs/new');
+                    } catch (e: any) { toast.error(e.response?.data?.error || 'Failed to copy job'); }
+                  }}
+                  onDelete={(j) => handleDelete(j.id)}
+                  onReinstate={handleOpenReinstate}
+                  onViewAuditTrail={(j) => setAuditTrailJobId(j.id as number)}
+                  canDelete={!['driver', 'customer', 'guest'].includes(role)}
+                  canManageLifecycle={canManageLifecycle}
+                />
               </div>
             )}
             rowClassName={(job) =>
