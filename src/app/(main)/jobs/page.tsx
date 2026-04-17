@@ -17,7 +17,7 @@ import { ArrowUp, ArrowDown, ArrowUpDown, X, PlusCircle, Upload } from 'lucide-r
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog';
 import { Input } from '@/components/atoms/Input';
 import { MultiSelectDropdown, MultiSelectOption } from '@/components/atoms/MultiSelectDropdown';
-import JobDetailCard from '@/components/organisms/JobDetailCard';
+import JobDetailCardWithActions from '@/components/organisms/JobDetailCardWithActions';
 import { useDebounce } from '@/hooks/useDebounce';
 import JobForm from '@/components/organisms/JobForm';
 import toast from 'react-hot-toast';
@@ -37,8 +37,6 @@ import { getJobsPageTableColumns } from '@/lib/jobsPageTableConfig';
 import { DriverFilterButtons } from '@/components/molecules/DriverFilterButtons';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
-import JobAuditTrailModal from '@/components/organisms/JobAuditTrailModal';
-import { UpdateJobStatusModal } from '@/components/molecules/UpdateJobStatusModal';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Job status configuration
@@ -761,26 +759,9 @@ const JobsPage = () => {
             actions={jobActions}
             renderExpandedRow={(job) => (
               <div className="px-1 py-2">
-                <JobDetailCard
+                <JobDetailCardWithActions
                   job={job}
                   onEdit={handleEdit}
-                  onCopy={async (j) => {
-                    try {
-                      const latestJob = await jobsApi.getJobById(j.id as number);
-                      if (!latestJob) { toast.error('Job not found'); return; }
-                      const { id, penalty, invoice_id, invoice_number, ...rest } = latestJob as any;
-                      setCopiedJobData({ ...rest, status: 'new' as const, vehicle_id: 0, driver_id: 0, driver_contact: '' });
-                      toast.success('Job copied! Redirecting to new job form...');
-                      router.push('/jobs/new');
-                    } catch (e: any) { toast.error(e.response?.data?.error || 'Failed to copy job'); }
-                  }}
-                  onDelete={(j) => handleDelete(j.id)}
-                  onUpdateStatus={handleUpdateStatus}
-                  onCancelJob={handleOpenCancelJob}
-                  onReinstate={handleOpenReinstate}
-                  onViewAuditTrail={(j) => setAuditTrailJobId(j.id as number)}
-                  canDelete={!['driver', 'customer', 'guest'].includes(role)}
-                  canManageLifecycle={canManageLifecycle}
                 />
               </div>
             )}
