@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Pencil,
-  RefreshCw,
+  ListChecks,
   X,
 } from "lucide-react";
 import type { EntityTableAction } from "@/components/organisms/jobs/JobsEntityTable";
@@ -82,7 +82,7 @@ export function useJobsPageTableActions({
         // Always show Update Status — disabled for terminal statuses
         row.push({
           label: "Update Status",
-          icon: <RefreshCw className="text-blue-400" />,
+          icon: <ListChecks className="text-blue-400" />,
           onClick: (j) => onUpdateStatus(j),
           ariaLabel: "Update job status",
           title: "Update Status",

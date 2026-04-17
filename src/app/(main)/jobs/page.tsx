@@ -760,9 +760,10 @@ const JobsPage = () => {
             isLoading={isLoading}
             actions={jobActions}
             renderExpandedRow={(job) => (
-              <div className="px-4 py-4 sm:px-8 sm:py-6">
+              <div className="px-1 py-2">
                 <JobDetailCard
                   job={job}
+                  onEdit={handleEdit}
                   onCopy={async (j) => {
                     try {
                       const latestJob = await jobsApi.getJobById(j.id as number);
@@ -774,6 +775,8 @@ const JobsPage = () => {
                     } catch (e: any) { toast.error(e.response?.data?.error || 'Failed to copy job'); }
                   }}
                   onDelete={(j) => handleDelete(j.id)}
+                  onUpdateStatus={handleUpdateStatus}
+                  onCancelJob={handleOpenCancelJob}
                   onReinstate={handleOpenReinstate}
                   onViewAuditTrail={(j) => setAuditTrailJobId(j.id as number)}
                   canDelete={!['driver', 'customer', 'guest'].includes(role)}
