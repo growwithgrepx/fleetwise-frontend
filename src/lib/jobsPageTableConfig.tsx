@@ -18,10 +18,22 @@ function JobStatusBadge({ status }: { status: string }) {
     sd: 'bg-orange-700/90 text-white',
   };
   const cls = styles[s] || 'bg-zinc-600/80 text-white';
-  const label = status || '—';
+  const SHORT_LABELS: Record<string, string> = {
+    confirmed: 'CNF',
+    pending: 'PEN',
+    canceled: 'CAN',
+    cancelled: 'CAN',
+    new: 'NEW',
+    otw: 'OTW',
+    ots: 'OTS',
+    pob: 'POB',
+    jc: 'JC',
+    sd: 'SD',
+  };
+  const label = SHORT_LABELS[s] || status || '—';
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}
+      className={`inline-flex items-center justify-center rounded-md px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide w-[36px] ${cls}`}
     >
       {label}
     </span>
@@ -86,7 +98,9 @@ export function getJobsPageTableColumns(
       stringLabel: 'Service',
       width: '110px',
       render: (job) => (
-        <HighlightedCell text={job.service_type || '—'} searchTerm={search} />
+        <div className="line-clamp-2 whitespace-normal leading-tight text-[11px]">
+          {job.service_type}
+        </div>
       ),
     },
     {
@@ -94,7 +108,7 @@ export function getJobsPageTableColumns(
       accessor: 'pickup_location',
       filterable: true,
       stringLabel: 'Pickup',
-      width: '180px',
+      width: '190px',
       render: (job) => (
         <div className="line-clamp-2 whitespace-normal leading-tight text-[11px]">
           {job.pickup_location}
@@ -106,7 +120,7 @@ export function getJobsPageTableColumns(
       accessor: 'dropoff_location',
       filterable: true,
       stringLabel: 'Drop-off',
-      width: '180px',
+      width: '190px',
       render: (job) => (
         <div className="line-clamp-2 whitespace-normal leading-tight text-[11px]">
           {job.dropoff_location}
@@ -118,7 +132,7 @@ export function getJobsPageTableColumns(
       accessor: 'passenger_name',
       filterable: true,
       stringLabel: 'Passenger',
-      width: '140px',
+      width: '160px',
       render: (job) => (
         <div className="line-clamp-2 whitespace-normal leading-tight text-[11px]">
           {job.passenger_name}
@@ -162,7 +176,8 @@ export function getJobsPageTableColumns(
       accessor: 'status',
       filterable: true,
       stringLabel: 'Status',
-      width: '80px',
+      width: '40px',
+      filterWidth: '40px',
       render: (job) => <JobStatusBadge status={job.status} />,
     },
   ];
