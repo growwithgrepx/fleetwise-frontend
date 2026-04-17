@@ -37,6 +37,8 @@ import { getJobsPageTableColumns } from '@/lib/jobsPageTableConfig';
 import { DriverFilterButtons } from '@/components/molecules/DriverFilterButtons';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, endOfWeek, addDays } from 'date-fns';
+import JobAuditTrailModal from '@/components/organisms/JobAuditTrailModal';
+import { UpdateJobStatusModal } from '@/components/molecules/UpdateJobStatusModal';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Job status configuration
