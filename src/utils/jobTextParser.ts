@@ -212,37 +212,51 @@ export function parseJobText(text: string): ParseResult {
 function parseDateTime(dateTimeStr: string): { date?: string; time?: string } {
   if (!dateTimeStr) return {};
 
-  // Handle various date formats
-  // Common format: DD/MM/YYYY HH:MM
-  const dateTimeRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/;
-  const match = dateTimeStr.match(dateTimeRegex);
-  
-  if (match) {
-    const [, day, month, year, hour, minute] = match;
-    // NOTE: Assumes input time is in user's local timezone
-    // Backend must handle conversion to UTC on save
-    // Convert to YYYY-MM-DD format
-    const date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    // Keep time as HH:MM
-    const time = `${hour.padStart(2, '0')}:${minute}`;
-    return { date, time };
+  // Format 1: DD/MM/YYYY HH:MM  (e.g. 26/04/2026 22:00)
+  const fmt1 = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/;
+  const m1 = dateTimeStr.match(fmt1);
+  if (m1) {
+    const [, day, month, year, hour, minute] = m1;
+    return {
+      date: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+      time: `${hour.padStart(2, '0')}:${minute}`,
+    };
   }
 
-  // Handle other common formats as needed
-  // Format: DD-MM-YYYY HH:MM
-  const dateTimeRegex2 = /^(\d{1,2})-(\d{1,2})-(\d{4})\s+(\d{1,2}):(\d{2})$/;
-  const match2 = dateTimeStr.match(dateTimeRegex2);
-  
-  if (match2) {
-    const [, day, month, year, hour, minute] = match2;
-    // NOTE: Assumes input time is in user's local timezone
-    // Backend must handle conversion to UTC on save
-    const date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    const time = `${hour.padStart(2, '0')}:${minute}`;
-    return { date, time };
+  // Format 2: DD-MM-YYYY HH:MM  (e.g. 26-04-2026 22:00)
+  const fmt2 = /^(\d{1,2})-(\d{1,2})-(\d{4})\s+(\d{1,2}):(\d{2})$/;
+  const m2 = dateTimeStr.match(fmt2);
+  if (m2) {
+    const [, day, month, year, hour, minute] = m2;
+    return {
+      date: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+      time: `${hour.padStart(2, '0')}:${minute}`,
+    };
   }
 
-  // If we can't parse, return the original string as time
+  // Format 3: YYYY-MM-DD HH:MM  (e.g. 2026-04-26 22:00) — ISO-style, most common from systems
+  const fmt3 = /^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})$/;
+  const m3 = dateTimeStr.match(fmt3);
+  if (m3) {
+    const [, year, month, day, hour, minute] = m3;
+    return {
+      date: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+      time: `${hour.padStart(2, '0')}:${minute}`,
+    };
+  }
+
+  // Format 4: YYYY/MM/DD HH:MM  (e.g. 2026/04/26 22:00)
+  const fmt4 = /^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/;
+  const m4 = dateTimeStr.match(fmt4);
+  if (m4) {
+    const [, year, month, day, hour, minute] = m4;
+    return {
+      date: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+      time: `${hour.padStart(2, '0')}:${minute}`,
+    };
+  }
+
+  // Fallback: return raw string as time
   return { time: dateTimeStr };
 }
 
