@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getJobById } from '@/services/api/jobsApi';
-import JobDetailCard from './JobDetailCard';
+import JobDetailCardWithActions from './JobDetailCardWithActions';
 import { Spinner } from '@/components/atoms/Spinner';
 
 interface JobDetailsModalProps {
@@ -87,7 +87,7 @@ const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ isOpen, jobId, onClos
             </div>
           ) : job ? (
             <div className="p-6">
-              <JobDetailCard job={job} />
+              <JobDetailCardWithActions job={job} />
             </div>
           ) : (
             <div className="p-6 text-gray-400">

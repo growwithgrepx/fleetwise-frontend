@@ -6,7 +6,7 @@ import { DetailSection } from '@/components/molecules/DetailSection';
 import { DetailItem } from '@/components/molecules/DetailItem';
 import JobSummaryModal from './JobSummaryModal';
 import { generateJobSummary } from '@/utils/jobSummaryGenerator';
-import { Copy, Trash2, RotateCcw, Clock, MessageCircle } from 'lucide-react';
+import { Copy, Trash2, RotateCcw, Clock, MessageCircle, Pencil, ListChecks, X } from 'lucide-react';
 
 // Local StatusBadge component with the exact styling you specified
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -55,20 +55,26 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
 interface JobDetailCardProps {
   job: ApiJob;
+  onEdit?: (job: Job) => void;
   onCopy?: (job: Job) => void;
   onDelete?: (job: Job) => void;
   onReinstate?: (job: Job) => void;
   onViewAuditTrail?: (job: Job) => void;
+  onUpdateStatus?: (job: Job) => void;
+  onCancelJob?: (job: Job) => void;
   canDelete?: boolean;
   canManageLifecycle?: boolean;
 }
 
 export default function JobDetailCard({
   job,
+  onEdit,
   onCopy,
   onDelete,
   onReinstate,
   onViewAuditTrail,
+  onUpdateStatus,
+  onCancelJob,
   canDelete = true,
   canManageLifecycle = false,
 }: JobDetailCardProps) {
@@ -95,8 +101,8 @@ export default function JobDetailCard({
               {normalized.status && <StatusBadge status={String(normalized.status)} />}
             </h2>
           </div>
-          {/* Moved-from-row actions + Generate Text icon */}
           <div className="flex items-center gap-1">
+            {/* Generate Text */}
             <button
               onClick={handleGenerateText}
               title="Copy text from job (WhatsApp / message)"
@@ -104,6 +110,17 @@ export default function JobDetailCard({
             >
               <MessageCircle className="h-4 w-4" />
             </button>
+            {/* Edit */}
+            {onEdit && (
+              <button
+                onClick={() => onEdit(job as unknown as Job)}
+                title="Edit"
+                className="h-8 w-8 flex items-center justify-center rounded-md text-zinc-300 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
+            {/* Copy */}
             {onCopy && (
               <button
                 onClick={() => onCopy(job as unknown as Job)}
@@ -113,6 +130,7 @@ export default function JobDetailCard({
                 <Copy className="h-4 w-4" />
               </button>
             )}
+            {/* Delete */}
             {onDelete && canDelete && (
               <button
                 onClick={() => onDelete(job as unknown as Job)}
@@ -122,6 +140,29 @@ export default function JobDetailCard({
                 <Trash2 className="h-4 w-4" />
               </button>
             )}
+            {/* Update Status */}
+            {onUpdateStatus && canManageLifecycle && (
+              <button
+                onClick={() => onUpdateStatus(job as unknown as Job)}
+                title="Update Status"
+                disabled={job.status === 'sd' || job.status === 'jc' || job.status === 'canceled'}
+                className="h-8 w-8 flex items-center justify-center rounded-md text-blue-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <ListChecks className="h-4 w-4" />
+              </button>
+            )}
+            {/* Cancel */}
+            {onCancelJob && canManageLifecycle && (
+              <button
+                onClick={() => onCancelJob(job as unknown as Job)}
+                title="Cancel"
+                disabled={job.status === 'canceled' || job.status === 'sd' || job.status === 'jc'}
+                className="h-8 w-8 flex items-center justify-center rounded-md text-red-500 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+            {/* Re-instate */}
             {onReinstate && canManageLifecycle && (
               <button
                 onClick={() => onReinstate(job as unknown as Job)}
@@ -132,6 +173,7 @@ export default function JobDetailCard({
                 <RotateCcw className="h-4 w-4" />
               </button>
             )}
+            {/* Audit Trail */}
             {onViewAuditTrail && (
               <button
                 onClick={() => onViewAuditTrail(job as unknown as Job)}
