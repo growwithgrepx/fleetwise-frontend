@@ -91,7 +91,8 @@ export function JobCategoryRow({
             type="checkbox"
             checked={isSelected}
             onChange={() => onToggleSelection(row.row_number)}
-            className="form-checkbox h-4 w-4 text-primary rounded focus:ring-2 focus:ring-primary"
+            disabled={!!row.job_id}
+            className="form-checkbox h-4 w-4 text-primary rounded focus:ring-2 focus:ring-primary disabled:opacity-40 disabled:cursor-not-allowed"
           />
         </div>
 
@@ -117,11 +118,35 @@ export function JobCategoryRow({
           )}
         </div>
 
-        {/* Row Number */}
+        {/* Row Number / DB Job ID */}
         <div className="text-left">
-          <p className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-            #{row.row_number}
-          </p>
+          {row.job_id ? (
+            // Job was just created — show the real DB job ID
+            <a
+              href={`/jobs/${row.job_id.replace('JOB-', '')}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-bold hover:underline"
+              style={{ color: 'var(--color-primary)' }}
+              title="Open job"
+            >
+              JOB-{row.job_id.replace('JOB-', '')}
+            </a>
+          ) : category === 'db_duplicate' && row.error_message ? (
+            // DB duplicate — extract and show the existing DB job ID(s)
+            (() => {
+              const match = row.error_message.match(/Job\s+(#[\d\s,and#]+)/i);
+              return match ? (
+                <p className="text-sm font-bold" style={{ color: '#ca8a04' }} title={row.error_message}>
+                  {match[1]}
+                </p>
+              ) : (
+                <p className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>#{row.row_number}</p>
+              );
+            })()
+          ) : (
+            <p className="text-sm font-medium" style={{ color: 'var(--color-text-secondary)' }}>#{row.row_number}</p>
+          )}
         </div>
 
         {/* Customer */}
@@ -162,14 +187,32 @@ export function JobCategoryRow({
 
         {/* Actions / Status */}
         <div className="flex items-center gap-2 pl-4" onClick={(e) => e.stopPropagation()}>
-          {!isEditing && (
-            <button
-              onClick={() => onStartEditing(row)}
-              className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"
-              title="Edit"
-            >
-              <PencilIcon className="w-4 h-4" />
-            </button>
+          {row.job_id ? (
+            <span className="text-xs font-semibold text-green-600">
+              ✓ Created
+            </span>
+          ) : (
+            <>
+              {category === 'error' && !isEditing && (
+                <span className="text-xs text-red-600 font-medium truncate" title={row.error_message || 'Invalid'}>
+                  {row.error_message || 'Invalid'}
+                </span>
+              )}
+              {(category === 'xls_duplicate' || category === 'db_duplicate') && !isEditing && (
+                <span className="text-xs font-medium truncate" style={{ color: category === 'xls_duplicate' ? '#ea580c' : '#ca8a04' }}>
+                  Duplicate
+                </span>
+              )}
+              {!isEditing && (
+                <button
+                  onClick={() => onStartEditing(row)}
+                  className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors flex-shrink-0"
+                  title="Edit"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
