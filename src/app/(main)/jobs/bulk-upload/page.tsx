@@ -246,9 +246,9 @@ export default function BulkUploadPreviewPage() {
 
     return {
       valid: previewData.rows.filter(row => row.is_valid && !row.is_rejected),
-      error: previewData.rows.filter(row => !row.is_valid && !row.is_rejected && !row.error_message?.includes('Duplicate')),
-      xls_duplicate: previewData.rows.filter(row => !row.is_valid && !row.is_rejected && row.error_message?.includes('Duplicate in file')),
-      db_duplicate: previewData.rows.filter(row => !row.is_valid && !row.is_rejected && row.error_message?.includes('Duplicate in database'))
+      error: previewData.rows.filter(row => !row.is_valid && !row.is_rejected && !row.error_message?.toLowerCase().includes('duplicate')),
+      xls_duplicate: previewData.rows.filter(row => !row.is_valid && !row.is_rejected && row.error_message?.toLowerCase().includes('duplicate in file')),
+      db_duplicate: previewData.rows.filter(row => !row.is_valid && !row.is_rejected && row.error_message?.toLowerCase().includes('duplicate in database'))
     };
   };
 

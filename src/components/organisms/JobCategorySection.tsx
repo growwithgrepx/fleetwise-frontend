@@ -123,7 +123,7 @@ export default function JobCategorySection({
   }, []);
 
   const selectAllRows = useCallback(() => {
-    setSelectedRows(new Set(rows.map(row => row.row_number)));
+    setSelectedRows(new Set(rows.filter(row => !row.job_id).map(row => row.row_number)));
   }, [rows]);
 
   const clearSelection = useCallback(() => {
@@ -166,6 +166,9 @@ export default function JobCategorySection({
       setEditingRow(null);
     }
   }, [editingRow, onUpdateRow]);
+
+  // Column header label: 'JOB #' for db_duplicate or if any row has been saved to DB, else 'SR #'
+  const jobColumnLabel = category === 'db_duplicate' || rows.some(r => r.job_id) ? 'Job #' : 'SR #';
 
   if (rows.length === 0) return null;
 
@@ -328,7 +331,7 @@ export default function JobCategorySection({
         <div></div>
         
         {/* Job # */}
-        <div className="text-left">Job #</div>
+        <div className="text-left">{jobColumnLabel}</div>
         
         {/* Customer */}
         <div className="text-left">Customer</div>
