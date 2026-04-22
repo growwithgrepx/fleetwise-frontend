@@ -3021,8 +3021,8 @@ if (!driverExists) {
                 </div>
               
                 
-                {/* Pickup Date and Time in separate row - outside main grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                {/* Pickup Date, Pickup Time and Drop-off Time in same row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-300">
                       Pickup Date <span className="text-red-400">*</span>
@@ -3059,6 +3059,23 @@ if (!driverExists) {
                       className={fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}
                     />
                     {errors.pickup_time && <p className="text-sm text-red-400">{errors.pickup_time}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-300">
+                      Drop-off Time (Optional)
+                    </label>
+                    <TimePicker24Hour
+                      value={formData.dropoff_time || ''}
+                      onChange={(value) => {
+                        if (!fieldsLocked) {
+                          handleInputChange('dropoff_time', value);
+                        }
+                      }}
+                      readOnly={fieldsLocked}
+                      className={fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}
+                    />
+                    {errors.dropoff_time && <p className="text-sm text-red-400">{errors.dropoff_time}</p>}
                   </div>
                 </div>
 
@@ -3258,29 +3275,6 @@ if (!driverExists) {
                     </div>
                     {errors.dropoff_location && <p className="text-sm text-red-400">{errors.dropoff_location}</p>}
                     {dropoffAddressError && <p className="text-sm text-yellow-400">{dropoffAddressError}</p>}
-                  </div>
-                  
-                  {/* Drop-off Time - Added after dropoff location as per requirement */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-300">
-                      Drop-off Time (Optional)
-                    </label>
-                    <TimePicker24Hour
-                      value={formData.dropoff_time || ''}
-                      onChange={(value) => {
-                        console.log('[JobForm] Dropoff TimePicker onChange called with:', value);
-                        console.log('[JobForm] fieldsLocked:', fieldsLocked);
-                        // Only allow changes if fields are not locked
-                        if (!fieldsLocked) {
-                          handleInputChange('dropoff_time', value);
-                        } else {
-                          console.log('[JobForm] Dropoff time change blocked - fields are locked');
-                        }
-                      }}
-                      readOnly={fieldsLocked}
-                      className={fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}
-                    />
-                    {errors.dropoff_time && <p className="text-sm text-red-400">{errors.dropoff_time}</p>}
                   </div>
                 </div>
 
