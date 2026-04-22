@@ -140,13 +140,13 @@ export function getJobsPageTableColumns(
       ),
     },
     {
-      label: 'VEHICLE',
-      accessor: 'vehicle_name',
+      label: 'VEH. TYPE',
+      accessor: 'vehicle_type_name',
       filterable: true,
-      stringLabel: 'Vehicle',
+      stringLabel: 'Vehicle Type',
       width: '80px',
       filterWidth: '80px',
-      render: (job) => <HighlightedCell text={(job as ApiJob).vehicle_name || '—'} searchTerm={search} />,
+      render: (job) => <HighlightedCell text={(job as ApiJob).vehicle_type_name || '—'} searchTerm={search} />,
     },
     {
       label: 'VEH. NO.',
