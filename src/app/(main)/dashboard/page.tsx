@@ -23,8 +23,8 @@ import { TooltipProps } from "@/types/types";
 import { getDisplayTimezone } from "@/utils/timezoneUtils";
 import { useJobMonitoring } from "@/hooks/useJobMonitoring";
 import { getAlertSettings } from "@/services/api/settingsApi";
-import { getJobById } from "@/services/api/jobsApi";
-import { ApiJob } from "@/types/job";
+import { getDriverLeaves } from '@/services/api/driverLeaveApi';
+import type { DriverLeave } from '@/types/driverLeave';
 
 // Extended Job type for timeline visualization
 type TimelineJob = Job & {
@@ -299,104 +299,21 @@ export default function DashboardPage() {
 
   const pickupThreshold = alertSettingsData?.alert_settings?.pickup_threshold_minutes ?? 15;
 
-  // State for storing complete job details for priority alerts
-  const [priorityJobDetails, setPriorityJobDetails] = useState<Record<number, ApiJob | null>>({});
-  const [priorityJobsLoaded, setPriorityJobsLoaded] = useState(false);
-
   // Convert server-side alerts to priority alerts format
   const priorityAlerts: PriorityAlert[] = useMemo(() => {
-    if (!monitoringAlerts || monitoringAlerts.length === 0) {
-      return [];
-    }
-
+    if (!monitoringAlerts || monitoringAlerts.length === 0) return [];
     return monitoringAlerts
-      .filter(alert => !alert.dismissed) // Only active alerts
-      .map(alert => {
-        // Calculate isOverdue for severity - keep this even if elapsed text is hidden
-        const isOverdue = alert.elapsedTime > 0;
-        
-        // TEMPORARILY HIDDEN: Determine correct alert text based on elapsed time
-        // Positive elapsed time = overdue (pickup time has passed)
-        // Negative elapsed time = approaching (pickup time in future)
-        /*
-        let alertText = '';
-        
-        if (isOverdue) {
-          const elapsedMinutes = Math.floor(alert.elapsedTime);
-          const hours = Math.floor(elapsedMinutes / 60);
-          const minutes = elapsedMinutes % 60;
-          
-          if (hours > 0) {
-            alertText = `is ${hours}h ${minutes}m late`;
-          } else {
-            alertText = `is ${minutes}m late`;
-          }
-        } else {
-          const absElapsedMinutes = Math.abs(Math.floor(alert.elapsedTime));
-          const hours = Math.floor(absElapsedMinutes / 60);
-          const minutes = absElapsedMinutes % 60;
-          
-          if (hours >= 24) {
-            const days = Math.floor(hours / 24);
-            const remainingHours = hours % 24;
-            if (remainingHours > 0) {
-              alertText = `in ${days}d ${remainingHours}h`;
-            } else {
-              alertText = `in ${days}d`;
-            }
-          } else if (hours > 0) {
-            alertText = `in ${hours}h ${minutes}m`;
-          } else {
-            alertText = `in ${minutes}m`;
-          }
-        }
-        */
-        
-        // Use complete job details if available, otherwise fall back to monitoring alert data
-        const completeJobData = priorityJobDetails[alert.jobId];
-        
-        return {
-          text: `Job #${alert.jobId}`,  // TEMPORARILY: Hide delay message
-          link: `/jobs/${alert.jobId}`,
-          severity: isOverdue ? 'critical' : 'warning',
-          driverName: completeJobData?.driver?.name || alert.jobData?.driver?.name || alert.driverName || 'Unassigned',
-          driverId: completeJobData?.driver?.id || alert.jobData?.driver?.id || undefined,
-        };
-      });
-  }, [monitoringAlerts, priorityJobDetails]);
-
-  // Fetch complete job details for priority alerts
-  useEffect(() => {
-    if (priorityAlerts.length > 0 && !priorityJobsLoaded) {
-      // Extract job IDs from priority alerts
-      const jobIdsToFetch = priorityAlerts
-        .filter(alert => !priorityJobDetails[alert.link.replace('/jobs/', '')]) // Extract job ID from link
-        .map(alert => parseInt(alert.link.replace('/jobs/', ''), 10));
-      
-      if (jobIdsToFetch.length > 0) {
-        setPriorityJobsLoaded(true);
-        
-        // Fetch all job details in parallel
-        const promises = jobIdsToFetch.map(jobId => 
-          getJobById(jobId).catch(error => {
-            console.error(`Failed to fetch job details for job ${jobId}:`, error);
-            return null;
-          })
-        );
-        
-        Promise.all(promises).then(results => {
-          // Update priorityJobDetails with the fetched data
-          setPriorityJobDetails(prev => {
-            const newMap = { ...prev };
-            jobIdsToFetch.forEach((jobId, index) => {
-              newMap[jobId] = results[index];
-            });
-            return newMap;
-          });
-        });
-      }
-    }
-  }, [priorityAlerts, priorityJobsLoaded, priorityJobDetails]);
+      .filter(alert => !alert.dismissed)
+      .map(alert => ({
+        text: `Job #${alert.jobId}`,
+        link: `/jobs/${alert.jobId}`,
+        severity: alert.elapsedTime > 0 ? 'critical' : 'warning',
+        driverName: alert.driverName && alert.driverName !== 'Unassigned'
+          ? alert.driverName
+          : (alert.jobData?.driver?.name || 'Unassigned'),
+        driverId: alert.jobData?.driver?.id,
+      }));
+  }, [monitoringAlerts]);
   
   const { data: driversData, isLoading: driversLoading } = useGetAllDrivers();
 
@@ -872,6 +789,21 @@ export default function DashboardPage() {
 
   const isMobile = useMediaQuery({ maxWidth: 640 });
 
+  // --- Driver Holidays next 7 days ---
+  const { data: upcomingLeaves, isLoading: leavesLoading } = useQuery({
+    queryKey: ['driver-leaves', 'next-7-days'],
+    queryFn: () => {
+      const userTimezone = getDisplayTimezone();
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: userTimezone }));
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const nextWeek = new Date(today);
+      nextWeek.setDate(today.getDate() + 7);
+      const fmt = (d: Date) => d.toISOString().split('T')[0];
+      return getDriverLeaves({ start_date: fmt(today), end_date: fmt(nextWeek), active_only: true });
+    },
+    select: (data) => (Array.isArray(data) ? data : []),
+  });
+
   const filteredServiceTypeData = serviceTypeData.filter(item => item.value > 0);
 
   const filteredJobStatusData = (() => {
@@ -917,55 +849,168 @@ export default function DashboardPage() {
 
         {/* Top KPI Ribbon */}
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 mb-8 px-4 sm:px-6 lg:px-8 w-full">
-          {jobsLoading ? (
-            Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-8 px-4 sm:px-6 lg:px-8 w-full">
+          {jobsLoading || leavesLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
               <Card key={i} className="h-32 animate-pulse bg-background-light mx-2" />
             ))
           ) : jobsError ? (
             <Card className="col-span-full text-center text-red-400">Failed to load data.</Card>
           ) : (
             <>
+              {/* Card 1: Priority Alerts */}
               <div><PriorityDashboard alerts={priorityAlerts} /></div>
-              <Card className="flex flex-col justify-center p-4 sm:p-5 md:p-6 min-h-[8rem] shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300">
-                {kpiStats.inProgress.value === 0 ? (
-                  <EmptyState
-                    message="No jobs in progress today"
-                    icon={<CalendarIcon className="w-6 h-6" />}
-                  />
-                ) : (
-                  <KpiCard title="Jobs In Progress" value={kpiStats.inProgress.value} trendData={kpiStats.inProgress.trendData} previousValue={kpiStats.inProgress.trendData[0]?.value} />
-                )}
+
+              {/* Card 2: Today's Job Status + Pending Invoices */}
+              <Card className="flex flex-col justify-center p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300 gap-4 h-full">
+                {/* Row 1: Today's Job Status */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CalendarIcon className="w-4 h-4 text-gray-400" />
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Today's Job Status</span>
+                  </div>
+                  <div className="grid grid-cols-3 divide-x divide-gray-700">
+                    {/* In Progress */}
+                    <div className="flex flex-col items-center gap-1 pr-4">
+                      <span className="text-2xl sm:text-3xl font-extrabold text-white drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]">
+                        {kpiStats.inProgress.value}
+                      </span>
+                      <span className="text-[10px] sm:text-xs text-gray-400 text-center leading-tight">In Progress</span>
+                      {kpiStats.inProgress.trendData[0]?.value !== undefined && kpiStats.inProgress.value !== kpiStats.inProgress.trendData[0]?.value && (
+                        <div className="flex items-center gap-0.5">
+                          {kpiStats.inProgress.value > kpiStats.inProgress.trendData[0].value
+                            ? <HiArrowUp className="w-2.5 h-2.5 text-green-400" />
+                            : <HiArrowDown className="w-2.5 h-2.5 text-red-400" />}
+                          <span className={`text-[10px] font-medium ${kpiStats.inProgress.value > kpiStats.inProgress.trendData[0].value ? 'text-green-400' : 'text-red-400'}`}>
+                            {Math.abs(((kpiStats.inProgress.value - kpiStats.inProgress.trendData[0].value) / Math.max(kpiStats.inProgress.trendData[0].value, 1)) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Completed */}
+                    <div className="flex flex-col items-center gap-1 px-4">
+                      <span className="text-2xl sm:text-3xl font-extrabold text-white drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]">
+                        {kpiStats.jobsCompleted.value}
+                      </span>
+                      <span className="text-[10px] sm:text-xs text-gray-400 text-center leading-tight">Completed</span>
+                      {kpiStats.todaysScheduled.value > 0 && (
+                        <span className="text-[10px] text-gray-500">
+                          of {kpiStats.todaysScheduled.value}
+                        </span>
+                      )}
+                    </div>
+                    {/* Unassigned */}
+                    <div className="flex flex-col items-center gap-1 pl-4">
+                      <span className={`text-2xl sm:text-3xl font-extrabold drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] ${
+                        kpiStats.unassignedJobs.value > 0 ? 'text-yellow-400' : 'text-white'
+                      }`}>
+                        {kpiStats.unassignedJobs.value}
+                      </span>
+                      <span className="text-[10px] sm:text-xs text-gray-400 text-center leading-tight">Unassigned</span>
+                      {kpiStats.unassignedJobs.value > 0 && (
+                        <span className="text-[10px] text-yellow-500 font-medium">Needs attention</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-700" />
+
+                {/* Row 2: Pending Invoices */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CurrencyDollarIcon className="w-4 h-4 text-gray-400" />
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Pending Invoices</span>
+                  </div>
+                  {kpiStats.pendingInvoices.value === 0 ? (
+                    <p className="text-sm text-gray-500">No pending invoices</p>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl sm:text-3xl font-extrabold text-white drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]">
+                        {kpiStats.pendingInvoices.value}
+                      </span>
+                      {kpiStats.pendingInvoices.trendData[0]?.value !== undefined && kpiStats.pendingInvoices.value !== kpiStats.pendingInvoices.trendData[0]?.value && (
+                        <div className="flex items-center gap-0.5">
+                          {kpiStats.pendingInvoices.value > kpiStats.pendingInvoices.trendData[0].value
+                            ? <HiArrowUp className="w-3 h-3 text-red-400" />
+                            : <HiArrowDown className="w-3 h-3 text-green-400" />}
+                          <span className={`text-xs font-medium ${kpiStats.pendingInvoices.value > kpiStats.pendingInvoices.trendData[0].value ? 'text-red-400' : 'text-green-400'}`}>
+                            {Math.abs(((kpiStats.pendingInvoices.value - kpiStats.pendingInvoices.trendData[0].value) / Math.max(kpiStats.pendingInvoices.trendData[0].value, 1)) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </Card>
-              <Card className="flex flex-col items-center justify-center p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300">
-                {kpiStats.jobsCompleted.value === 0 ? (
-                  <EmptyState
-                    message="No jobs completed today"
-                    icon={<CheckCircleIcon className="w-6 h-6" />}
-                  />
+
+              {/* Card 4: Drivers on Holiday — next 7 days */}
+              <Card className="flex flex-col p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300 h-full">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-5 bg-gradient-to-b from-purple-400 to-purple-600 rounded-full" />
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">On Holiday</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 bg-purple-600/20 text-purple-300 rounded-full border border-purple-600/30 font-medium">
+                    Next 7 days
+                  </span>
+                </div>
+
+                {!upcomingLeaves || upcomingLeaves.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center flex-1 text-slate-400 py-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 mb-2 opacity-30" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-xs font-medium text-center">All drivers available</p>
+                  </div>
                 ) : (
-                  <KpiCard title="Jobs Completed" value={kpiStats.jobsCompleted.value} trendData={kpiStats.jobsCompleted.trendData} previousValue={kpiStats.jobsCompleted.trendData[0]?.value} targetValue={kpiStats.todaysScheduled.value} />
+                  <div className="flex flex-col gap-1.5 overflow-y-auto max-h-36 pr-0.5">
+                    {(upcomingLeaves ?? []).map((leave: DriverLeave) => {
+                      const LEAVE_TYPE_COLORS: Record<string, { dot: string; text: string }> = {
+                        sick_leave: { dot: 'bg-red-400',    text: 'text-red-300' },
+                        vacation:   { dot: 'bg-blue-400',   text: 'text-blue-300' },
+                        personal:   { dot: 'bg-purple-400', text: 'text-purple-300' },
+                        emergency:  { dot: 'bg-orange-400', text: 'text-orange-300' },
+                      };
+                      const LEAVE_TYPE_LABELS: Record<string, string> = {
+                        sick_leave: 'Sick', vacation: 'Vacation', personal: 'Personal', emergency: 'Emergency',
+                      };
+                      const colors = LEAVE_TYPE_COLORS[leave.leave_type] ?? { dot: 'bg-slate-400', text: 'text-slate-300' };
+                      const driverName = (leave as any).driver?.name ?? `Driver #${leave.driver_id}`;
+                      const startFmt = new Date(leave.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      const endFmt   = new Date(leave.end_date   + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      const isSameDay = leave.start_date === leave.end_date;
+                      return (
+                        <div
+                          key={leave.id}
+                          className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 cursor-pointer transition-colors"
+                          onClick={() => router.push('/drivers/leave/history')}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${colors.dot}`} />
+                            <span className="text-white text-xs font-medium truncate">{driverName}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className={`text-[10px] font-medium ${colors.text}`}>
+                              {LEAVE_TYPE_LABELS[leave.leave_type] ?? leave.leave_type}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {isSameDay ? startFmt : `${startFmt}–${endFmt}`}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-              </Card>
-              <Card className="flex flex-col items-center justify-center p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300">
-                {kpiStats.unassignedJobs.value === 0 ? (
-                  <EmptyState
-                    message="No unassigned jobs"
-                    icon={<UserGroupIcon className="w-6 h-6" />}
-                  />
-                ) : (
-                  <KpiCard title="Unassigned Jobs" value={kpiStats.unassignedJobs.value} trendData={kpiStats.unassignedJobs.trendData} previousValue={kpiStats.unassignedJobs.trendData[0]?.value} />
-                )}
-              </Card>
-              <Card className="flex flex-col items-center justify-center p-4 sm:p-5 md:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark hover:shadow-2xl transition-all duration-300">
-                {kpiStats.pendingInvoices.value === 0 ? (
-                  <EmptyState
-                    message="No pending invoices"
-                    icon={<CurrencyDollarIcon className="w-6 h-6" />}
-                  />
-                ) : (
-                  <KpiCard title="Pending Invoices" value={kpiStats.pendingInvoices.value} trendData={kpiStats.pendingInvoices.trendData} previousValue={kpiStats.pendingInvoices.trendData[0]?.value} />
-                )}
+
+                <button
+                  onClick={() => router.push('/drivers/leave/history')}
+                  className="mt-3 text-[10px] text-purple-400 hover:text-purple-300 transition-colors text-center w-full"
+                >
+                  Manage Leaves →
+                </button>
               </Card>
             </>
           )}

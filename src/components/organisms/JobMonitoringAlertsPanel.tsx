@@ -8,8 +8,6 @@ import {
   UserIcon,
 } from "@heroicons/react/24/outline";
 import JobDetailsModal from './JobDetailsModal';
-import { getJobById } from '@/services/api/jobsApi';
-import { ApiJob } from '@/types/job';
 import { getDisplayTimezone } from '@/utils/timezoneUtils';
 
 // Helper function to format pickup time - handles both display timezone time and UTC ISO formats
@@ -88,49 +86,14 @@ const JobMonitoringAlertsPanel = () => {
   const [isJobDetailsModalOpen, setIsJobDetailsModalOpen] = useState(false);
   const [startingTripAlerts, setStartingTripAlerts] = useState<Set<number>>(new Set());
   const [dismissingAlerts, setDismissingAlerts] = useState<Set<number>>(new Set());
-  const [jobDetailsMap, setJobDetailsMap] = useState<Record<number, ApiJob | null>>({});
-  const [loadingJobs, setLoadingJobs] = useState<Set<number>>(new Set());
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [jobDetailsMap] = useState<Record<number, ApiJob | null>>({});
 
   // Optimize filtering to avoid repeated calculations
   const activeAlerts = useMemo(() => {
     return alerts.filter(alert => !alert.dismissed);
   }, [alerts]);
 
-  // Fetch complete job details for all alerts on initial load
-  useEffect(() => {
-    if (activeAlerts.length > 0 && !initialLoadComplete) {
-      const fetchAllJobDetails = async () => {
-        setInitialLoadComplete(true);
-        const jobIdsToFetch = activeAlerts
-          .filter(alert => !jobDetailsMap[alert.jobId])
-          .map(alert => alert.jobId);
-        
-        if (jobIdsToFetch.length > 0) {
-          // Fetch all job details in parallel
-          const promises = jobIdsToFetch.map(jobId => 
-            getJobById(jobId).catch(error => {
-              console.error(`Failed to fetch job details for job ${jobId}:`, error);
-              return null;
-            })
-          );
-          
-          const results = await Promise.all(promises);
-          
-          // Update jobDetailsMap with the fetched data
-          setJobDetailsMap(prev => {
-            const newMap = { ...prev };
-            jobIdsToFetch.forEach((jobId, index) => {
-              newMap[jobId] = results[index];
-            });
-            return newMap;
-          });
-        }
-      };
-      
-      fetchAllJobDetails();
-    }
-  }, [activeAlerts, initialLoadComplete, jobDetailsMap]);
+  // Driver names come directly from alert data — no extra getJobById calls needed
 
   // Check if visual alerts are enabled (default to true if not specified)
   const visualAlertsEnabled = alertSettings?.alert_settings?.enable_visual_alerts ?? true;
@@ -195,20 +158,17 @@ const JobMonitoringAlertsPanel = () => {
 
   return (
     <>
-      <div className="col-span-full sm:col-span-3 px-2 sm:px-4 md:px-6 lg:px-8">
-        <div className="bg-gray-800/60 border border-gray-700 rounded-lg sm:rounded-2xl p-3 sm:p-4 md:p-5 shadow-xl">
+      <div className="col-span-full sm:col-span-3">
+        <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-gray-700 rounded-2xl p-4 sm:p-6 lg:p-8 shadow-2xl">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3 sm:mb-4 md:mb-5">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <span className="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-red-500"></span>
-            </span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-1 h-8 bg-gradient-to-b from-red-400 to-red-600 rounded-full"></div>
             <div>
-              <h3 className="text-base sm:text-lg font-semibold text-white">
+              <h3 className="text-xl sm:text-2xl font-bold text-white">
                 Active Monitoring Alerts
               </h3>
-              <p className="text-xs sm:text-xs text-gray-400">
+              <p className="text-xs sm:text-sm text-gray-400">
                 Jobs requiring immediate attention
               </p>
             </div>
@@ -251,14 +211,7 @@ const JobMonitoringAlertsPanel = () => {
 
                         <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
                           <UserIcon className="h-4 w-4 text-gray-500" />
-                          <span className="truncate">{
-                            /* Use driver name from fetched job details if available, otherwise fall back to monitoring alert data */
-                            jobDetailsMap[alert.jobId]?.driver?.name 
-                              ? jobDetailsMap[alert.jobId]?.driver?.name
-                              : (alert.driverName && alert.driverName !== 'Unassigned' 
-                                  ? alert.driverName 
-                                  : (alert.jobData?.driver?.name || 'Unassigned'))
-                          }</span>
+                          <span className="truncate">{alert.driverName && alert.driverName !== 'Unassigned' ? alert.driverName : (alert.jobData?.driver?.name || 'Unassigned')}</span>
                         </div>
                       </div>
 
