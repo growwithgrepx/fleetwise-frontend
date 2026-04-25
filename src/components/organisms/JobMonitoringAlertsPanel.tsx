@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useJobMonitoring } from "@/hooks/useJobMonitoring";
 import { useUser } from '@/context/UserContext';
 import {
@@ -86,14 +86,11 @@ const JobMonitoringAlertsPanel = () => {
   const [isJobDetailsModalOpen, setIsJobDetailsModalOpen] = useState(false);
   const [startingTripAlerts, setStartingTripAlerts] = useState<Set<number>>(new Set());
   const [dismissingAlerts, setDismissingAlerts] = useState<Set<number>>(new Set());
-  const [jobDetailsMap] = useState<Record<number, ApiJob | null>>({});
 
   // Optimize filtering to avoid repeated calculations
   const activeAlerts = useMemo(() => {
     return alerts.filter(alert => !alert.dismissed);
   }, [alerts]);
-
-  // Driver names come directly from alert data — no extra getJobById calls needed
 
   // Check if visual alerts are enabled (default to true if not specified)
   const visualAlertsEnabled = alertSettings?.alert_settings?.enable_visual_alerts ?? true;
