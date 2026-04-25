@@ -3646,9 +3646,14 @@ if (!driverExists) {
                     )}
                     {formData.pickup_time && customerMidnightSurchargePricing && (
                       <p className="text-xs text-gray-400">
-                        {formData.midnight_surcharge > 0
-                          ? `Applied (Pickup time ${formData.pickup_time})`
-                          : `Pickup time ${formData.pickup_time} is outside 23:00-06:59`}
+                        {(() => {
+                          const mins = parseTimeToMinutes(formData.pickup_time);
+                          const inRange = mins !== null &&
+                            ((mins >= 23 * 60) || (mins <= 6 * 60 + 59));
+                          return inRange
+                            ? `Applied (Pickup time ${formData.pickup_time})`
+                            : `Pickup time ${formData.pickup_time} is outside 23:00-06:59`;
+                        })()}
                       </p>
                     )}
                   </div>
