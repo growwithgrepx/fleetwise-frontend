@@ -203,18 +203,29 @@ export const useJobMonitoringStore = create<JobMonitoringState>((set, get) => ({
         console.debug('[JobMonitoringStore] Dismissed values in new alerts:', newAlerts.map(a => ({ id: a.id, dismissed: a.dismissed, jobId: a.jobId })));
       }
       
-      // Always update with fresh data from API - don't preserve old dismissed state
+      // Build a set of alert IDs that were locally dismissed (but API may not have caught up yet)
+      const locallyDismissedIds = new Set(
+        state.alerts.filter(a => a.dismissed).map(a => a.id)
+      );
+
+      // Merge: if the API says active but we already dismissed it locally, keep it dismissed
+      let mergedAlerts = newAlerts.map(alert => {
+        if (!alert.dismissed && locallyDismissedIds.has(alert.id)) {
+          return { ...alert, dismissed: true };
+        }
+        return alert;
+      });
+
       // Validate and limit incoming alerts
-      let validatedAlerts = newAlerts;
-      if (newAlerts.length > MAX_ALERTS) {
-        validatedAlerts = [...newAlerts]
+      if (mergedAlerts.length > MAX_ALERTS) {
+        mergedAlerts = [...mergedAlerts]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, MAX_ALERTS);
       }
       
-      const unreadCount = validatedAlerts.filter(alert => !alert.dismissed).length;
+      const unreadCount = mergedAlerts.filter(alert => !alert.dismissed).length;
       
-      return { alerts: validatedAlerts, unreadCount };
+      return { alerts: mergedAlerts, unreadCount };
     });
   },
 }));
