@@ -984,10 +984,12 @@ if (!driverExists) {
         vehicle_type: vehicleTypeName,
         dropoff_time: displayDropoffTime || prev.dropoff_time,
       }));
-      // When loading an existing job, assume dropoff time was manually set (not auto-calculated)
-      // unless we have specific logic to determine if it was auto-calculated previously
+      // When loading an existing job, mark dropoff as NOT auto-calculated so the
+      // auto-calc effect never overwrites the DB value on initial load.
+      // userHasManuallyChangedDropoff stays false — it only becomes true when the
+      // user actively edits the dropoff time field in the current session.
       setDropoffTimeAutoCalculated(false);
-      userHasManuallyChangedDropoff.current = false; // Reset the manual change flag when loading a job
+      userHasManuallyChangedDropoff.current = false;
   setUserModifiedPricing(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1644,6 +1646,15 @@ if (!driverExists) {
     }
     
     // Track when user manually changes dropoff time
+    if (field === 'pickup_time' && value && !job?.id) {
+      // For new jobs, when pickup time changes reset dropoff to allow auto-calculation
+      setDropoffTimeAutoCalculated(true);
+    }
+    if (field === 'pickup_time' && value && job?.id) {
+      // For existing jobs, when user explicitly changes pickup time, allow dropoff to be recalculated
+      setDropoffTimeAutoCalculated(true);
+      userHasManuallyChangedDropoff.current = false;
+    }
     if (field === 'dropoff_time' && value) {
       // User has manually set the dropoff time, so mark it as not auto-calculated
       setDropoffTimeAutoCalculated(false);
@@ -2113,17 +2124,26 @@ if (!driverExists) {
     }
   }, [contractorPricing, formData.contractor_id, formData.service_type, formData.service_id, userModifiedPricing, job, refetchPricing]);
 
-  // Auto-calculate default dropoff time (pickup_time + 45 minutes)
+  // Auto-calculate default dropoff time (pickup_time + 60 minutes)
   useEffect(() => {
     // Auto-calculate dropoff time when pickup time changes
     // Only auto-calculate if:
     // 1. pickup_time is set
-    // 2. dropoff_time is empty OR was previously auto-calculated (respect manual input)
-    // 3. OR we're editing a job and the dropoff time hasn't been manually changed yet in this session
+    // 2. For NEW jobs: dropoff_time is empty OR was previously auto-calculated
+    // 3. For EXISTING jobs: only if the user has manually changed the pickup time
+    //    in this session (dropoffTimeAutoCalculated tracks this)
     const isEditing = Boolean(job && job.id);
-    const shouldAutoCalculate = formData.pickup_time && 
-                                (!formData.dropoff_time || dropoffTimeAutoCalculated || 
-                                 (isEditing && !userHasManuallyChangedDropoff.current));
+    const shouldAutoCalculate = formData.pickup_time &&
+                                (!isEditing
+                                  // New job: auto-calc if no dropoff or previously auto-calculated
+                                  ? (!formData.dropoff_time || dropoffTimeAutoCalculated)
+                                  // Existing job: ONLY auto-calc if user explicitly changed pickup
+                                  //   time in this session (userHasManuallyChangedDropoff tracks
+                                  //   the dropoff side; for pickup we rely on dropoffTimeAutoCalculated
+                                  //   being set to true when the user edits pickup time)
+                                  : dropoffTimeAutoCalculated && userHasManuallyChangedDropoff.current === false && !formData.dropoff_time
+                                    ? false  // job loaded without dropoff_time — still don't auto-calc
+                                    : dropoffTimeAutoCalculated);
     
     if (shouldAutoCalculate) {
       try {
