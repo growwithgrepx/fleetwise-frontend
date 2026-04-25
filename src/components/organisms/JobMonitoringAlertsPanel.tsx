@@ -2,90 +2,20 @@ import React, { useState, useMemo } from "react";
 import { useJobMonitoring } from "@/hooks/useJobMonitoring";
 import { useUser } from '@/context/UserContext';
 import {
-  ChevronDownIcon,
-  ChevronUpIcon,
   ClockIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
 import JobDetailsModal from './JobDetailsModal';
-import { getDisplayTimezone } from '@/utils/timezoneUtils';
-
-// Helper function to format pickup time - handles both display timezone time and UTC ISO formats
-const formatPickupTimeInDisplayTimezone = (pickupTimeValue: string, displayTimezone: string): string => {
-  try {
-    // Check if it's a UTC ISO string (contains 'T' and 'Z')
-    if (pickupTimeValue.includes('T') && pickupTimeValue.includes('Z')) {
-      // Parse UTC ISO string (e.g., "2026-03-01T00:20Z")
-      const date = new Date(pickupTimeValue);
-      
-      // Format using Intl API with the display timezone
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: displayTimezone,
-      });
-      
-      const parts = formatter.formatToParts(date);
-      const year = parts.find(p => p.type === 'year')?.value;
-      const month = parts.find(p => p.type === 'month')?.value;
-      const day = parts.find(p => p.type === 'day')?.value;
-      const hour = parts.find(p => p.type === 'hour')?.value;
-      const minute = parts.find(p => p.type === 'minute')?.value;
-      
-      return `${year}-${month}-${day}, ${hour}:${minute}`;
-    } else if (pickupTimeValue.match(/^\d{4}-\d{2}-\d{2}, \d{2}:\d{2}$/)) {
-      // If it's already in format "YYYY-MM-DD, HH:MM", extract date and time parts separately
-      // and use the same conversion method as in normalizeJobForDisplay
-      const [datePart, timePart] = pickupTimeValue.split(', ');
-      
-      // API already returns time in display timezone - use as-is
-      // No conversion needed
-      return `${datePart}, ${timePart}`;
-    } else if (pickupTimeValue.match(/^\d{2}:\d{2}$/)) {
-      // If it's just a time format "HH:MM", we need to combine with today's date to properly convert
-      const [hour, minute] = pickupTimeValue.split(':').map(Number);
-      
-      // Since we only have time without date, we need to make assumptions.
-      // The safest approach is to treat it as a time that needs proper timezone handling
-      // For this case, we'll construct a date with the current date to allow timezone conversion
-      const now = new Date();
-      const dateWithTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
-      
-      // Format using Intl API with the display timezone
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: displayTimezone,
-      });
-      
-      return formatter.format(dateWithTime);
-    } else {
-      // Display timezone time format (e.g., "20:20" or "2026-03-01, 20:20")
-      return pickupTimeValue;
-    }
-  } catch (error) {
-    console.error('[JobMonitoringAlertsPanel] Error formatting pickup time:', error);
-    // Fallback: just return the value as-is
-    return pickupTimeValue;
-  }
-};
 
 const JobMonitoringAlertsPanel = () => {
   const { alerts, startTrip, dismissAlert, isLoading: alertsLoading, error: alertsError, alertSettings } = useJobMonitoring();
   const { isLoggedIn, isLoading: userLoading } = useUser();
 
-  const [expandedAlerts, setExpandedAlerts] = useState<Record<number, boolean>>(
-    {}
-  );
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [isJobDetailsModalOpen, setIsJobDetailsModalOpen] = useState(false);
   const [startingTripAlerts, setStartingTripAlerts] = useState<Set<number>>(new Set());
   const [dismissingAlerts, setDismissingAlerts] = useState<Set<number>>(new Set());
+  const [confirmAction, setConfirmAction] = useState<{ type: 'start' | 'dismiss'; alertId: number; jobId: number } | null>(null);
 
   // Optimize filtering to avoid repeated calculations
   const activeAlerts = useMemo(() => {
@@ -156,9 +86,9 @@ const JobMonitoringAlertsPanel = () => {
   return (
     <>
       <div className="col-span-full sm:col-span-3">
-        <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-gray-700 rounded-2xl p-4 sm:p-6 lg:p-8 shadow-2xl">
+        <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm border border-gray-700 rounded-2xl p-3 sm:p-4 lg:p-5 shadow-2xl">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3 sm:mb-4">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-1 h-8 bg-gradient-to-b from-red-400 to-red-600 rounded-full"></div>
             <div>
@@ -179,126 +109,90 @@ const JobMonitoringAlertsPanel = () => {
         {/* Alerts */}
         {activeAlerts && activeAlerts.length > 0 ? (
           <div className="max-h-[300px] sm:max-h-[350px] md:max-h-[410px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800/30">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
               {activeAlerts.map((alert) => {
-                const elapsed = Math.floor(alert.elapsedTime);
+                const isOverdue = alert.elapsedTime > 0;
+                const driverName = alert.driverName && alert.driverName !== 'Unassigned'
+                  ? alert.driverName
+                  : (alert.jobData?.driver?.name || 'Unassigned');
+                const custName = alert.jobData?.customer?.name || alert.jobData?.customer_name || '—';
+                const paxName = alert.jobData?.passenger_name || alert.passengerDetails || '—';
 
                 return (
                   <div
                     key={alert.id}
-                    className="rounded-lg sm:rounded-xl border border-gray-700 bg-gray-900/40 hover:bg-gray-900/60 transition-colors p-3 sm:p-4"
+                    className={`relative rounded-xl border overflow-hidden transition-all duration-200 hover:shadow-lg hover:scale-[1.01] ${
+                      isOverdue
+                        ? 'border-red-500/40 bg-gradient-to-br from-red-950/60 to-gray-900/80 shadow-red-900/20'
+                        : 'border-amber-500/30 bg-gradient-to-br from-amber-950/40 to-gray-900/80 shadow-amber-900/10'
+                    } shadow-md`}
                   >
-                    {/* Top Row */}
-                    <div className="flex items-start justify-between gap-2 sm:gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-white font-semibold text-sm sm:text-base">
-                            Job #{alert.jobId}
-                          </span>
+                    {/* Top accent bar */}
+                    <div className={`h-0.5 w-full ${isOverdue ? 'bg-gradient-to-r from-red-500 to-red-400' : 'bg-gradient-to-r from-amber-500 to-yellow-400'}`} />
 
-                          {/* TEMPORARILY HIDDEN: Elapsed time display */}
-                          {/* <span
-                            className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full ${getTimingTagStyle(
-                              elapsed
-                            )}`}
-                          >
-                            {formatElapsedTime(elapsed)}
-                          </span> */}
+                    <div className="p-2.5 flex gap-2">
+                      {/* Left: info */}
+                      <div className="flex-1 min-w-0">
+                        {/* Job ID + status dot */}
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isOverdue ? 'bg-red-400 animate-pulse' : 'bg-amber-400 animate-pulse'}`} />
+                          <span className="text-white font-bold text-xs tracking-wide">Job #{alert.jobId}</span>
+                          <span className={`ml-auto text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            isOverdue ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          }`}>
+                            {isOverdue ? 'OVERDUE' : 'UPCOMING'}
+                          </span>
                         </div>
 
-                        <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
-                          <UserIcon className="h-4 w-4 text-gray-500" />
-                          <span className="truncate">{alert.driverName && alert.driverName !== 'Unassigned' ? alert.driverName : (alert.jobData?.driver?.name || 'Unassigned')}</span>
+                        {/* Driver + time row */}
+                        <div className="flex items-center gap-1 text-[10px] text-gray-400 mb-0.5">
+                          <UserIcon className="h-2.5 w-2.5 text-gray-500 flex-shrink-0" />
+                          <span className="truncate font-medium text-gray-300">{driverName}</span>
+                          {alert.pickupTime && (
+                            <>
+                              <span className="text-gray-600 mx-0.5">·</span>
+                              <ClockIcon className="h-2.5 w-2.5 text-gray-500 flex-shrink-0" />
+                              <span className="whitespace-nowrap text-gray-400">{alert.pickupTime}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Customer */}
+                        <div className="text-[10px] truncate">
+                          <span className="text-gray-600">Cust: </span>
+                          <span className="text-gray-300">{custName}</span>
+                        </div>
+
+                        {/* Passenger */}
+                        <div className="text-[10px] truncate">
+                          <span className="text-gray-600">Pax: </span>
+                          <span className="text-gray-300">{paxName}</span>
                         </div>
                       </div>
 
-                      {/* Expand Button */}
-                      <button
-                        onClick={() => toggleExpand(alert.id)}
-                        className="p-1 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700/40 transition"
-                        aria-label={expandedAlerts[alert.id] ? "Collapse" : "Expand"}
-                      >
-                        {expandedAlerts[alert.id] ? (
-                          <ChevronUpIcon className="h-5 w-5" />
-                        ) : (
-                          <ChevronDownIcon className="h-5 w-5" />
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Expanded Info */}
-                    {expandedAlerts[alert.id] && (
-                      <div className="mt-3 pt-3 border-t border-gray-700 text-sm space-y-2">
-                        <div className="flex items-center gap-2 text-gray-300">
-                          <ClockIcon className="h-4 w-4 text-gray-500" />
-                          <span className="text-gray-400">Pickup:</span>
-                          <span className="ml-auto text-gray-200">
-                            {alert.pickupDate ? formatPickupTimeInDisplayTimezone(`${alert.pickupDate}, ${alert.pickupTime}`, getDisplayTimezone()) : formatPickupTimeInDisplayTimezone(alert.pickupTime, getDisplayTimezone())}
-                          </span>
-                        </div>
-
-                        <div className="text-gray-300">
-                          <span className="text-gray-400">Passenger:</span>{" "}
-                          <span className="text-gray-200">
-                            {alert.passengerDetails || alert.jobData?.customer?.name || alert.jobData?.customer_name || 'Not assigned'}
-                          </span>
-                        </div>
+                      {/* Right: stacked buttons */}
+                      <div className="flex flex-col gap-1 flex-shrink-0 justify-between">
+                        <button
+                          onClick={() => { setSelectedJobId(alert.jobId); setIsJobDetailsModalOpen(true); }}
+                          className="text-[10px] bg-blue-600/80 hover:bg-blue-500 text-white px-2 py-1 rounded-md transition font-semibold leading-none border border-blue-500/30"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => setConfirmAction({ type: 'start', alertId: alert.id, jobId: alert.jobId })}
+                          disabled={startingTripAlerts.has(alert.id)}
+                          className="text-[10px] bg-emerald-600/80 hover:bg-emerald-500 text-white px-2 py-1 rounded-md transition font-semibold leading-none border border-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {startingTripAlerts.has(alert.id) ? '⋯' : 'Start'}
+                        </button>
+                        <button
+                          onClick={() => setConfirmAction({ type: 'dismiss', alertId: alert.id, jobId: alert.jobId })}
+                          disabled={dismissingAlerts.has(alert.id)}
+                          className="text-[10px] bg-red-600/80 hover:bg-red-500 text-white px-2 py-1 rounded-md transition font-semibold leading-none border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ✕
+                        </button>
                       </div>
-                    )}
-
-                    {/* Action Buttons (bottom row) */}
-                    <div className="mt-4 flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedJobId(alert.jobId);
-                          setIsJobDetailsModalOpen(true);
-                        }}
-                        className="flex-1 text-xs sm:text-sm bg-blue-600/90 hover:bg-blue-600 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition font-medium"
-                        title="View Job Details"
-                      >
-                        View Details
-                      </button>
-
-                      <button
-                        onClick={async () => {
-                          setStartingTripAlerts(prev => new Set(prev).add(alert.id));
-                          try {
-                            await startTrip(alert.jobId);
-                          } finally {
-                            setStartingTripAlerts(prev => {
-                              const newSet = new Set(prev);
-                              newSet.delete(alert.id);
-                              return newSet;
-                            });
-                          }
-                        }}
-                        disabled={startingTripAlerts.has(alert.id)}
-                        className="flex-1 text-xs sm:text-sm bg-green-600/90 hover:bg-green-600 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {startingTripAlerts.has(alert.id) ? "Starting..." : "Start Trip"}
-                      </button>
-
-                      <button
-                        onClick={async () => {
-                          setDismissingAlerts(prev => new Set(prev).add(alert.id));
-                          try {
-                            await dismissAlert(alert.id);
-                          } catch (error) {
-                            console.error('Error dismissing alert:', error);
-                          } finally {
-                            setDismissingAlerts(prev => {
-                              const newSet = new Set(prev);
-                              newSet.delete(alert.id);
-                              return newSet;
-                            });
-                          }
-                        }}
-                        disabled={dismissingAlerts.has(alert.id)}
-                        className="text-xs sm:text-sm bg-red-600/90 hover:bg-red-600 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Dismiss Alert"
-                      >
-                        ✕
-                      </button>
                     </div>
                   </div>
                 );
@@ -312,6 +206,60 @@ const JobMonitoringAlertsPanel = () => {
         )}
       </div>
     </div>
+
+    {/* Confirmation dialog */}
+    {confirmAction && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-2xl w-80 mx-4">
+          <h3 className="text-white font-bold text-lg mb-2">
+            {confirmAction.type === 'start' ? 'Start Trip?' : 'Dismiss Alert?'}
+          </h3>
+          <p className="text-gray-400 text-sm mb-5">
+            {confirmAction.type === 'start'
+              ? `Are you sure you want to start the trip for Job #${confirmAction.jobId}?`
+              : `Are you sure you want to dismiss the alert for Job #${confirmAction.jobId}?`}
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setConfirmAction(null)}
+              className="flex-1 px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 text-gray-200 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                const action = confirmAction;
+                setConfirmAction(null);
+                if (action.type === 'start') {
+                  setStartingTripAlerts(prev => new Set(prev).add(action.alertId));
+                  try {
+                    await startTrip(action.jobId);
+                  } finally {
+                    setStartingTripAlerts(prev => { const s = new Set(prev); s.delete(action.alertId); return s; });
+                  }
+                } else {
+                  setDismissingAlerts(prev => new Set(prev).add(action.alertId));
+                  try {
+                    await dismissAlert(action.alertId);
+                  } catch (error) {
+                    console.error('Error dismissing alert:', error);
+                  } finally {
+                    setDismissingAlerts(prev => { const s = new Set(prev); s.delete(action.alertId); return s; });
+                  }
+                }
+              }}
+              className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium text-white transition ${
+                confirmAction.type === 'start'
+                  ? 'bg-green-600 hover:bg-green-500'
+                  : 'bg-red-600 hover:bg-red-500'
+              }`}
+            >
+              {confirmAction.type === 'start' ? 'Yes, Start' : 'Yes, Dismiss'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     
     {isJobDetailsModalOpen && (
       <JobDetailsModal

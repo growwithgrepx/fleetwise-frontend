@@ -876,7 +876,7 @@ export default function DashboardPage() {
 
         {/* Top KPI Ribbon */}
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-8 px-4 sm:px-6 lg:px-8 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-4 px-4 sm:px-6 lg:px-8 w-full">
           {jobsLoading || leavesLoading ? (
             Array.from({ length: 3 }).map((_, i) => (
               <Card key={i} className="h-32 animate-pulse bg-background-light mx-2" />
@@ -1044,8 +1044,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Job Monitoring Alerts Panel - Positioned above Today's Jobs Timeline */}
-        <div className="mb-8">
-          <div className="grid grid-cols-1 gap-6 sm:gap-8 w-full">
+        <div className="mb-4">
+          <div className="grid grid-cols-1 w-full">
             <div className="flex flex-col px-4 sm:px-6 lg:px-8">
               <JobMonitoringAlertsPanel />
             </div>
@@ -1057,7 +1057,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="grid grid-cols-1 gap-6 sm:gap-8 mb-4 w-full"
+          className="grid grid-cols-1 gap-6 sm:gap-8 mb-6 w-full"
         >
           <div className="flex flex-col px-4 sm:px-6 lg:px-8">
             <Card className="p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-700 bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm min-h-[32rem] flex flex-col overflow-visible">
@@ -1334,7 +1334,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="grid grid-cols-1 gap-6 sm:gap-8 mb-8 w-full"
+          className="grid grid-cols-1 gap-6 sm:gap-8 mb-4 w-full"
         >
           <div className="flex flex-col px-4 sm:px-6 lg:px-8">
             <Card className="p-4 sm:p-6 shadow-xl border border-gray-700 bg-gradient-to-br from-background-light to-background-dark h-full flex flex-col">
