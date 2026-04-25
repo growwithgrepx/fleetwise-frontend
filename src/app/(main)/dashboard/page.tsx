@@ -567,7 +567,8 @@ export default function DashboardPage() {
       const getJobPercents = (j: Job) => {
         const [h, m] = j.pickup_time.split(':').map(Number);
         const start = parseFloat(((h * 60 + m) / 1440 * 100).toFixed(6));
-        const durHrs = j.estimated_duration ? parseFloat(j.estimated_duration) : 1;
+        // estimated_duration not on base Job type, default to 1hr for overlap detection
+        const durHrs = (j as any).estimated_duration ? parseFloat((j as any).estimated_duration) : 1;
         const endMinutes = h * 60 + m + durHrs * 60;
         const end = Math.min(parseFloat((endMinutes / 1440 * 100).toFixed(6)), 100);
         // Treat each card as at least 4% wide for overlap detection
