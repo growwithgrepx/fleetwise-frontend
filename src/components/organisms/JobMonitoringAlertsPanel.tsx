@@ -36,53 +36,6 @@ const JobMonitoringAlertsPanel = () => {
     // For now, we'll just return null - the backend sends them, we just don't display them
     return null;
   }
-  const toggleExpand = (id: number) => {
-    setExpandedAlerts((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
-
-  const formatElapsedTime = (minutes: number) => {
-    if (minutes < 0) {
-      // Negative minutes means job is upcoming (in the future)
-      const absMinutes = Math.abs(minutes);
-      if (absMinutes < 60) return `in ${absMinutes}m`;
-      if (absMinutes < 1440) {
-        const hours = Math.floor(absMinutes / 60);
-        const remainingMinutes = absMinutes % 60;
-        return remainingMinutes > 0
-          ? `in ${hours}h ${remainingMinutes}m`
-          : `in ${hours}h`;
-      }
-      const days = Math.floor(absMinutes / 1440);
-      const remainingHours = Math.floor((absMinutes % 1440) / 60);
-      return remainingHours > 0 ? `in ${days}d ${remainingHours}h` : `in ${days}d`;
-    }
-
-    // Positive minutes means job is late (past pickup time)
-    if (minutes < 60) return `${minutes}m late`;
-    if (minutes < 1440) {
-      const hours = Math.floor(minutes / 60);
-      const remainingMinutes = minutes % 60;
-      return remainingMinutes > 0
-        ? `${hours}h ${remainingMinutes}m late`
-        : `${hours}h late`;
-    }
-
-    const days = Math.floor(minutes / 1440);
-    const remainingHours = Math.floor((minutes % 1440) / 60);
-    return remainingHours > 0 ? `${days}d ${remainingHours}h late` : `${days}d late`;
-  };
-
-  const getTimingTagStyle = (minutes: number) => {
-    // Early = yellow tag, Late = red tag
-    if (minutes < 0) {
-      return "bg-yellow-500/15 text-yellow-300 border border-yellow-500/25";
-    }
-    return "bg-red-500/15 text-red-300 border border-red-500/25";
-  };
-
   return (
     <>
       <div className="col-span-full sm:col-span-3">
