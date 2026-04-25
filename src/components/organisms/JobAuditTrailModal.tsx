@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getJobAuditTrail, AuditRecord, JobAuditTrailResponse } from '@/services/api/jobsApi';
-import { format } from 'date-fns';
+import { getDisplayTimezone } from '@/utils/timezoneUtils';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { XIcon, CalendarIcon, UserIcon, PaperclipIcon, ImageIcon } from 'lucide-react';
@@ -84,7 +84,16 @@ const JobAuditTrailModal: React.FC<JobAuditTrailModalProps> = ({ jobId, isOpen, 
 
   const formatDate = (dateString: string) => {
     try {
-      return format(new Date(dateString), 'MMM d, yyyy HH:mm');
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat('en-GB', {
+        timeZone: getDisplayTimezone(),
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(date).replace(',', '');
     } catch {
       return dateString;
     }
