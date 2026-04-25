@@ -76,13 +76,20 @@ export function JobCategoryRow({
       <div
         className={clsx(
           'grid grid-cols-[40px_40px_80px_140px_1fr_1fr_1fr_1fr_140px_160px_200px] items-center px-4 py-3 border-b',
-          'hover:bg-opacity-50 transition-colors',
-          isSelected && 'bg-opacity-75',
-          !isEditing && 'cursor-pointer'
+          'transition-colors',
+          row.job_id ? 'opacity-50 cursor-not-allowed' : 'hover:bg-opacity-50',
+          isSelected && !row.job_id && 'bg-opacity-75',
+          !isEditing && !row.job_id && 'cursor-pointer'
         )}
         style={{
           borderColor: 'var(--color-border)',
-          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : (isExpanded ? 'rgba(0,0,0,0.05)' : 'transparent')
+          backgroundColor: row.job_id
+            ? 'rgba(0,0,0,0.04)'
+            : isSelected
+            ? 'rgba(59, 130, 246, 0.1)'
+            : isExpanded
+            ? 'rgba(0,0,0,0.05)'
+            : 'transparent'
         }}
       >
         {/* Checkbox */}

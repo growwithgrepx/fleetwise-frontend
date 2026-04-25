@@ -138,6 +138,8 @@ export default function JobCategorySection({
     setLocalLoading(true);
     try {
       await onConfirmUpload(Array.from(selectedRows));
+      // Clear selection after successful upload so newly-disabled rows are unchecked
+      setSelectedRows(new Set());
     } finally {
       setLocalLoading(false);
     }
