@@ -553,32 +553,52 @@ export default function DashboardPage() {
         }
       }
       
-      // Group jobs by pickup time to handle same-time jobs
-      const jobsByTime: Record<string, TimelineJob[]> = {};
-      todayJobs.forEach(job => {
-        const timeKey = `${job.pickup_date}T${job.pickup_time}`;
-        if (!jobsByTime[timeKey]) {
-          jobsByTime[timeKey] = [];
-        }
-        jobsByTime[timeKey].push(job);
+      // --- Proper collision detection using interval scheduling ---
+      // Sort jobs by startPercent for greedy lane assignment
+      const sortedJobs = [...todayJobs].sort((a, b) => {
+        const aHour = parseInt(a.pickup_time.split(':')[0]);
+        const aMin  = parseInt(a.pickup_time.split(':')[1]);
+        const bHour = parseInt(b.pickup_time.split(':')[0]);
+        const bMin  = parseInt(b.pickup_time.split(':')[1]);
+        return (aHour * 60 + aMin) - (bHour * 60 + bMin);
       });
-      
-      // Assign vertical lanes to same-time jobs
+
+      // For each job, compute its start/end percent on the fly for collision checking
+      const getJobPercents = (j: Job) => {
+        const [h, m] = j.pickup_time.split(':').map(Number);
+        const start = parseFloat(((h * 60 + m) / 1440 * 100).toFixed(6));
+        const durHrs = j.estimated_duration ? parseFloat(j.estimated_duration) : 1;
+        const endMinutes = h * 60 + m + durHrs * 60;
+        const end = Math.min(parseFloat((endMinutes / 1440 * 100).toFixed(6)), 100);
+        // Treat each card as at least 4% wide for overlap detection
+        return { start, end: Math.max(end, start + 4) };
+      };
+
+      // Greedy lane assignment: assign each job to the first lane where it doesn't overlap
+      const CARD_HEIGHT = 40;  // px — card height (32px) + gap (8px)
+      const laneEndAt: number[] = []; // tracks the end% of the last job in each lane
       const jobLaneMap: Record<number, number> = {};
-      Object.values(jobsByTime).forEach(jobGroup => {
-        if (jobGroup.length > 1) {
-          // Multiple jobs at same time - assign different lanes
-          jobGroup.forEach((job, index) => {
-            jobLaneMap[job.id] = index;
-          });
-        } else {
-          // Single job at this time
-          jobLaneMap[jobGroup[0].id] = 0;
+
+      sortedJobs.forEach(j => {
+        const { start, end } = getJobPercents(j);
+        let assignedLane = -1;
+        for (let lane = 0; lane < laneEndAt.length; lane++) {
+          if (start >= laneEndAt[lane]) {
+            assignedLane = lane;
+            laneEndAt[lane] = end;
+            break;
+          }
         }
+        if (assignedLane === -1) {
+          // No free lane found — open a new one
+          assignedLane = laneEndAt.length;
+          laneEndAt.push(end);
+        }
+        jobLaneMap[j.id] = assignedLane;
       });
-      
-      // Calculate vertical position based on lane assignment
-      const verticalOffset = (jobLaneMap[job.id] || 0) * 60; // 60px per lane
+
+      // verticalOffset = lane index × card height
+      const verticalOffset = (jobLaneMap[job.id] ?? 0) * CARD_HEIGHT;
       
       // Calculate end percent using the converted display time
       const displayDropoffTime = job.dropoff_time ? job.dropoff_time : null;
@@ -674,6 +694,12 @@ export default function DashboardPage() {
       return true;
     });
   }, [todayJobsData, statusFilter, vehicleFilter, priorityFilter]);
+
+  // Compute total lanes needed for dynamic height
+  const totalLanes = useMemo(() => {
+    if (filteredJobs.length === 0) return 1;
+    return Math.max(...filteredJobs.map(j => (j.verticalOffset / 40) + 1));
+  }, [filteredJobs]);
 
   // Display all jobs on a single timeline row without grouping
   const jobRows = useMemo((): TimelineJob[][] => {
@@ -950,7 +976,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-5 bg-gradient-to-b from-purple-400 to-purple-600 rounded-full" />
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">On Holiday</span>
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Driver on Holiday</span>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 bg-purple-600/20 text-purple-300 rounded-full border border-purple-600/30 font-medium">
                     Next 7 days
@@ -1030,7 +1056,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="grid grid-cols-1 gap-6 sm:gap-8 mb-16 w-full"
+          className="grid grid-cols-1 gap-6 sm:gap-8 mb-4 w-full"
         >
           <div className="flex flex-col px-4 sm:px-6 lg:px-8">
             <Card className="p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-700 bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-sm min-h-[32rem] flex flex-col overflow-visible">
@@ -1152,8 +1178,8 @@ export default function DashboardPage() {
                       ))}
                     </div>
                     
-                    {/* Timeline body with grid and jobs - Fixed height, no scroll, extra space for tooltips */}
-                    <div className="relative flex-1 pb-20">
+                    {/* Timeline body - height grows with number of lanes */}
+                    <div className="relative pb-6" style={{ height: `${Math.max(totalLanes * 40 + 48, 80)}px` }}>
                       {/* Vertical grid lines */}
                       <div className="absolute inset-0 pointer-events-none">
                         {Array.from({ length: 49 }).map((_, i) => (
@@ -1183,13 +1209,9 @@ export default function DashboardPage() {
                         </div>
                       </motion.div>
                       
-                      {/* Job rows - Compact layout */}
-                      <div className="relative pt-12 pb-6 h-full">
-                        {jobRows.length > 0 ? (
-                          jobRows.slice(0, Math.floor((300 - 120) / 64)).map((row, rowIndex) => (
-                            <div key={rowIndex} className="relative h-16 mb-3">
-                              {row.map((job, jobIndex) => {
-                                // Calculate tooltip position based on job position
+                      {/* All jobs rendered in a single absolute container, lanes via verticalOffset */}
+                      <div className="relative w-full h-full">
+                        {filteredJobs.length > 0 ? filteredJobs.map((job, jobIndex) => {
                                 const jobLeft = job.startPercent;
                                 const jobWidth = Math.max(job.width, 4);
                                 const jobCenter = jobLeft + (jobWidth / 2);
@@ -1199,13 +1221,13 @@ export default function DashboardPage() {
                                     key={job.id}
                                     initial={{ opacity: 0, scale: 0.9 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: jobIndex * 0.1 }}
+                                    transition={{ delay: jobIndex * 0.05 }}
                                     whileHover={{ 
                                       scale: 1.05, 
                                       zIndex: 50,
                                       transition: { duration: 0.2 }
                                     }}
-                                    className="absolute h-14 rounded-xl shadow-lg border border-gray-600/60 transition-all duration-300 hover:shadow-xl group cursor-pointer backdrop-blur-sm"
+                                    className="absolute h-8 rounded-lg shadow-lg border border-gray-600/60 transition-all duration-300 hover:shadow-xl group cursor-pointer backdrop-blur-sm"
                                     style={{
                                       left: `${job.startPercent}%`,
                                       top: `${job.verticalOffset}px`,
@@ -1216,51 +1238,35 @@ export default function DashboardPage() {
                                     }}
                                     onClick={() => router.push(`/jobs/${job.id}`)}
                                   >
-                                    {/* Left overflow indicator */}
                                     {job.isStartingYesterday && (
-                                      <div className="absolute -left-2 top-1/2 -translate-y-1/2 text-white/90">
+                                      <div className="absolute -left-2 top-1/2 -translate-y-1/2">
                                         <div className="h-2 w-2 rounded-full bg-white/70" />
                                       </div>
                                     )}
-                                    
-                                    {/* Right overflow indicator */}
                                     {job.isEndingTomorrow && (
-                                      <div className="absolute -right-2 top-1/2 -translate-y-1/2 text-white/90">
+                                      <div className="absolute -right-2 top-1/2 -translate-y-1/2">
                                         <div className="h-2 w-2 rounded-full bg-white/70" />
                                       </div>
                                     )}
-                                    
-                                    {/* Job content */}
-                                    <div className="px-3 py-2 h-full flex flex-col justify-center overflow-hidden">
-                                      <div className="text-sm font-bold text-white truncate leading-tight">
-                                        #{job.id} • {job.service_type}
-                                      </div>
-                                      <div className="text-xs text-white/90 truncate mt-0.5">
-                                        {job.customer}
+                                    <div className="px-2 h-full flex items-center overflow-hidden">
+                                      <div className="text-xs font-bold text-white truncate leading-tight">
+                                        #{job.id}
                                       </div>
                                     </div>
-                                    
-                                    {/* Enhanced Tooltip with smart positioning - Always visible */}
-                                    <div className="absolute z-50 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none group-hover:translate-y-0 translate-y-2">
+                                    {/* Tooltip */}
+                                    <div className="absolute z-50 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
                                       <div 
                                         className="bg-slate-900/95 backdrop-blur-md text-white text-sm p-4 rounded-xl shadow-2xl border border-slate-700/60 w-80"
-                                        style={(() => {
-                                          // Dynamic positioning based on vertical space
-                                          const showAbove = job.verticalOffset > 80; // enough space above (80px minimum)
-                                          return {
-                                            position: 'absolute',
-                                            top: showAbove ? '-16px' : '110%',
-                                            left: jobCenter < 30 ? '0px' : jobCenter > 70 ? '-320px' : '-160px',
-                                            transform: showAbove ? 'translateY(-100%)' : 'none',
-                                          };
-                                        })()}
+                                        style={{
+                                          position: 'absolute',
+                                          top: job.verticalOffset > 80 ? '-16px' : '110%',
+                                          left: jobCenter < 30 ? '0px' : jobCenter > 70 ? '-320px' : '-160px',
+                                          transform: job.verticalOffset > 80 ? 'translateY(-100%)' : 'none',
+                                        }}
                                       >
                                         <div className="flex items-center justify-between mb-3">
                                           <div className="font-bold text-blue-300">Job #{job.id}</div>
-                                          <div 
-                                            className="px-2 py-1 rounded-lg text-xs font-medium"
-                                            style={{ backgroundColor: `${job.statusColor}40`, color: job.statusColor }}
-                                          >
+                                          <div className="px-2 py-1 rounded-lg text-xs font-medium" style={{ backgroundColor: `${job.statusColor}40`, color: job.statusColor }}>
                                             {(STATUS_LABELS as any)[job.status] || job.status}
                                           </div>
                                         </div>
@@ -1270,65 +1276,23 @@ export default function DashboardPage() {
                                           <div className="text-slate-400">Service:</div>
                                           <div className="truncate">{job.service_type}</div>
                                           <div className="text-slate-400">Time:</div>
-                                          <div className="font-mono">
-                                            {job.pickup_time || 'Not specified'}
-                                            {' → '}
-                                            {job.dropoff_time ? job.dropoff_time : 'Not specified'}
-                                          </div>
+                                          <div className="font-mono">{job.pickup_time || 'N/A'} → {job.dropoff_time || 'N/A'}</div>
                                           <div className="text-slate-400">From:</div>
-                                          <div className="truncate text-xs">{job.pickup_location || 'Not specified'}</div>
+                                          <div className="truncate text-xs">{job.pickup_location || 'N/A'}</div>
                                           <div className="text-slate-400">To:</div>
-                                          <div className="truncate text-xs">{job.dropoff_location || 'Not specified'}</div>
-                                          {job.driver_id && (
-                                            <>
-                                              <div className="text-slate-400">Driver:</div>
-                                              <div className="truncate">Assigned</div>
-                                            </>
-                                          )}
+                                          <div className="truncate text-xs">{job.dropoff_location || 'N/A'}</div>
                                         </div>
-                                        <div className="mt-3 pt-2 border-t border-slate-700/60 text-xs text-slate-400">
-                                          Click to view details
-                                        </div>
-                                        {/* Tooltip arrow - dynamic positioning */}
-                                        <div 
-                                          className={`absolute w-0 h-0 border-l-8 border-r-8 border-l-transparent border-r-transparent ${(() => {
-                                            // Match arrow direction to tooltip direction
-                                            const showAbove = job.verticalOffset > 80;
-                                            return showAbove 
-                                              ? 'top-full border-t-8 border-t-slate-700/60'  // Arrow pointing down (tooltip above)
-                                              : 'bottom-full border-b-8 border-b-slate-700/60'; // Arrow pointing up (tooltip below)
-                                          })()}`}
-                                          style={(() => {
-                                            // Match arrow position to tooltip position
-                                            const showAbove = job.verticalOffset > 80;
-                                            return {
-                                              left: jobCenter < 30 ? '20px' : jobCenter > 70 ? '300px' : '50%',
-                                              transform: jobCenter >= 30 && jobCenter <= 70 ? 'translateX(-50%)' : 'none',
-                                              ...(showAbove ? {} : { bottom: '100%' }),
-                                            };
-                                          })()}
-                                        />
+                                        <div className="mt-3 pt-2 border-t border-slate-700/60 text-xs text-slate-400">Click to view details</div>
                                       </div>
                                     </div>
                                   </motion.div>
                                 );
-                              })}
-                            </div>
-                          ))
-                        ) : null}
-                        
-                        {/* Empty state for filtered results */}
-                        {jobRows.length === 0 && filteredJobs.length === 0 && todayJobsData.length > 0 && (
+                              }) : (
                           <motion.div 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="flex flex-col items-center justify-center h-40 text-slate-400"
+                            className="flex flex-col items-center justify-center h-full text-slate-400 pt-8"
                           >
-                            <div className="w-12 h-12 mb-3 opacity-40">
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-full h-full">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-                              </svg>
-                            </div>
                             <p className="text-lg font-medium">No jobs match current filters</p>
                             <p className="text-sm opacity-75">Try adjusting your filter settings</p>
                           </motion.div>
