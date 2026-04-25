@@ -61,7 +61,7 @@ export const analytics = {
 };
 
 // Configurable offset in minutes (currently 45 minutes)
-const DROPOFF_TIME_OFFSET_MINUTES = 45;
+const DROPOFF_TIME_OFFSET_MINUTES = 60;
 
 // Default job values
 const defaultJobValues: JobFormData = {
