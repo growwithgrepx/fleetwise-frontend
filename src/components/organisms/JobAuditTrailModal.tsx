@@ -5,6 +5,24 @@ import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { XIcon, CalendarIcon, UserIcon, PaperclipIcon, ImageIcon } from 'lucide-react';
 
+// Status abbreviation map matching Jobs page column style
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  new:       { label: 'NEW', color: 'bg-gray-500/20 text-gray-300 border border-gray-500/40' },
+  pending:   { label: 'PND', color: 'bg-blue-500/20 text-blue-300 border border-blue-500/40' },
+  confirmed: { label: 'CNF', color: 'bg-teal-500/20 text-teal-300 border border-teal-500/40' },
+  otw:       { label: 'OTW', color: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40' },
+  ots:       { label: 'OTS', color: 'bg-orange-500/20 text-orange-300 border border-orange-500/40' },
+  pob:       { label: 'POB', color: 'bg-purple-500/20 text-purple-300 border border-purple-500/40' },
+  jc:        { label: 'JC',  color: 'bg-green-500/20 text-green-300 border border-green-500/40' },
+  sd:        { label: 'SD',  color: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' },
+  canceled:  { label: 'CXL', color: 'bg-red-500/20 text-red-300 border border-red-500/40' },
+};
+
+const getStatusBadge = (status: string) => {
+  const s = STATUS_LABELS[status?.toLowerCase()] ?? { label: status?.toUpperCase() ?? '?', color: 'bg-gray-500/20 text-gray-300 border border-gray-500/40' };
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold ${s.color}`}>{s.label}</span>;
+};
+
 interface DriverInfo {
   id: number;
   name: string;
@@ -273,137 +291,84 @@ const JobAuditTrailModal: React.FC<JobAuditTrailModalProps> = ({ jobId, isOpen, 
                         </div>
                         
                         {/* Card */}
-                        <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-sm p-4">
-                          <p className="text-gray-200 mb-3">{record.description || 'No description provided'}</p>
-                          
-                          {record.new_status && (
-                            <div className="mb-3">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(record.new_status)}`}>
-                                {record.new_status}
-                              </span>
-                            </div>
-                          )}
-                          
-                          {/* Show reason if available */}
-                          {record.reason && (
-                            <div className="mb-3 p-3 bg-indigo-900/50 rounded-lg border border-indigo-700">
-                              <div className="text-sm font-medium text-indigo-300 mb-1">Reason</div>
-                              <div className="text-gray-200">
-                                {record.reason.replace(/\(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2} (AM|PM)\)/g, '').trim() || record.reason}
+                        <div className="bg-gray-800/60 border border-gray-700/60 rounded-lg p-3">
+                          {/* Status change line */}
+                          <div className="flex items-center gap-2 mb-2">
+                            {(record.old_status || record.new_status) && (
+                              <span className="text-gray-500 text-xs flex-shrink-0">Status changed from</span>
+                            )}
+                            {record.old_status && getStatusBadge(record.old_status)}
+                            {record.old_status && record.new_status && (
+                              <span className="text-gray-500 text-xs">→</span>
+                            )}
+                            {record.new_status && getStatusBadge(record.new_status)}
+                          </div>
+
+                          {/* Compact inline fields */}
+                          <div className="space-y-0.5 text-xs">
+                            {record.reason && (
+                              <div className="flex gap-1.5">
+                                <span className="text-gray-500 flex-shrink-0 w-20">Reason:</span>
+                                <span className="text-gray-300">{record.reason.replace(/\(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2} (AM|PM)\)/g, '').trim() || record.reason}</span>
                               </div>
-                            </div>
-                          )}
-                          
-                          {/* Show extra services if available */}
-                          {record.extra_services && record.extra_services.length > 0 && (
-                            <div className="mb-3 p-3 bg-purple-900/50 rounded-lg border border-purple-700">
-                              <div className="text-sm font-medium text-purple-300 mb-1">Extra Services</div>
-                              <div className="text-gray-200">
-                                {record.extra_services
-                                  .filter((service): service is string => typeof service === 'string' && service.trim().length > 0)
-                                  .join(', ')}
+                            )}
+                            {record.extra_services && record.extra_services.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).length > 0 && (
+                              <div className="flex gap-1.5">
+                                <span className="text-gray-500 flex-shrink-0 w-20">Extra Svcs:</span>
+                                <span className="text-gray-300">{record.extra_services.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).join(', ')}</span>
                               </div>
-                            </div>
-                          )}
-                        
-                          {/* Show customer remark when status is confirmed (from new or pending) */}
-                          {record.new_status?.toLowerCase() === 'confirmed' && 
-                           (record.old_status?.toLowerCase() === 'new' || record.old_status?.toLowerCase() === 'pending') && 
-                           record.remark && (
-                            <div className="mb-3 p-3 bg-blue-900/50 rounded-lg border border-blue-700">
-                              <div className="text-sm font-medium text-blue-300 mb-1">Customer Remark</div>
-                              <div className="text-gray-200">{record.remark}</div>
-                            </div>
-                        )}
-                        
-                        {/* Show specific driver remarks for pob, ots, otw, and jc statuses */}
-                        {record.new_status?.toLowerCase() === 'pob' && record.driver_remarks && record.driver_remarks.length > 0 && (
-                          <div className="mb-3 p-3 bg-yellow-900/50 rounded-lg border border-yellow-700">
-                            <div className="text-sm font-medium text-yellow-300 mb-1">Driver Remark</div>
-                            <div className="text-gray-200">
-                              {record.driver_remarks[record.driver_remarks.length - 1]?.remark}
-                            </div>
+                            )}
+                            {record.new_status?.toLowerCase() === 'confirmed' &&
+                             (record.old_status?.toLowerCase() === 'new' || record.old_status?.toLowerCase() === 'pending') &&
+                             record.remark && (
+                              <div className="flex gap-1.5">
+                                <span className="text-gray-500 flex-shrink-0 w-20">Remark:</span>
+                                <span className="text-gray-300">{record.remark}</span>
+                              </div>
+                            )}
+                            {(['pob','ots','otw','jc'].includes(record.new_status?.toLowerCase() ?? '')) &&
+                             record.driver_remarks && record.driver_remarks.length > 0 && (
+                              <div className="flex gap-1.5">
+                                <span className="text-gray-500 flex-shrink-0 w-20">Drv Remark:</span>
+                                <span className="text-gray-300">{record.driver_remarks[record.driver_remarks.length - 1]?.remark}</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        
-                        {record.new_status?.toLowerCase() === 'ots' && record.driver_remarks && record.driver_remarks.length > 0 && (
-                          <div className="mb-3 p-3 bg-yellow-900/50 rounded-lg border border-yellow-700">
-                            <div className="text-sm font-medium text-yellow-300 mb-1">Driver Remark</div>
-                            <div className="text-gray-200">
-                              {record.driver_remarks[record.driver_remarks.length - 1]?.remark}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {record.new_status?.toLowerCase() === 'otw' && record.driver_remarks && record.driver_remarks.length > 0 && (
-                          <div className="mb-3 p-3 bg-yellow-900/50 rounded-lg border border-yellow-700">
-                            <div className="text-sm font-medium text-yellow-300 mb-1">Driver Remark</div>
-                            <div className="text-gray-200">
-                              {record.driver_remarks[record.driver_remarks.length - 1]?.remark}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {record.new_status?.toLowerCase() === 'jc' && record.driver_remarks && record.driver_remarks.length > 0 && (
-                          <div className="mb-3 p-3 bg-yellow-900/50 rounded-lg border border-yellow-700">
-                            <div className="text-sm font-medium text-yellow-300 mb-1">Driver Remark</div>
-                            <div className="text-gray-200">
-                              {record.driver_remarks[record.driver_remarks.length - 1]?.remark}
-                            </div>
-                          </div>
-                        )}
-                          
+
+                          {/* Attachments */}
                           {record.attachments && record.attachments.length > 0 && (
-                            <div className="border-t border-gray-700 pt-3 mt-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <ImageIcon className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm font-medium text-gray-300">
-                                  {record.attachments.length} image{record.attachments.length > 1 ? 's' : ''} uploaded for this stage
-                                </span>
+                            <div className="mt-2.5 pt-2 border-t border-gray-700/60">
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <ImageIcon className="w-3.5 h-3.5 text-gray-500" />
+                                <span className="text-[11px] text-gray-400">{record.attachments.length} image{record.attachments.length > 1 ? 's' : ''}</span>
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                {record.attachments.slice(0, 4).map((attachment, idx) => {
-                                  // Extract URL from attachment (can be string or object)
-                                  const attachmentUrl = typeof attachment === 'string' ? attachment : attachment.file_url;
-                                  
-                                  // Check if the attachment URL is valid
+                              <div className="flex flex-wrap gap-1.5">
+                                {record.attachments.slice(0, 5).map((attachment, idx) => {
+                                  const attachmentUrl = typeof attachment === 'string' ? attachment : (attachment as any).file_url;
                                   const isValidUrl = attachmentUrl && (attachmentUrl.startsWith('http') || attachmentUrl.startsWith('/'));
-                                  
-                                  if (!isValidUrl) {
-                                    return (
-                                      <div key={idx} className="w-32 h-20 rounded border border-gray-700 overflow-hidden bg-gray-900 flex items-center justify-center">
-                                        <div className="text-gray-500 text-xs text-center p-2">Invalid URL</div>
-                                      </div>
-                                    );
-                                  }
-                                  
+                                  if (!isValidUrl) return null;
                                   return (
-                                    <div 
-                                      key={idx} 
-                                      className="w-32 h-20 rounded border border-gray-700 overflow-hidden bg-gray-900 cursor-pointer hover:opacity-80 transition-opacity"
+                                    <div
+                                      key={idx}
+                                      className="w-20 h-14 rounded-md border border-gray-600 overflow-hidden bg-gray-900 cursor-pointer hover:opacity-80 hover:border-blue-500 transition-all"
                                       onClick={() => openImage(attachmentUrl)}
                                     >
                                       {!failedImages.has(attachmentUrl) ? (
-                                        <img 
-                                          src={imageBlobUrls[attachmentUrl] || attachmentUrl} 
-                                          alt={`Attachment ${idx + 1}`} 
+                                        <img
+                                          src={imageBlobUrls[attachmentUrl] || attachmentUrl}
+                                          alt={`Attachment ${idx + 1}`}
                                           className="w-full h-full object-cover"
                                           onError={handleImageError}
                                         />
                                       ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-gray-500 text-xs p-2 text-center">
-                                          <div>Image not available</div>
-                                          <div className="text-xs mt-1 text-gray-600 truncate w-full">
-                                            {attachmentUrl.substring(attachmentUrl.lastIndexOf('/') + 1)}
-                                          </div>
-                                        </div>
+                                        <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-600 text-[10px] text-center p-1">N/A</div>
                                       )}
                                     </div>
                                   );
                                 })}
-                                {record.attachments.length > 4 && (
-                                  <div className="w-32 h-20 rounded border border-gray-700 bg-gray-900 flex items-center justify-center">
-                                    <span className="text-gray-400 text-sm">+{record.attachments.length - 4}</span>
+                                {record.attachments.length > 5 && (
+                                  <div className="w-20 h-14 rounded-md border border-gray-600 bg-gray-900 flex items-center justify-center">
+                                    <span className="text-gray-400 text-xs">+{record.attachments.length - 5}</span>
                                   </div>
                                 )}
                               </div>
