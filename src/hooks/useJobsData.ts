@@ -77,14 +77,10 @@ export const useJobsData = (isDriver: boolean) => {
     return counts;
   }, [allJobs]);
 
-  // Sort customers by job count (descending)
+  // Sort customers alphabetically
   const sortedCustomers = useMemo(() => {
-    return [...customers].sort((a, b) => {
-      const countA = customerCounts[a.name] || 0;
-      const countB = customerCounts[b.name] || 0;
-      return countB - countA;
-    });
-  }, [customers, customerCounts]);
+    return [...customers].sort((a, b) => a.name.localeCompare(b.name));
+  }, [customers]);
 
   // Filter customers to only show those with at least 1 job
   const filteredCustomers = useMemo(() => {
