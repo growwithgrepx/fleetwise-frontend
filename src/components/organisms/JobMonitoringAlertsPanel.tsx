@@ -123,9 +123,9 @@ const JobMonitoringAlertsPanel = () => {
                     key={alert.id}
                     className={`relative rounded-xl border overflow-hidden transition-all duration-200 hover:shadow-lg hover:scale-[1.01] ${
                       isOverdue
-                        ? 'border-red-500/40 bg-gradient-to-br from-red-950/60 to-gray-900/80 shadow-red-900/20'
-                        : 'border-amber-500/30 bg-gradient-to-br from-amber-950/40 to-gray-900/80 shadow-amber-900/10'
-                    } shadow-md`}
+                        ? 'border-red-500/40'
+                        : 'border-amber-500/30'
+                    } bg-gray-900/60 shadow-md`}
                   >
                     {/* Top accent bar */}
                     <div className={`h-0.5 w-full ${isOverdue ? 'bg-gradient-to-r from-red-500 to-red-400' : 'bg-gradient-to-r from-amber-500 to-yellow-400'}`} />
