@@ -1058,7 +1058,7 @@ export default function DashboardPage() {
                 </div>
               
               {/* Timeline container - Fixed height with horizontal scroll on mobile */}
-              <div className="flex-1 overflow-x-auto overflow-y-visible bg-slate-900/40 rounded-2xl border border-slate-700/50 backdrop-blur-sm mx-[-1rem] sm:mx-[-2rem] px-[1rem] sm:px-[2rem]">
+              <div className="flex-1 overflow-x-auto overflow-y-hidden bg-slate-900/40 rounded-2xl border border-slate-700/50 backdrop-blur-sm mx-[-1rem] sm:mx-[-2rem] px-[1rem] sm:px-[2rem]">
                 {todayJobsData.length === 0 ? (
                   <motion.div 
                     initial={{ opacity: 0 }}
@@ -1108,7 +1108,7 @@ export default function DashboardPage() {
                     </div>
                     
                     {/* Timeline body with grid and jobs - Fixed height, no scroll, extra space for tooltips */}
-                    <div className="relative flex-1 overflow-visible pb-20">
+                    <div className="relative flex-1 pb-20">
                       {/* Vertical grid lines */}
                       <div className="absolute inset-0 pointer-events-none">
                         {Array.from({ length: 49 }).map((_, i) => (
