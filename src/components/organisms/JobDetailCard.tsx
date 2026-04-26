@@ -97,7 +97,7 @@ export default function JobDetailCard({
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 min-w-fit">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-text-main">
-              Job Details{' '}
+              Job Details <span className="text-gray-400 font-mono">#{job.id}</span>{' '}
               {normalized.status && <StatusBadge status={String(normalized.status)} />}
             </h2>
           </div>

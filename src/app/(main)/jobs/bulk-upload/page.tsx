@@ -270,12 +270,16 @@ export default function BulkUploadPreviewPage() {
       
       const filteredData = { ...previewData, rows: validRows };
       
-      const result = await uploadDownloadApi.confirmUpload(filteredData);
+      const result = await uploadDownloadApi.confirmUpload({ ...filteredData, filename: file?.name ?? '' });
       
       if (result.processed_count > 0) {
         toast.success(`✓ ${result.processed_count} valid job(s) created successfully!`);
       } else if (result.skipped_count > 0) {
         toast(`No jobs created (${result.skipped_count} duplicates detected)`);
+      } else if (result.errors && result.errors.length > 0) {
+        toast.error(`Failed: ${result.errors[0]}`);
+      } else {
+        toast.error('No jobs were created. Please check your data and try again.');
       }
 
       // Update rows with job_id from response - keep jobs in original sections
@@ -348,10 +352,12 @@ export default function BulkUploadPreviewPage() {
       }
 
       const filteredData = { ...previewData, rows: revalidatedRows };
-      const result = await uploadDownloadApi.confirmUpload(filteredData);
+      const result = await uploadDownloadApi.confirmUpload({ ...filteredData, filename: file?.name ?? '' });
       
       if (result.processed_count > 0) {
         toast.success(`✓ ${result.processed_count} fixed job(s) created successfully!`);
+      } else if (result.errors && result.errors.length > 0) {
+        toast.error(`Failed: ${result.errors[0]}`);
       } else {
         toast(`No jobs were created (${result.skipped_count} skipped)`);
       }
@@ -418,10 +424,12 @@ export default function BulkUploadPreviewPage() {
       }));
 
       const filteredData = { ...previewData, rows: validatedRows };
-      const result = await uploadDownloadApi.confirmUpload(filteredData);
+      const result = await uploadDownloadApi.confirmUpload({ ...filteredData, filename: file?.name ?? '' });
       
       if (result.processed_count > 0) {
         toast.success(`✓ ${result.processed_count} XLS duplicate job(s) created successfully!`);
+      } else if (result.errors && result.errors.length > 0) {
+        toast.error(`Failed: ${result.errors[0]}`);
       } else {
         toast(`No jobs were created (${result.skipped_count} skipped)`);
       }
@@ -481,10 +489,12 @@ export default function BulkUploadPreviewPage() {
       }));
 
       const filteredData = { ...previewData, rows: validatedRows, force_create: true };
-      const result = await uploadDownloadApi.confirmUpload(filteredData);
+      const result = await uploadDownloadApi.confirmUpload({ ...filteredData, filename: file?.name ?? '' });
       
       if (result.processed_count > 0) {
         toast.success(`✓ ${result.processed_count} duplicate job(s) created successfully!`);
+      } else if (result.errors && result.errors.length > 0) {
+        toast.error(`Failed: ${result.errors[0]}`);
       } else {
         toast(`No jobs were created (${result.skipped_count} skipped)`);
       }
