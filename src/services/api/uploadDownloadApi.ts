@@ -27,6 +27,7 @@ export interface PreviewData {
   column_mapping: Record<string, string>;
   available_columns: string[];
   force_create?: boolean;
+  filename?: string;
 }
 
 export interface UploadResult {
