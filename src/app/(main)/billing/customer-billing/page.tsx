@@ -71,7 +71,29 @@ const unBillColumns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
     filterable: true,
     stringLabel: "Pickup Time",
   },
-  // Removed Status column
+  {
+    label: "Status",
+    accessor: "status",
+    filterable: true,
+    stringLabel: "Status",
+    render: (job: Job & { stringLabel?: string }) => {
+      const status = job.status as string;
+      return (
+        <span
+          className={`px-2 py-1 rounded-md text-xs font-medium
+            ${status === "new" ? "bg-blue-100 text-blue-700" : ""}
+            ${status === "in_progress" ? "bg-yellow-100 text-yellow-700" : ""}
+            ${status === "completed" ? "bg-green-100 text-green-700" : ""}
+            ${status === "cancelled" ? "bg-red-100 text-red-700" : ""}
+            ${status === "failed" ? "bg-gray-100 text-gray-700" : ""}
+            text-sm whitespace-nowrap`
+          }
+        >
+          {status}
+        </span>
+      );
+    },
+  }
 ];
 
 // Column configuration for Jobs table (simple, filterable)
@@ -127,7 +149,6 @@ const unPaidColumns = [
       </span>
     ),
   },
-
   // Removed Status column
 ];
 
