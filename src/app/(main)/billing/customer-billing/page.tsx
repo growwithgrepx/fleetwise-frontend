@@ -1468,8 +1468,8 @@ const Card: React.FC<{
                 showGenerateInvoice={true}
                 onGenerateInvoice={handleGenerateInvoice}
                 isGenerateInvoiceDisabled={!isSameCustomer || selectedJobs.length === 0}
-                generateInvoiceTooltip={selectedJobs.length === 0 
-                  ? "Please select one or more jobs to generate an invoice" 
+                generateInvoiceTooltip={selectedJobs.length === 0
+                  ? "Please select one or more jobs to generate an invoice"
                   : "Please select jobs from the same customer to generate an invoice"}
               />
             ) : (
@@ -1676,8 +1676,8 @@ const Card: React.FC<{
                 showGenerateInvoice={billingState.currentTab === "unbilled"}
                 onGenerateInvoice={handleGenerateInvoice}
                 isGenerateInvoiceDisabled={!isSameCustomer || selectedJobs.length === 0}
-                generateInvoiceTooltip={selectedJobs.length === 0 
-                  ? "Please select one or more jobs to generate an invoice" 
+                generateInvoiceTooltip={selectedJobs.length === 0
+                  ? "Please select one or more jobs to generate an invoice"
                   : "Please select jobs from the same customer to generate an invoice"}
               />
             )}
