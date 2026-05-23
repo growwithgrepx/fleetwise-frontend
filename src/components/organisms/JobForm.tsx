@@ -3056,7 +3056,6 @@ if (!driverExists) {
                           handleInputChange('pickup_date', e.target.value);
                         }
                       }}
-                      min={new Date().toISOString().split('T')[0]}
                       readOnly={fieldsLocked}
                       className={`w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${fieldsLocked ? 'bg-gray-600 cursor-not-allowed' : ''}`}
                     />
