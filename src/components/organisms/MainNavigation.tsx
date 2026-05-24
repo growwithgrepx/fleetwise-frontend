@@ -74,13 +74,11 @@ interface NavSection {
         ]
       },
       {
-        label: "Billing",
-        href: "/billing",
+        label: "Customer Billing",
+        href: "/billing/customer-billing",
         icon: <CurrencyDollarIcon className="w-5 h-5" />,
         description: "Manage jobs billing",
-        children: [
-          { label: "Customer Billing", href: "/billing/customer-billing", icon: <DocumentDuplicateIcon className="w-4 h-4" />, description: "Customer billing management" },
-        ]
+        children: []
       },
       {
         key: "cost_summary",

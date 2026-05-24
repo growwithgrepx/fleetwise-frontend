@@ -76,9 +76,9 @@ export const isBillingBasePath = (pathname: string): boolean => {
 export const isPathActive = (href: string, pathname: string): boolean => {
   if (!href) return false;
   
-  // Special handling for billing page
-  if (href === "/billing") {
-    return pathname === "/billing" || pathname === "/billing/";
+  // Special handling for customer billing page
+  if (href === "/billing/customer-billing") {
+    return pathname === "/billing/customer-billing" || pathname === "/billing/customer-billing/";
   }
   
   // Special handling for drivers to avoid matching leave routes
@@ -106,7 +106,7 @@ export const isParentActive = (
      !children?.some(c => pathname.startsWith(c.href)));
   
   // Apply special handling for routes that need exclusions
-  if (href === "/billing") {
+  if (href === "/billing/customer-billing") {
     return directMatch && !pathname.startsWith("/billing/contractor-billing") && !pathname.startsWith("/billing/driver-billing");
   }
   

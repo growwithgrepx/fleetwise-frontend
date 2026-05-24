@@ -28,7 +28,7 @@ import { BillingErrorBoundary } from "@/components/organisms/BillingErrorBoundar
 import CountFetcher from "@/components/organisms/CountFetcher";
 import axios from "axios";
 import PartialPaymentModal from "@/components/organisms/PartialPaymentModal";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { useCallback } from "react";
 import classNames from "classnames";
@@ -437,7 +437,7 @@ const BillPage = () => {
   // inside BillPage component, near other state:
 const tableRef = useRef<HTMLDivElement | null>(null);
 const jumpToTable = () => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-const setTabAndScroll = (tab: "unbilled" | "Unpaid") => {
+const setTabAndScroll = (tab: "unbilled" | "Unpaid" | "history") => {
   handleTabChange(tab);
   setSelectedJobs([]);
   setTableFilters({});
@@ -454,6 +454,21 @@ const setTabAndScroll = (tab: "unbilled" | "Unpaid") => {
     useState(false);
   const [unPaidInvoiceId, setUnPaidInvoiceId] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Billing History tab state
+  const [bhInvoiceId, setBhInvoiceId] = useState("");
+  const [bhCustomer, setBhCustomer] = useState("");
+  const [bhMinAmount, setBhMinAmount] = useState("");
+  const [bhMaxAmount, setBhMaxAmount] = useState("");
+  const [bhStartDate, setBhStartDate] = useState("");
+  const [bhEndDate, setBhEndDate] = useState("");
+  const [bhSortBy, setBhSortBy] = useState<"id" | "customer_name" | "date" | "total_amount" | "status">("date");
+  const [bhSortDir, setBhSortDir] = useState<"asc" | "desc">("desc");
+  const [bhPage, setBhPage] = useState(1);
+  const [bhRowsPerPage, setBhRowsPerPage] = useState(10);
+  const [bhExpandedId, setBhExpandedId] = useState<number | null>(null);
+  const [bhExpandedJobs, setBhExpandedJobs] = useState<Record<number, any[]>>({});
+  const [bhPaymentsFor, setBhPaymentsFor] = useState<number | null>(null);
 
   const handleTabChange = (value: string) => {
     setSelectedJobs([]);
@@ -1116,6 +1131,24 @@ const toneMap: Record<Tone, string> = {
   red:    "from-rose-600 to-rose-500",
 };
 
+const money = (n: number) =>
+  new Intl.NumberFormat(undefined, { style: "currency", currency: "SGD" }).format(n);
+
+const toCSV = (rows: Record<string, any>[]) => {
+  if (rows.length === 0) return "";
+  const headers = Object.keys(rows[0]);
+  const esc = (v: any) => `"${String(v ?? "").replaceAll('"', '""').replaceAll("\n", " ")}"`;
+  return `${headers.map(esc).join(",")}\n${rows.map((r) => headers.map((h) => esc(r[h])).join(",")).join("\n")}`;
+};
+
+const BillingBadge: React.FC<{ status: string }> = ({ status }) => {
+  const cls =
+    status === "Paid" ? "bg-emerald-600/20 text-emerald-300 border-emerald-400/30" :
+    status === "Partially Paid" ? "bg-amber-600/20 text-amber-300 border-amber-400/30" :
+    "bg-red-600/20 text-red-300 border-red-400/30";
+  return <span className={`px-2 py-1 rounded-md text-xs border ${cls}`}>{status}</span>;
+};
+
 const Card: React.FC<{
   title: string;
   value: React.ReactNode;      // allow number OR string
@@ -1177,12 +1210,96 @@ const Card: React.FC<{
 
   if (error) return <div>Failed to load jobs. Error: {error.message}</div>;
 
+  // ── Billing History tab ──────────────────────────────────────────────────
+  const { data: bhInvoicesRaw = [], isLoading: bhLoading } = useQuery<Invoice[]>({
+    queryKey: ["invoices", billingState.currentTab],
+    queryFn: async () => {
+      const res = await axios.get<Invoice[]>("/api/invoices");
+      return res.data ?? [];
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60,
+    enabled: billingState.currentTab === "history",
+  });
+
+  const bhInvoicesWithNames = useMemo(() =>
+    bhInvoicesRaw.map((inv) => {
+      const c = allCustomers?.find((x) => x.id === inv.customer_id);
+      return { ...inv, customer_name: c?.name ?? inv.customer_name ?? `#${inv.customer_id}` };
+    }),
+    [bhInvoicesRaw, allCustomers]
+  );
+
+  const bhFiltered = useMemo(() => {
+    const now = new Date();
+    const sixMonthsAgo = new Date(now); sixMonthsAgo.setMonth(now.getMonth() - 6);
+    const start = bhStartDate ? new Date(bhStartDate) : sixMonthsAgo;
+    const end   = bhEndDate   ? new Date(bhEndDate)   : now;
+    return bhInvoicesWithNames.filter((inv) => {
+      if (inv.status !== "Paid") return false;
+      if (bhInvoiceId && !String(inv.id).includes(bhInvoiceId)) return false;
+      if (bhCustomer && !(inv.customer_name ?? "").toLowerCase().includes(bhCustomer.toLowerCase())) return false;
+      const amt = Number(inv.total_amount) || 0;
+      if (bhMinAmount && amt < Number(bhMinAmount)) return false;
+      if (bhMaxAmount && amt > Number(bhMaxAmount)) return false;
+      const d = new Date(inv.date);
+      if (d < start || d > end) return false;
+      return true;
+    });
+  }, [bhInvoicesWithNames, bhInvoiceId, bhCustomer, bhMinAmount, bhMaxAmount, bhStartDate, bhEndDate]);
+
+  const bhSorted = useMemo(() => {
+    return [...bhFiltered].sort((a, b) => {
+      const A = (a as any)[bhSortBy] ?? "";
+      const B = (b as any)[bhSortBy] ?? "";
+      let cmp = bhSortBy === "total_amount" ? (Number(A) || 0) - (Number(B) || 0)
+              : bhSortBy === "date"         ? new Date(A).getTime() - new Date(B).getTime()
+              : String(A).localeCompare(String(B));
+      return bhSortDir === "asc" ? cmp : -cmp;
+    });
+  }, [bhFiltered, bhSortBy, bhSortDir]);
+
+  const bhTotalRows  = bhSorted.length;
+  const bhTotalPages = Math.max(1, Math.ceil(bhTotalRows / bhRowsPerPage));
+  const bhCurrent    = bhSorted.slice((bhPage - 1) * bhRowsPerPage, bhPage * bhRowsPerPage);
+
+  const now30 = new Date();
+  const last30 = new Date(now30); last30.setDate(now30.getDate() - 30);
+  const thisMonthStart = new Date(now30.getFullYear(), now30.getMonth(), 1);
+  const bhRevenue30d = bhFiltered.filter(i => new Date(i.date) >= last30).reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+  const bhPaidThisMonth = bhFiltered.filter(i => i.status === "Paid" && new Date(i.date) >= thisMonthStart).length;
+  const bhAvgInvoice = bhFiltered.length ? bhFiltered.reduce((s, i) => s + (Number(i.total_amount) || 0), 0) / bhFiltered.length : 0;
+
+  const handleBhViewInvoice = async (inv: Invoice) => {
+    setBhExpandedId(prev => (prev === inv.id ? null : inv.id));
+    if (bhExpandedJobs[inv.id]) return;
+    try {
+      const res = await axios.get<any[]>("/api/jobs", { params: { invoiceId: inv.id } });
+      const jobs = (Array.isArray(res.data) ? res.data : []).filter((j: any) => j?.invoice_id === inv.id);
+      setBhExpandedJobs(prev => ({ ...prev, [inv.id]: jobs }));
+    } catch { setBhExpandedJobs(prev => ({ ...prev, [inv.id]: [] })); }
+  };
+
+  const handleBhExport = () => {
+    const rows = bhFiltered.map(i => ({ invoice_id: i.id, customer_name: i.customer_name ?? "", date: i.date, status: i.status, total_amount: i.total_amount }));
+    const csv = toCSV(rows);
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: "billing-history.csv" });
+    a.click();
+  };
+
+  const bhHeaderCell = (label: string, key: typeof bhSortBy) => (
+    <button onClick={() => { if (bhSortBy === key) setBhSortDir(d => d === "asc" ? "desc" : "asc"); else { setBhSortBy(key); setBhSortDir("asc"); } }} className="flex items-center gap-1 font-semibold">
+      <span>{label}</span><span className="opacity-70 text-xs">{bhSortBy === key ? (bhSortDir === "asc" ? "▲" : "▼") : ""}</span>
+    </button>
+  );
+  // ────────────────────────────────────────────────────────────────────────────
+
   return (
     <BillingErrorBoundary>
         <div className="w-full flex flex-col gap-3 sm:gap-4 md:gap-6 px-2 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         {/* Updated header without Generate Invoice button */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-          <h1 className="text-2xl sm:text-3xl font-bold">Payment Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Customer Billing</h1>
           {billingState.currentTab === "unbilled" && (
             <div className="text-xs sm:text-sm text-text-secondary">
               {/* Button moved to table header */}
@@ -1190,8 +1307,7 @@ const Card: React.FC<{
           )}
         </div>
 
-<div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-  {/* Jobs Not Invoiced */}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
   <CountFetcher
     apiUrl="/api/jobs/unbilled"
     render={(counts) => (
@@ -1205,26 +1321,35 @@ const Card: React.FC<{
       />
     )}
   />
-
-  {/* Invoice Pending Payments (Unpaid + Partially Paid) */}
   <CountFetcher
-    apiUrl="/api/invoices/unpaid"
-    statusFilter={["Unpaid", "Partially Paid"]}
+    apiUrl="/api/invoices/unpaid?pageSize=1000"
+    statusFilter={["Unpaid", "Partially Paid", "Paid"]}
     render={(fc) => (
-      <Card
-        tone="red"
-        title="Invoice Pending Payments"
-        value={(fc?.Unpaid ?? 0) + (fc?.["Partially Paid"] ?? 0)}
-        sub="Unpaid + Partially Paid"
-        onClick={() => setTabAndScroll("Unpaid")}
-        active={billingState.currentTab === "Unpaid"}
-      />
+      <>
+        <Card
+          tone="red"
+          title="Invoice Pending Payments"
+          value={(fc?.Unpaid ?? 0) + (fc?.["Partially Paid"] ?? 0)}
+          sub="Unpaid + Partially Paid"
+          onClick={() => setTabAndScroll("Unpaid")}
+          active={billingState.currentTab === "Unpaid"}
+        />
+        <Card
+          tone="green"
+          title="Invoices PAID"
+          value={fc?.Paid ?? 0}
+          sub="Paid invoices"
+          onClick={() => setTabAndScroll("history")}
+          active={billingState.currentTab === "history"}
+        />
+      </>
     )}
   />
 </div>
 
 
 
+{billingState.currentTab !== "history" && <>
 {/* Customer filter chips bar */}
 <div className="bg-background pt-2 pb-2 px-2 sm:px-4 rounded-t-lg sm:rounded-t-xl">
   <div className="flex items-center justify-between gap-2 mb-2">
@@ -1683,6 +1808,128 @@ const Card: React.FC<{
             )}
           </div>
         </div>
+        </>}
+
+        {/* ── Billing History Tab ─────────────────────────────────────────── */}
+        {billingState.currentTab === "history" && (
+          <div className="space-y-4 sm:space-y-6">
+            {/* Filters */}
+            <div className="bg-background-light/60 border border-border-color rounded-lg sm:rounded-xl p-3 sm:p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+                <input className="w-full px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Invoice ID" value={bhInvoiceId} onChange={e => setBhInvoiceId(e.target.value)} />
+                <input className="w-full px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Customer name…" value={bhCustomer} onChange={e => setBhCustomer(e.target.value)} />
+                <input type="number" min={0} className="w-full px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Min amount" value={bhMinAmount} onChange={e => setBhMinAmount(e.target.value)} />
+                <input type="number" min={0} className="w-full px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Max amount" value={bhMaxAmount} onChange={e => setBhMaxAmount(e.target.value)} />
+                <div className="flex gap-2 col-span-1 sm:col-span-2">
+                  <input type="date" className="flex-1 px-3 py-2 rounded-lg bg-background border border-border-color text-text-main text-xs sm:text-sm" value={bhStartDate} onChange={e => setBhStartDate(e.target.value)} />
+                  <input type="date" className="flex-1 px-3 py-2 rounded-lg bg-background border border-border-color text-text-main text-xs sm:text-sm" value={bhEndDate} onChange={e => setBhEndDate(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3 justify-end">
+                <button onClick={handleBhExport} className="px-4 py-2 rounded-lg bg-background border border-border-color text-text-main hover:bg-background/80 text-xs sm:text-sm">Export Report</button>
+                <button onClick={() => { setBhInvoiceId(""); setBhCustomer(""); setBhMinAmount(""); setBhMaxAmount(""); setBhStartDate(""); setBhEndDate(""); setBhPage(1); }} className="px-4 py-2 rounded-lg bg-background border border-border-color text-text-main hover:bg-background/80 text-xs sm:text-sm">Clear All</button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="bg-background-light rounded-lg sm:rounded-xl shadow-lg border border-border-color overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs sm:text-sm">
+                  <thead className="bg-background-light/50 text-text-main">
+                    <tr className="[&>th]:px-4 [&>th]:py-3 text-left">
+                      <th>{bhHeaderCell("Invoice ID", "id")}</th>
+                      <th>{bhHeaderCell("Customer", "customer_name")}</th>
+                      <th>{bhHeaderCell("Invoice Date", "date")}</th>
+                      <th>{bhHeaderCell("Amount", "total_amount")}</th>
+                      <th>{bhHeaderCell("Status", "status")}</th>
+                      <th className="px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-text-main/90">
+                    {bhLoading ? (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-text-secondary">Loading…</td></tr>
+                    ) : bhCurrent.length === 0 ? (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-text-secondary">No invoices found.</td></tr>
+                    ) : bhCurrent.map(inv => (
+                      <React.Fragment key={inv.id}>
+                        <tr className="border-t border-border-color hover:bg-background/40">
+                          <td className="px-4 py-3">
+                            <button onClick={() => unPaidInvoiceDownload(inv.id)} className="text-primary hover:underline text-xs sm:text-sm">{`INV-${String(inv.id).padStart(6, "0")}`}</button>
+                          </td>
+                          <td className="px-4 py-3">{inv.customer_name ?? `#${inv.customer_id}`}</td>
+                          <td className="px-4 py-3">{new Date(inv.date).toISOString().slice(0, 10)}</td>
+                          <td className="px-4 py-3">{money(inv.total_amount)}</td>
+                          <td className="px-4 py-3"><BillingBadge status={inv.status} /></td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-2">
+                              <button onClick={() => handleBhViewInvoice(inv)} className="px-2 py-1 rounded-md border border-border-color hover:bg-background text-xs sm:text-sm" title="View">👁</button>
+                              <button onClick={() => unPaidInvoiceDownload(inv.id)} className="px-2 py-1 rounded-md border border-border-color hover:bg-background text-xs sm:text-sm" title="Download">⬇</button>
+                              <button onClick={() => setBhPaymentsFor(inv.id)} className="px-2 py-1 rounded-md border border-border-color hover:bg-background text-xs sm:text-sm" title="Payment History">💳</button>
+                            </div>
+                          </td>
+                        </tr>
+                        {bhExpandedId === inv.id && (
+                          <tr>
+                            <td colSpan={6} className="bg-background-light/40 p-3">
+                              <div className="rounded-xl border border-border-color bg-background-light overflow-hidden">
+                                <table className="min-w-full text-xs sm:text-sm">
+                                  <thead className="bg-background/60">
+                                    <tr>
+                                      {["Job ID","Service","Pickup","Drop-off","Pickup Date","Amount"].map(h => (
+                                        <th key={h} className="px-3 py-2 text-left font-semibold">{h}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(bhExpandedJobs[inv.id] ?? []).length > 0 ? (bhExpandedJobs[inv.id] ?? []).map((job: any) => (
+                                      <tr key={job.id} className="hover:bg-background/40 border-t border-border-color">
+                                        <td className="px-3 py-2">{job.id}</td>
+                                        <td className="px-3 py-2">{job.service_type ?? "—"}</td>
+                                        <td className="px-3 py-2">{job.pickup_location ?? "—"}</td>
+                                        <td className="px-3 py-2">{job.dropoff_location ?? "—"}</td>
+                                        <td className="px-3 py-2">{job.pickup_date ? new Date(job.pickup_date).toISOString().slice(0,10) : "—"}</td>
+                                        <td className="px-3 py-2">{typeof job.final_price === "number" ? `$${job.final_price.toFixed(2)}` : "—"}</td>
+                                      </tr>
+                                    )) : (
+                                      <tr><td colSpan={6} className="text-center py-4 text-text-secondary">No jobs for this invoice.</td></tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between px-4 py-3 border-t border-border-color text-xs sm:text-sm">
+                <div className="text-text-secondary">Showing {bhTotalRows === 0 ? 0 : (bhPage - 1) * bhRowsPerPage + 1}–{Math.min(bhPage * bhRowsPerPage, bhTotalRows)} of {bhTotalRows} invoices</div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-text-secondary whitespace-nowrap">Rows per page</label>
+                    <select className="px-2 py-1 rounded-md bg-background border border-border-color text-text-main text-xs" value={bhRowsPerPage} onChange={e => { setBhRowsPerPage(Number(e.target.value)); setBhPage(1); }}>
+                      {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button className="px-2 py-1 rounded-md border border-border-color hover:bg-background disabled:opacity-40 text-xs" onClick={() => setBhPage(p => Math.max(1, p - 1))} disabled={bhPage === 1}>‹ Prev</button>
+                    <span className="px-2">{bhPage} / {bhTotalPages}</span>
+                    <button className="px-2 py-1 rounded-md border border-border-color hover:bg-background disabled:opacity-40 text-xs" onClick={() => setBhPage(p => Math.min(bhTotalPages, p + 1))} disabled={bhPage === bhTotalPages}>Next ›</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {bhPaymentsFor && (
+              <PartialPaymentModal invoice={{ id: bhPaymentsFor }} onClose={() => setBhPaymentsFor(null)} readOnly onPaymentSuccess={() => {}} />
+            )}
+          </div>
+        )}
+
         {showConfirmPaidModal && (
           <ConfirmDialog
             open={confirmPaidOpen}

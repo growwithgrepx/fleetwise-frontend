@@ -7,23 +7,23 @@ type CountFetcherProps = {
   statusFilter?: string[];
   refreshInterval?: number; // in ms
   render: (counts: Record<string, number>, error?: string) => ReactNode;
-  forceRefresh?: number; // Add force refresh prop
+  forceRefresh?: number;
 };
 
 export default function CountFetcher({
   apiUrl,
   statusFilter,
-  refreshInterval = 10000,
+  refreshInterval = 120000, // 2 minutes default
   render,
-  forceRefresh = 0, // Default to 0
+  forceRefresh = 0,
 }: CountFetcherProps) {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const isMounted = useRef(false);
-  
+  const retryTimeout = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     isMounted.current = true;
-    const interval: NodeJS.Timeout = setInterval(fetchCounts, refreshInterval);
 
     async function fetchCounts() {
       try {
@@ -32,60 +32,60 @@ export default function CountFetcher({
         if (!isMounted.current) return;
         const data = res.data;
         if (statusFilter && Array.isArray(data.items)) {
-          // unpaid/paid/partially paid case
           const counted: Record<string, number> = {};
           statusFilter.forEach((status) => {
             counted[status] = data.items.filter(
               (item: any) => item.status === status
             ).length;
-            
-            // total amount for each status
             counted[`${status}Amount`] = data.items
               .filter((item: any) => item.status === status)
               .reduce((sum: number, item: any) => sum + Number(item.total_amount ?? 0), 0);
           });
-          // Add total received amount as sum of paid_amount (total_amount - remaining_amount_invoice)
           counted["TotalReceivedAmount"] = data.items
             .filter((item: any) => ["Paid", "Partially Paid"].includes(item.status))
             .reduce((sum: number, item: any) => {
               const total = Number(item?.total_amount);
               const remaining = Number(item?.remaining_amount_invoice);
-
               const safeTotal = isNaN(total) ? 0 : total;
               const safeRemaining = isNaN(remaining) ? 0 : remaining;
-
               const paidAmount = safeTotal - safeRemaining;
               return sum + (isNaN(paidAmount) ? 0 : paidAmount);
             }, 0);
           setCounts(counted);
         } else {
-          // unbilled or generic count
           setCounts({ total: data?.total ?? data?.items?.length ?? 0 });
         }
       } catch (err: any) {
-        console.error("Failed to fetch counts:", err);
         if (!isMounted.current || axios.isCancel(err)) return;
-        // propagate meaningful error
+        const status = err.response?.status;
+        // On 429 back off for 5 minutes before next poll
+        if (status === 429) {
+          console.warn("CountFetcher: rate limited (429), backing off for 5 minutes.");
+          retryTimeout.current = setTimeout(fetchCounts, 5 * 60 * 1000);
+          return;
+        }
+        console.error("Failed to fetch counts:", err);
         setError(err.response?.data?.message || err.message || "Failed to fetch counts");
-
         const fallback: Record<string, number> = {};
         if (statusFilter) {
           statusFilter.forEach((s) => (fallback[s] = 0));
-          fallback["TotalReceivedAmount"] = 0; // Fallback for total received
+          fallback["TotalReceivedAmount"] = 0;
         } else {
           fallback["total"] = 0;
         }
         setCounts(fallback);
       }
     }
-    
+
     fetchCounts();
+    const interval = setInterval(fetchCounts, refreshInterval);
 
     return () => {
       isMounted.current = false;
       clearInterval(interval);
+      if (retryTimeout.current) clearTimeout(retryTimeout.current);
     };
-  }, [apiUrl, statusFilter, refreshInterval, forceRefresh]); // Add forceRefresh to dependency array
+  }, [apiUrl, statusFilter, refreshInterval, forceRefresh]);
 
   return <>{render(counts, error)}</>;
 }
