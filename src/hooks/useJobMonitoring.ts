@@ -13,6 +13,7 @@ import { getAlertSettings } from '@/services/api/settingsApi';
 import { toast } from 'react-hot-toast';
 import { convertUtcToDisplayTime } from '@/utils/timezoneUtils';
 import { useUser } from '@/context/UserContext';
+import { getUserRole } from '@/utils/roleUtils';
 import type { AlertSettings } from '@/services/api/settingsApi';
 
 // Define return type for the hook
@@ -66,16 +67,16 @@ const debugConvertApiAlert = (apiAlert: ApiJobMonitoringAlert) => {
 export const useJobMonitoring = (): UseJobMonitoringReturn => {
   const queryClient = useQueryClient();
   const { alerts, dismissAlert, updateAlerts } = useJobMonitoringStore();
-  const { isLoggedIn } = useUser();
+  const { isLoggedIn, user } = useUser();
+  const role = getUserRole(user);
+  const canMonitor = isLoggedIn && !['customer', 'driver', 'guest'].includes(role);
   const previousAlertsRef = useRef<typeof alerts>([]);
 
   // Fetch alerts from API
   const { data: apiAlertsData, isLoading, error, refetch } = useQuery({
     queryKey: ['job-monitoring-alerts'],
     queryFn: async () => {
-      // Only fetch if user is logged in
-      if (!isLoggedIn) {
-        console.log('[useJobMonitoring] User not logged in, skipping API call');
+      if (!canMonitor) {
         return { alerts: [], active_count: 0, total_count: 0 };
       }
       
@@ -90,7 +91,7 @@ export const useJobMonitoring = (): UseJobMonitoringReturn => {
       }
     },
     refetchInterval: 30000, // Refetch every 30 seconds
-    enabled: isLoggedIn, // Only run query when user is logged in
+    enabled: canMonitor,
   });
   
   // Debug logging
@@ -110,7 +111,7 @@ export const useJobMonitoring = (): UseJobMonitoringReturn => {
     queryKey: ['alert-settings'],
     queryFn: getAlertSettings,
     refetchInterval: 60000, // Refetch settings every minute
-    enabled: isLoggedIn, // Only run query when user is logged in
+    enabled: canMonitor,
   });
 
   const maxAlertReminders = alertSettingsData?.alert_settings.max_alert_reminders ?? 3; // Default to 3 if not loaded
@@ -226,7 +227,7 @@ export const useJobMonitoring = (): UseJobMonitoringReturn => {
     queryKey: ['job-monitoring-alert-count'],
     queryFn: getActiveJobMonitoringAlertCount,
     refetchInterval: 30000, // Refetch every 30 seconds
-    enabled: isLoggedIn, // Only run query when user is logged in
+    enabled: canMonitor,
   });
 
   return {
