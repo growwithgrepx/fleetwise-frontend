@@ -263,7 +263,7 @@ export function JobEntityTable<
           containerClassName
         )}
       >
-        <table className="w-full text-sm text-left text-text-main">
+        <table className="w-full text-[11px] sm:text-xs text-left text-text-main">
           <thead
             className={clsx(
               "text-xs font-medium text-text-secondary bg-background-light/95 backdrop-blur-md sticky top-0 z-10 transition-all duration-200",
@@ -271,22 +271,22 @@ export function JobEntityTable<
             )}
           >
             <tr className="border-b border-border-color">
-              <th className="px-6 py-3 w-10 bg-inherit">
+              <th className="px-2 py-1.5 w-8 bg-inherit">
                 <input
                   type="checkbox"
                   onChange={handleSelectAll}
                   checked={isAllSelected}
-                  className="form-checkbox h-4 w-4 text-primary bg-background-light border-border-color rounded-md focus:ring-2 focus:ring-primary/40 focus:ring-offset-0"
+                  className="form-checkbox h-3.5 w-3.5 text-primary bg-background-light border-border-color rounded-md focus:ring-2 focus:ring-primary/40 focus:ring-offset-0"
                 />
               </th>
-              {renderExpandedRow && <th className="px-2 py-3 w-10"></th>}
+              {renderExpandedRow && <th className="px-1 py-1.5 w-8"></th>}
               {columns.map((col) => (
                 <th
                   key={String(col.accessor)}
-                  className="px-4 py-3 min-w-[120px] whitespace-normal break-words"
+                  className="px-1.5 py-1 sm:px-2 align-top min-w-[90px]"
                   style={col.width ? { width: col.width } : {}}
                 >
-                  <div className="font-bold text-base text-text-main whitespace-normal break-words">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-text-secondary sm:text-[11px] mb-0.5">
                     {col.label}
                   </div>
                   {col.filterable && onFilterChange && (
@@ -298,7 +298,7 @@ export function JobEntityTable<
                     ) : (
                       <input
                         type="text"
-                        className="w-full bg-background-light border-border-color text-text-main placeholder-text-secondary focus:ring-2 focus:ring-primary rounded px-2 py-1 text-xs mt-1"
+                        className="w-full rounded-lg border border-border-color bg-background-light px-2 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/30 text-text-main placeholder-text-secondary mt-0.5"
                         placeholder={`Filter ${(col.stringLabel || col.accessor)
                           .toString()
                           .toLowerCase()}...`}
@@ -312,8 +312,8 @@ export function JobEntityTable<
                 </th>
               ))}
               {actions.length > 0 && (
-                <th className="px-4 py-3 min-w-[100px] sm:min-w-[140px] text-right" style={{ minWidth: '100px' }}>
-                  <div className="font-bold text-base text-text-secondary">
+                <th className="px-1.5 py-1 sm:px-2 sticky right-0 bg-inherit text-right">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-text-secondary sm:text-[11px]">
                     Actions
                   </div>
                 </th>
@@ -370,31 +370,31 @@ export function JobEntityTable<
                       }
                     }}
                   >
-                    <td className="px-6 py-3.5 w-10">
+                    <td className="px-2 py-1.5 w-8">
                       {/* <input
                         type="checkbox"
                         checked={selectedRows.includes(row.id)}
                         onChange={() => handleSelectRow(row.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="form-checkbox h-4 w-4 text-primary bg-background-light border-border-color rounded focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:ring-offset-background"
+                        className="form-checkbox h-3.5 w-3.5 text-primary bg-background-light border-border-color rounded focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:ring-offset-background"
                       /> */}
                       <input
   type="checkbox"
   checked={selectedRowIds.includes(row.id)}
   onChange={() => handleSelectRow(row.id)}
   onClick={(e) => e.stopPropagation()}
-  className="form-checkbox h-4 w-4 text-primary bg-background-light border-border-color rounded focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:ring-offset-background"
+  className="form-checkbox h-3.5 w-3.5 text-primary bg-background-light border-border-color rounded focus:ring-2 focus:ring-offset-2 focus:ring-primary focus:ring-offset-background"
 />
                     </td>
                     {renderExpandedRow && (
-                      <td className="px-2 py-3 w-10">
+                      <td className="px-1 py-1 w-8">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRowIdSeclection(row.id);
                             handleRowToggle(row.id);
                           }}
-                          className="rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background text-text-secondary hover:text-white hover:bg-background-light/50 transition-colors"
+                          className="rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background text-text-secondary hover:text-white hover:bg-background-light/50 transition-colors"
                           aria-label={
                             expandedRowId === row.id
                               ? "Collapse row"
@@ -402,9 +402,9 @@ export function JobEntityTable<
                           }
                         >
                           {expandedRowId === row.id ? (
-                            <ChevronDownIcon className="w-5 h-5" />
+                            <ChevronDownIcon className="w-4 h-4" />
                           ) : (
-                            <ChevronRightIcon className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                            <ChevronRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                           )}
                         </button>
                       </td>
@@ -412,7 +412,7 @@ export function JobEntityTable<
                     {columns.map((col) => (
                       <td
                         key={String(col.accessor) + "-" + row.id}
-                        className="px-4 py-3 whitespace-normal break-words max-w-xs md:max-w-sm lg:max-w-md"
+                        className="px-1.5 py-1.5 sm:px-2 align-middle max-w-[220px] truncate"
                       >
                         {col.render ? (
                           col.render(row)
@@ -428,8 +428,8 @@ export function JobEntityTable<
                       </td>
                     ))}
                     {actions.length > 0 && (
-                      <td className="px-4 py-3 min-w-[100px] sm:min-w-[140px] align-middle" style={{ minWidth: '100px' }}>
-                        <div className="flex gap-2 items-center justify-end opacity-80 group-hover:opacity-100 transition-opacity">
+                      <td className="px-1.5 py-1 sm:px-2 sticky right-0 align-middle">
+                        <div className="flex gap-1 items-center justify-end opacity-80 group-hover:opacity-100 transition-opacity">
                           {actions.map((action) => {
                             const isDisabled = action.disabled
                               ? action.disabled(row)
@@ -479,19 +479,19 @@ export function JobEntityTable<
                                 {isViewAction ? (
                                   <div
                                     className={clsx(
-                                      "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                                      "w-6 h-6 rounded-md flex items-center justify-center transition-colors",
                                       expandedRowId === row.id
                                         ? "bg-primary text-white"
                                         : "bg-primary/20 text-primary hover:bg-primary/30"
                                     )}
                                   >
-                                    <EyeIcon className="h-4 w-4" />
+                                    <EyeIcon className="h-3.5 w-3.5" />
                                   </div>
                                 ) : action.label === "Edit" ? (
-                                  <div className="w-8 h-8 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 flex items-center justify-center transition-colors">
+                                  <div className="w-6 h-6 rounded-md bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 flex items-center justify-center transition-colors">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 w-4"
+                                      className="h-3.5 w-3.5"
                                       fill="none"
                                       viewBox="0 0 24 24"
                                       stroke="currentColor"
@@ -505,10 +505,10 @@ export function JobEntityTable<
                                     </svg>
                                   </div>
                                 ) : action.label === "Delete" ? (
-                                  <div className="w-8 h-8 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 flex items-center justify-center transition-colors">
+                                  <div className="w-6 h-6 rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-400 flex items-center justify-center transition-colors">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 w-4"
+                                      className="h-3.5 w-3.5"
                                       fill="none"
                                       viewBox="0 0 24 24"
                                       stroke="currentColor"
@@ -549,7 +549,7 @@ export function JobEntityTable<
                           >
                             <div
                               ref={setContentRef(row.id)}
-                              className="pl-16 pr-6 py-4 border-l-2 border-primary/30 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent"
+                              className="pl-10 pr-3 py-2 border-l-2 border-primary/30 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent"
                             >
                               {renderExpandedRow(row)}
                             </div>

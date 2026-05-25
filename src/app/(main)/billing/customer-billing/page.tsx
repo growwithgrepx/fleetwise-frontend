@@ -155,22 +155,15 @@ const unPaidColumns = [
 // Column configuration for Customer's Jobs table (simple, filterable)
 const customerColumns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
   {
-    label: "Invoice #",
-    accessor: "id",   
+    label: "Job ID#",
+    accessor: "id",
     filterable: true,
-    stringLabel: "Invoice #",
+    stringLabel: "Job ID#",
   },
   {
     label: "Customer",
     accessor: "customer_name",
     filterable: true,
-    stringLabel: "Customer",
-  },
-
-  {
-    label: "Customer",
-    accessor: "customer_id",
-    filterable: false,
     stringLabel: "Customer",
   },
   {
@@ -210,7 +203,7 @@ const getBillActions = (
   const actions: EntityTableAction<JobOrInvoice>[] = [
     {
       label: "View",
-      icon: <Eye className="w-5 h-5 text-primary" />,
+      icon: <Eye className="w-4 h-4 text-primary" />,
       onClick: handleView,
       ariaLabel: "View job details",
       title: "View",
@@ -228,14 +221,14 @@ const getBillActions = (
       // },
       {
         label: "Partial Payment",
-        icon: <DollarSign className="w-5 h-5 text-green-500" />,
+        icon: <DollarSign className="w-4 h-4 text-green-500" />,
         onClick: (row) => handlePartialPayment((row as Invoice).id),
         ariaLabel: "Record Partial Payment",
         title: "Partial Payment",
       },
       {
         label: "Delete",
-        icon: <Trash2 className="w-5 h-5 text-red-500" />,
+        icon: <Trash2 className="w-4 h-4 text-red-500" />,
         onClick: (job) => handleDeleteUnpaidInvoice(job.id),
         ariaLabel: "Delete job",
         title: "Delete",
@@ -250,7 +243,7 @@ const getBillActions = (
       // }
       {
   label: "Download Invoice",
-  icon: <ArrowDownTrayIcon className="w-5 h-5 text-red-500" />,
+  icon: <ArrowDownTrayIcon className="w-4 h-4 text-red-500" />,
   onClick: (invoice) => {
     if (invoice.status === "Unpaid") {
       handleUnPaidInvoiceDownload(invoice.id);
@@ -270,14 +263,14 @@ const getBillActions = (
     
     actions.push({
       label: "View Payments",
-      icon: <DollarSign className="w-5 h-5 text-green-500" />,
+      icon: <DollarSign className="w-4 h-4 text-green-500" />,
       onClick: (invoice) => handlePartialPayment((invoice as Invoice).id),
       ariaLabel: "View Payment Details", 
       title: "View Payments",
     },
     {
       label: "Download Invoice",
-      icon: <ArrowDownTrayIcon className="w-5 h-5 text-red-500" />,
+      icon: <ArrowDownTrayIcon className="w-4 h-4 text-red-500" />,
       onClick: (invoice) => handleUnPaidInvoiceDownload(invoice.id),
       ariaLabel: "Download Invoice",
       title: "Download Invoice",
@@ -304,7 +297,7 @@ const getCustomerJobActions = (
   if (status === "Unpaid") {
     actions.push({
     label: "Delete",
-    icon: <Trash2 className="w-5 h-5 text-red-500" />,
+    icon: <Trash2 className="w-4 h-4 text-red-500" />,
     onClick: (item: JobOrInvoice) => {
       // Safely extract id whether it's a Job or Invoice
       const jobId =
@@ -1704,7 +1697,7 @@ const Card: React.FC<{
                 )}
                 onSelectionChange={handleJobSelection}
                 renderExpandedRow={(job) => (
-                  <div className="py-6 px-8">
+                  <div className="py-2 px-3">
                     <CustomerJobEntityTable
                       columns={customerColumns.map((col) => ({
                         ...col,
@@ -1815,19 +1808,15 @@ const Card: React.FC<{
           <div className="space-y-4 sm:space-y-6">
             {/* Filters */}
             <div className="bg-background-light/60 border border-border-color rounded-lg sm:rounded-xl p-3 sm:p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-                <input className="w-full px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Invoice ID" value={bhInvoiceId} onChange={e => setBhInvoiceId(e.target.value)} />
-                <input className="w-full px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Customer name…" value={bhCustomer} onChange={e => setBhCustomer(e.target.value)} />
-                <input type="number" min={0} className="w-full px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Min amount" value={bhMinAmount} onChange={e => setBhMinAmount(e.target.value)} />
-                <input type="number" min={0} className="w-full px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Max amount" value={bhMaxAmount} onChange={e => setBhMaxAmount(e.target.value)} />
-                <div className="flex gap-2 col-span-1 sm:col-span-2">
-                  <input type="date" className="flex-1 px-3 py-2 rounded-lg bg-background border border-border-color text-text-main text-xs sm:text-sm" value={bhStartDate} onChange={e => setBhStartDate(e.target.value)} />
-                  <input type="date" className="flex-1 px-3 py-2 rounded-lg bg-background border border-border-color text-text-main text-xs sm:text-sm" value={bhEndDate} onChange={e => setBhEndDate(e.target.value)} />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-3 justify-end">
-                <button onClick={handleBhExport} className="px-4 py-2 rounded-lg bg-background border border-border-color text-text-main hover:bg-background/80 text-xs sm:text-sm">Export Report</button>
-                <button onClick={() => { setBhInvoiceId(""); setBhCustomer(""); setBhMinAmount(""); setBhMaxAmount(""); setBhStartDate(""); setBhEndDate(""); setBhPage(1); }} className="px-4 py-2 rounded-lg bg-background border border-border-color text-text-main hover:bg-background/80 text-xs sm:text-sm">Clear All</button>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <input className="flex-1 min-w-[120px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Invoice ID" value={bhInvoiceId} onChange={e => setBhInvoiceId(e.target.value)} />
+                <input className="flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Customer name…" value={bhCustomer} onChange={e => setBhCustomer(e.target.value)} />
+                <input type="number" min={0} className="flex-1 min-w-[100px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Min amount" value={bhMinAmount} onChange={e => setBhMinAmount(e.target.value)} />
+                <input type="number" min={0} className="flex-1 min-w-[100px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Max amount" value={bhMaxAmount} onChange={e => setBhMaxAmount(e.target.value)} />
+                <input type="date" className="flex-1 min-w-[130px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main text-xs sm:text-sm" value={bhStartDate} onChange={e => setBhStartDate(e.target.value)} />
+                <input type="date" className="flex-1 min-w-[130px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main text-xs sm:text-sm" value={bhEndDate} onChange={e => setBhEndDate(e.target.value)} />
+                <button onClick={handleBhExport} className="px-4 py-2 rounded-lg bg-background border border-border-color text-text-main hover:bg-background/80 text-xs sm:text-sm whitespace-nowrap">Export Report</button>
+                <button onClick={() => { setBhInvoiceId(""); setBhCustomer(""); setBhMinAmount(""); setBhMaxAmount(""); setBhStartDate(""); setBhEndDate(""); setBhPage(1); }} className="px-4 py-2 rounded-lg bg-background border border-border-color text-text-main hover:bg-background/80 text-xs sm:text-sm whitespace-nowrap">Clear All</button>
               </div>
             </div>
 
