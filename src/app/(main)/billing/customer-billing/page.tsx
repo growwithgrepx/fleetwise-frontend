@@ -12,7 +12,7 @@ import { AnimatedButton } from "@/components/ui/AnimatedButton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/molecules/ConfirmDialog";
 import JobDetailCard from "@/components/organisms/JobDetailCard";
-import { DollarSign, Eye, Pencil, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { DollarSign, Eye, Pencil, Trash2, ArrowUp, ArrowDown, X } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import JobForm from "@/components/organisms/JobForm";
 import toast from 'react-hot-toast';
@@ -21,6 +21,7 @@ import { useBills } from "@/hooks/useBills";
 import { useGetAllCustomers } from "@/hooks/useCustomers";
 import { JobEntityTable } from "@/components/organisms/JobBillingTable";
 import { CustomerJobEntityTable } from "@/components/organisms/CustomerJobEntityTable";
+import { MultiSelectDropdown } from "@/components/atoms/MultiSelectDropdown";
 import { JobOrInvoice } from "@/types/job";
 import { Invoice } from "@/types/types";
 import { useJobs } from "@/hooks/useJobs";
@@ -29,7 +30,7 @@ import CountFetcher from "@/components/organisms/CountFetcher";
 import axios from "axios";
 import PartialPaymentModal from "@/components/organisms/PartialPaymentModal";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth, addDays } from "date-fns";
 import { useCallback } from "react";
 import classNames from "classnames";
 import { useQueryClient } from "@tanstack/react-query";
@@ -383,7 +384,12 @@ const BillPage = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [selectedJobs, setSelectedJobs] = useState<Job[]>([]);
   const [selectedInvoicesJobs, setSelectedInvoicesJobs] = useState<Job[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null); 
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [billingSearch, setBillingSearch] = useState('');
+  const [billingDateFrom, setBillingDateFrom] = useState('');
+  const [billingDateTo, setBillingDateTo] = useState('');
+  const [billingCustomerFilter, setBillingCustomerFilter] = useState<(string | number)[]>([]);
+  const [billingStatusFilter, setBillingStatusFilter] = useState('');
   const [formData, setFormData] = useState<JobFormData>(() => {
  
     const defaultValues: JobFormData | any = {
@@ -435,7 +441,12 @@ const setTabAndScroll = (tab: "unbilled" | "Unpaid" | "history") => {
   setSelectedJobs([]);
   setTableFilters({});
   setSelectedCustomerId(null);
-  setExpandedJobId(null);         
+  setBillingSearch('');
+  setBillingDateFrom('');
+  setBillingDateTo('');
+  setBillingCustomerFilter([]);
+  setBillingStatusFilter('');
+  setExpandedJobId(null);
   setUnpaidExpandedInvoiceId(null);
   jumpToTable();
 };
@@ -451,6 +462,8 @@ const setTabAndScroll = (tab: "unbilled" | "Unpaid" | "history") => {
   // Billing History tab state
   const [bhInvoiceId, setBhInvoiceId] = useState("");
   const [bhCustomer, setBhCustomer] = useState("");
+  const [bhSearch, setBhSearch] = useState("");
+  const [bhCustomerIds, setBhCustomerIds] = useState<(string | number)[]>([]);
   const [bhMinAmount, setBhMinAmount] = useState("");
   const [bhMaxAmount, setBhMaxAmount] = useState("");
   const [bhStartDate, setBhStartDate] = useState("");
@@ -919,33 +932,44 @@ const filteredJobs = jobsWithCustomerName.filter((job) => {
   }
 
   const customerMatch =
-    selectedCustomerId == null || job.customer_id === selectedCustomerId;
+    billingCustomerFilter.length === 0 || billingCustomerFilter.includes(job.customer_id);
 
   const filterMatch = Object.entries(debouncedFilters).every(
     ([col, val]) =>
       !val || String(job[col] ?? "").toLowerCase().includes(val.toLowerCase())
   );
 
+  const searchMatch = !billingSearch || [
+    job.job_id, job.customer_name, job.pickup_location, job.dropoff_location,
+    job.passenger_name, job.status, String(job.invoice_id ?? ''), String(job.id ?? '')
+  ].some(f => String(f ?? '').toLowerCase().includes(billingSearch.toLowerCase()));
+
+  const dateField = billingState.currentTab === "unbilled"
+    ? String(job.pickup_date || '')
+    : String(job.date || '');
+  const dateMatch =
+    (!billingDateFrom && !billingDateTo) ||
+    (billingDateFrom && billingDateTo
+      ? dateField >= billingDateFrom && dateField <= billingDateTo
+      : billingDateFrom
+      ? dateField >= billingDateFrom
+      : dateField <= billingDateTo);
+
   let statusMatch = true;
   if (billingState.currentTab === "Unpaid") {
-    statusMatch = job.status === "Unpaid" || job.status === "Partially Paid";
+    statusMatch = billingStatusFilter
+      ? job.status === billingStatusFilter
+      : job.status === "Unpaid" || job.status === "Partially Paid";
   } else if (billingState.currentTab === "Paid") {
     statusMatch = job.status === "Paid";
+  } else if (billingState.currentTab === "unbilled" && billingStatusFilter) {
+    statusMatch = String(job.status ?? '').toLowerCase() === billingStatusFilter.toLowerCase();
   }
-  // If "unbilled" → skip filtering by status (already handled above)
 
-  console.log(`Filtering job ${job.invoice_id}:`, {
-    monthMatch,
-    customerMatch,
-    filterMatch,
-    statusMatch,
-    job,
-  });
-
-  return monthMatch && customerMatch && filterMatch && statusMatch;
+  return monthMatch && customerMatch && searchMatch && dateMatch && filterMatch && statusMatch;
 });
 
-const showResetFilter = filteredJobs.length === 0 && (selectedCustomerId !== null || Object.keys(debouncedFilters).length > 0);
+const showResetFilter = filteredJobs.length === 0 && (billingSearch || billingDateFrom || billingDateTo || billingCustomerFilter.length > 0 || billingStatusFilter || Object.keys(debouncedFilters).length > 0);
 
   // Sort jobs
   const sortedJobs = [...filteredJobs].sort((a, b) => {
@@ -1230,8 +1254,12 @@ const Card: React.FC<{
     const end   = bhEndDate   ? new Date(bhEndDate)   : now;
     return bhInvoicesWithNames.filter((inv) => {
       if (inv.status !== "Paid") return false;
-      if (bhInvoiceId && !String(inv.id).includes(bhInvoiceId)) return false;
-      if (bhCustomer && !(inv.customer_name ?? "").toLowerCase().includes(bhCustomer.toLowerCase())) return false;
+      if (bhSearch) {
+        const s = bhSearch.toLowerCase();
+        const matches = String(inv.id).includes(s) || (inv.customer_name ?? "").toLowerCase().includes(s);
+        if (!matches) return false;
+      }
+      if (bhCustomerIds.length > 0 && !bhCustomerIds.includes(inv.customer_id)) return false;
       const amt = Number(inv.total_amount) || 0;
       if (bhMinAmount && amt < Number(bhMinAmount)) return false;
       if (bhMaxAmount && amt > Number(bhMaxAmount)) return false;
@@ -1239,7 +1267,7 @@ const Card: React.FC<{
       if (d < start || d > end) return false;
       return true;
     });
-  }, [bhInvoicesWithNames, bhInvoiceId, bhCustomer, bhMinAmount, bhMaxAmount, bhStartDate, bhEndDate]);
+  }, [bhInvoicesWithNames, bhSearch, bhCustomerIds, bhMinAmount, bhMaxAmount, bhStartDate, bhEndDate]);
 
   const bhSorted = useMemo(() => {
     return [...bhFiltered].sort((a, b) => {
@@ -1343,69 +1371,111 @@ const Card: React.FC<{
 
 
 {billingState.currentTab !== "history" && <>
-{/* Customer filter chips bar */}
-<div className="bg-background pt-2 pb-2 px-2 sm:px-4 rounded-t-lg sm:rounded-t-xl">
-  <div className="flex items-center justify-between gap-2 mb-2">
-    <h2 className="text-xs sm:text-sm font-semibold text-white/80">Filter by Customer</h2>
+{/* Compact filter bar */}
+<div className="flex flex-wrap items-end gap-2 bg-background-light border border-border-color rounded-lg px-3 py-2.5">
+  {/* FREE TEXT SEARCH */}
+  <div className="flex flex-col gap-0.5">
+    <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">Free Text Search</label>
+    <input
+      type="text"
+      placeholder="Search jobs, customers, ref..."
+      value={billingSearch}
+      onChange={e => { setBillingSearch(e.target.value); setPage(1); }}
+      className="w-52 bg-background border border-border-color text-text-main placeholder:text-text-secondary rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent"
+    />
   </div>
 
-  {/*
-    Show at most 2 rows * 8 cols = 16 cells total.
-    We reserve 1 cell for "All Customers", so show up to 15 customers.
-  */}
-  {(() => {
-    const PER_ROW = 8;
-    const MAX_ROWS = 2;
-    const MAX_VISIBLE_CUSTOMERS = PER_ROW * MAX_ROWS - 1; // minus "All Customers"
-    const cappedChips = customerChips.slice(0, MAX_VISIBLE_CUSTOMERS);
+  <div className="w-px h-8 bg-border-color self-end" />
 
-    return (
-      <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5">
-        {/* All Customers cell */}
+  {/* BY DATE */}
+  <div className="flex flex-col gap-0.5">
+    <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">By Date</label>
+    <div className="flex items-center gap-1.5">
+      <input
+        type="date"
+        value={billingDateFrom}
+        onChange={e => { setBillingDateFrom(e.target.value); setPage(1); }}
+        className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+      />
+      <span className="text-text-secondary text-xs">&mdash;</span>
+      <input
+        type="date"
+        value={billingDateTo}
+        onChange={e => { setBillingDateTo(e.target.value); setPage(1); }}
+        className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+      />
+      {(billingDateFrom || billingDateTo) && (
         <button
-          onClick={() => {
-            setSelectedCustomerId(null);
-            setTableFilters({});
-          }}
-          className={`w-full px-1.5 sm:px-2 py-2 sm:py-3 min-h-10 sm:min-h-12
-            flex flex-col items-center justify-center text-center gap-0.5
-            rounded-lg border transition break-words text-xs sm:text-sm
-            ${selectedCustomerId == null
-              ? "bg-primary text-white border-primary"
-              : "bg-background-light text-white/90 border-border-color hover:bg-primary/30"}`}
+          type="button"
+          onClick={() => { setBillingDateFrom(''); setBillingDateTo(''); setPage(1); }}
+          className="text-text-secondary hover:text-red-400 transition-colors p-1 rounded hover:bg-background-dark"
+          title="Clear date filter"
         >
-          <span className="text-[11px] sm:text-[13px] font-medium leading-tight">All</span>
-          <span className="text-xs opacity-70 mt-0.5">({totalCustomers})</span>
+          <X className="w-3.5 h-3.5" />
         </button>
+      )}
+    </div>
+  </div>
 
-        {/* Up to 15 customers so total = 16 cells (2 rows x 8 cols) */}
-        {cappedChips
-        .filter((c) => {
-    const count = Number(c.count) || 0;
-    return count > 0;
-  })
-        .map((c) => (
-          <button
-            key={c.id}
-            onClick={() => {
-              setSelectedCustomerId(c.id);
-              setTableFilters({});
-            }}
-            title={c.name}
-            className={`w-full px-1.5 sm:px-2 py-2 sm:py-3 min-h-10 sm:min-h-12
-              flex flex-col items-center justify-center text-center gap-0.5
-              rounded-lg border transition break-words text-xs sm:text-sm
-              ${selectedCustomerId === c.id
-                ? "bg-primary text-white border-primary"
-                : "bg-background-light text-white/90 border-border-color hover:bg-primary/30"}`}
-          >
-            <span className="text-[11px] sm:text-[13px] font-medium leading-tight truncate">{c.name}</span>
-            <span className="text-xs opacity-70 mt-0.5">({c.count})</span>
-          </button>
-        ))}
-      </div>
-    );
-  })()}
+  <div className="w-px h-8 bg-border-color self-end" />
+
+  {/* QUICK FILTERS */}
+  <div className="flex flex-col gap-0.5">
+    <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">Quick Filters</label>
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => { const d = format(new Date(), 'yyyy-MM-dd'); setBillingDateFrom(d); setBillingDateTo(d); setPage(1); }}
+        className="px-2 py-1 text-xs rounded border border-border-color text-text-main hover:border-primary hover:text-primary bg-background h-8 transition-all whitespace-nowrap"
+      >
+        Today
+      </button>
+      <button
+        type="button"
+        onClick={() => { const d = format(addDays(new Date(), 1), 'yyyy-MM-dd'); setBillingDateFrom(d); setBillingDateTo(d); setPage(1); }}
+        className="px-2 py-1 text-xs rounded border border-border-color text-text-main hover:border-primary hover:text-primary bg-background h-8 transition-all whitespace-nowrap"
+      >
+        Tomorrow
+      </button>
+      <MultiSelectDropdown
+        options={allCustomers.map(c => ({ id: c.id, label: c.name }))}
+        selected={billingCustomerFilter}
+        onChange={selected => { setBillingCustomerFilter(selected); setPage(1); }}
+        placeholder="All Customers"
+      />
+      {billingState.currentTab === "unbilled" && (
+        <select
+          value={billingStatusFilter}
+          onChange={e => { setBillingStatusFilter(e.target.value); setPage(1); }}
+          className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+        >
+          <option value="">All Statuses</option>
+          <option value="jc">Completed</option>
+          <option value="canceled">Canceled</option>
+        </select>
+      )}
+      {billingState.currentTab === "Unpaid" && (
+        <select
+          value={billingStatusFilter}
+          onChange={e => { setBillingStatusFilter(e.target.value); setPage(1); }}
+          className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+        >
+          <option value="">All</option>
+          <option value="Unpaid">Unpaid</option>
+          <option value="Partially Paid">Partially Paid</option>
+        </select>
+      )}
+      {(billingSearch || billingDateFrom || billingDateTo || billingCustomerFilter.length > 0 || billingStatusFilter) && (
+        <button
+          type="button"
+          onClick={() => { setBillingSearch(''); setBillingDateFrom(''); setBillingDateTo(''); setBillingCustomerFilter([]); setBillingStatusFilter(''); setPage(1); }}
+          className="px-2 py-1 text-xs rounded border border-border-color text-text-secondary hover:text-red-400 hover:border-red-400 bg-background h-8 transition-all whitespace-nowrap"
+        >
+          Clear All
+        </button>
+      )}
+    </div>
+  </div>
 </div>
 
 
@@ -1422,11 +1492,16 @@ const Card: React.FC<{
           )}
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
             {showResetFilter && (
-              <button 
+              <button
                 onClick={() => {
                   clearFilters();
                   setTableFilters({});
                   setSelectedCustomerId(null);
+                  setBillingSearch('');
+                  setBillingDateFrom('');
+                  setBillingDateTo('');
+                  setBillingCustomerFilter([]);
+                  setBillingStatusFilter('');
                   setSelectedJobs([]);
                   setExpandedJobId(null);
                   setUnpaidExpandedInvoiceId(null);
@@ -1806,17 +1881,94 @@ const Card: React.FC<{
         {/* ── Billing History Tab ─────────────────────────────────────────── */}
         {billingState.currentTab === "history" && (
           <div className="space-y-4 sm:space-y-6">
-            {/* Filters */}
-            <div className="bg-background-light/60 border border-border-color rounded-lg sm:rounded-xl p-3 sm:p-4">
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <input className="flex-1 min-w-[120px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Invoice ID" value={bhInvoiceId} onChange={e => setBhInvoiceId(e.target.value)} />
-                <input className="flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Customer name…" value={bhCustomer} onChange={e => setBhCustomer(e.target.value)} />
-                <input type="number" min={0} className="flex-1 min-w-[100px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Min amount" value={bhMinAmount} onChange={e => setBhMinAmount(e.target.value)} />
-                <input type="number" min={0} className="flex-1 min-w-[100px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main placeholder:text-text-secondary text-xs sm:text-sm" placeholder="Max amount" value={bhMaxAmount} onChange={e => setBhMaxAmount(e.target.value)} />
-                <input type="date" className="flex-1 min-w-[130px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main text-xs sm:text-sm" value={bhStartDate} onChange={e => setBhStartDate(e.target.value)} />
-                <input type="date" className="flex-1 min-w-[130px] px-3 py-2 rounded-lg bg-background border border-border-color text-text-main text-xs sm:text-sm" value={bhEndDate} onChange={e => setBhEndDate(e.target.value)} />
-                <button onClick={handleBhExport} className="px-4 py-2 rounded-lg bg-background border border-border-color text-text-main hover:bg-background/80 text-xs sm:text-sm whitespace-nowrap">Export Report</button>
-                <button onClick={() => { setBhInvoiceId(""); setBhCustomer(""); setBhMinAmount(""); setBhMaxAmount(""); setBhStartDate(""); setBhEndDate(""); setBhPage(1); }} className="px-4 py-2 rounded-lg bg-background border border-border-color text-text-main hover:bg-background/80 text-xs sm:text-sm whitespace-nowrap">Clear All</button>
+            {/* Compact filter bar — Invoice PAID */}
+            <div className="flex flex-wrap items-end gap-2 bg-background-light border border-border-color rounded-lg px-3 py-2.5">
+              {/* FREE TEXT SEARCH */}
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">Free Text Search</label>
+                <input
+                  type="text"
+                  placeholder="Search invoice, customer..."
+                  value={bhSearch}
+                  onChange={e => { setBhSearch(e.target.value); setBhPage(1); }}
+                  className="w-52 bg-background border border-border-color text-text-main placeholder:text-text-secondary rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+
+              <div className="w-px h-8 bg-border-color self-end" />
+
+              {/* BY DATE */}
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">By Date</label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={bhStartDate}
+                    onChange={e => { setBhStartDate(e.target.value); setBhPage(1); }}
+                    className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+                  />
+                  <span className="text-text-secondary text-xs">&mdash;</span>
+                  <input
+                    type="date"
+                    value={bhEndDate}
+                    onChange={e => { setBhEndDate(e.target.value); setBhPage(1); }}
+                    className="bg-background border border-border-color text-text-main rounded px-2 py-1 text-xs h-8 focus:ring-1 focus:ring-primary focus:border-transparent hover:border-primary/50 transition-all"
+                  />
+                  {(bhStartDate || bhEndDate) && (
+                    <button
+                      type="button"
+                      onClick={() => { setBhStartDate(''); setBhEndDate(''); setBhPage(1); }}
+                      className="text-text-secondary hover:text-red-400 transition-colors p-1 rounded hover:bg-background-dark"
+                      title="Clear date filter"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="w-px h-8 bg-border-color self-end" />
+
+              {/* QUICK FILTERS */}
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] font-semibold text-text-secondary tracking-wide uppercase">Quick Filters</label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { const d = format(new Date(), 'yyyy-MM-dd'); setBhStartDate(d); setBhEndDate(d); setBhPage(1); }}
+                    className="px-2 py-1 text-xs rounded border border-border-color text-text-main hover:border-primary hover:text-primary bg-background h-8 transition-all whitespace-nowrap"
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { const d = format(addDays(new Date(), 1), 'yyyy-MM-dd'); setBhStartDate(d); setBhEndDate(d); setBhPage(1); }}
+                    className="px-2 py-1 text-xs rounded border border-border-color text-text-main hover:border-primary hover:text-primary bg-background h-8 transition-all whitespace-nowrap"
+                  >
+                    Tomorrow
+                  </button>
+                  <MultiSelectDropdown
+                    options={allCustomers.map(c => ({ id: c.id, label: c.name }))}
+                    selected={bhCustomerIds}
+                    onChange={selected => { setBhCustomerIds(selected); setBhPage(1); }}
+                    placeholder="All Customers"
+                  />
+                  <button
+                    onClick={handleBhExport}
+                    className="px-2 py-1 text-xs rounded border border-border-color text-text-main hover:border-primary hover:text-primary bg-background h-8 transition-all whitespace-nowrap"
+                  >
+                    Export
+                  </button>
+                  {(bhSearch || bhStartDate || bhEndDate || bhCustomerIds.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => { setBhSearch(''); setBhStartDate(''); setBhEndDate(''); setBhCustomerIds([]); setBhMinAmount(''); setBhMaxAmount(''); setBhPage(1); }}
+                      className="px-2 py-1 text-xs rounded border border-border-color text-text-secondary hover:text-red-400 hover:border-red-400 bg-background h-8 transition-all whitespace-nowrap"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
