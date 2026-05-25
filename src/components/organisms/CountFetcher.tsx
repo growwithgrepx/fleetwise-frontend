@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, ReactNode, useRef } from "react";
+import { useEffect, useState, ReactNode, useRef, useMemo } from "react";
 import axios from "axios";
 
 type CountFetcherProps = {
@@ -22,8 +22,12 @@ export default function CountFetcher({
   const isMounted = useRef(false);
   const retryTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  // Stabilise statusFilter so a new array literal on every render doesn't retrigger the effect
+  const statusFilterKey = useMemo(() => JSON.stringify(statusFilter ?? null), [statusFilter]);
+
   useEffect(() => {
     isMounted.current = true;
+    const currentStatusFilter: string[] | undefined = statusFilter;
 
     async function fetchCounts() {
       try {
@@ -31,17 +35,26 @@ export default function CountFetcher({
         const res = await axios.get(apiUrl);
         if (!isMounted.current) return;
         const data = res.data;
-        if (statusFilter && Array.isArray(data.items)) {
+
+        // Support both flat-array responses (e.g. /api/invoices) and
+        // paginated { items: [...] } responses (e.g. /api/invoices/unpaid)
+        const items: any[] | null = Array.isArray(data)
+          ? data
+          : Array.isArray(data.items)
+          ? data.items
+          : null;
+
+        if (currentStatusFilter && items) {
           const counted: Record<string, number> = {};
-          statusFilter.forEach((status) => {
-            counted[status] = data.items.filter(
+          currentStatusFilter.forEach((status) => {
+            counted[status] = items.filter(
               (item: any) => item.status === status
             ).length;
-            counted[`${status}Amount`] = data.items
+            counted[`${status}Amount`] = items
               .filter((item: any) => item.status === status)
               .reduce((sum: number, item: any) => sum + Number(item.total_amount ?? 0), 0);
           });
-          counted["TotalReceivedAmount"] = data.items
+          counted["TotalReceivedAmount"] = items
             .filter((item: any) => ["Paid", "Partially Paid"].includes(item.status))
             .reduce((sum: number, item: any) => {
               const total = Number(item?.total_amount);
@@ -53,7 +66,7 @@ export default function CountFetcher({
             }, 0);
           setCounts(counted);
         } else {
-          setCounts({ total: data?.total ?? data?.items?.length ?? 0 });
+          setCounts({ total: data?.total ?? (items ? items.length : 0) });
         }
       } catch (err: any) {
         if (!isMounted.current || axios.isCancel(err)) return;
@@ -67,8 +80,8 @@ export default function CountFetcher({
         console.error("Failed to fetch counts:", err);
         setError(err.response?.data?.message || err.message || "Failed to fetch counts");
         const fallback: Record<string, number> = {};
-        if (statusFilter) {
-          statusFilter.forEach((s) => (fallback[s] = 0));
+        if (currentStatusFilter) {
+          currentStatusFilter.forEach((s) => (fallback[s] = 0));
           fallback["TotalReceivedAmount"] = 0;
         } else {
           fallback["total"] = 0;
@@ -85,7 +98,8 @@ export default function CountFetcher({
       clearInterval(interval);
       if (retryTimeout.current) clearTimeout(retryTimeout.current);
     };
-  }, [apiUrl, statusFilter, refreshInterval, forceRefresh]);
+  // statusFilterKey (stable JSON string) replaces statusFilter array reference in deps
+  }, [apiUrl, statusFilterKey, refreshInterval, forceRefresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <>{render(counts, error)}</>;
 }

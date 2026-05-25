@@ -284,7 +284,7 @@ export function JobEntityTable<
                 <th
                   key={String(col.accessor)}
                   className="px-1.5 py-1 sm:px-2 align-top min-w-[90px]"
-                  style={col.width ? { width: col.width } : {}}
+                  style={col.width ? { width: col.width, minWidth: col.width } : {}}
                 >
                   <div className="text-[10px] font-bold uppercase tracking-wider text-text-secondary sm:text-[11px] mb-0.5">
                     {col.label}

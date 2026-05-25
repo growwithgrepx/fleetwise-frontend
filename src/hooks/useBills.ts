@@ -115,6 +115,7 @@ export function useBills(): UseJobsReturn {
       billsApi.getPaidOrUnpaidJobs({
         // status: billingState.currentTab,
         customer_id: billingState.customer_id,
+        pageSize: 500, // fetch all invoices so client-side status filter works correctly
       }),
     staleTime: 1000 * 60,
     enabled:
@@ -159,7 +160,6 @@ export function useBills(): UseJobsReturn {
           billingState.refreshKey
         ),
       });
-      toast.success("Invoice download successfully");
     },
     onError: (error: Error) => {
       toast.error(`Failed to create job: ${error.message}`);
@@ -193,6 +193,9 @@ export function useBills(): UseJobsReturn {
           billingState.refreshKey
         ),
       });
+      // Trigger CountFetcher refresh — if this was the last job, the invoice
+      // gets auto-deleted on the backend, so card counts must update
+      updateBillingState({ refreshKey: Date.now() });
     },
 
     onError: (error: Error) => {
@@ -203,7 +206,7 @@ export function useBills(): UseJobsReturn {
     mutationFn: (id: number | null) => billsApi.deleteUnpaidInvoice(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: billKeys.all });
-      toast.success("Invoice Delete successfully");
+      toast.success("Invoice deleted successfully");
       queryClient.refetchQueries({
         queryKey: billingKeys.paidOrUnpaid(
           billingState.currentTab,
@@ -211,10 +214,12 @@ export function useBills(): UseJobsReturn {
           billingState.refreshKey
         ),
       });
+      // Trigger CountFetcher refresh after the delete has actually completed
+      updateBillingState({ refreshKey: Date.now() });
     },
 
     onError: (error: Error) => {
-      toast.error(`Failed to remove job: ${error.message}`);
+      toast.error(`Failed to remove invoice: ${error.message}`);
     },
   });
 

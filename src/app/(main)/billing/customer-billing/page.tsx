@@ -34,6 +34,33 @@ import { format, subMonths, startOfMonth, endOfMonth, addDays } from "date-fns";
 import { useCallback } from "react";
 import classNames from "classnames";
 import { useQueryClient } from "@tanstack/react-query";
+function JobStatusBadge({ status }: { status: string }) {
+  const s = (status || '').toLowerCase().replace(/\s+/g, '');
+  const styles: Record<string, string> = {
+    confirmed: 'bg-blue-600/90 text-white',
+    pending:   'bg-amber-600/90 text-white',
+    canceled:  'bg-red-600/90 text-white',
+    cancelled: 'bg-red-600/90 text-white',
+    new:       'bg-emerald-600/90 text-white',
+    otw:       'bg-sky-600/90 text-white',
+    ots:       'bg-indigo-600/90 text-white',
+    pob:       'bg-violet-600/90 text-white',
+    jc:        'bg-emerald-700/90 text-white',
+    sd:        'bg-orange-700/90 text-white',
+  };
+  const SHORT_LABELS: Record<string, string> = {
+    confirmed: 'CNF', pending: 'PEN', canceled: 'CAN', cancelled: 'CAN',
+    new: 'NEW', otw: 'OTW', ots: 'OTS', pob: 'POB', jc: 'JC', sd: 'SD',
+  };
+  const cls = styles[s] || 'bg-zinc-600/80 text-white';
+  const label = SHORT_LABELS[s] || status || '—';
+  return (
+    <span className={`inline-flex items-center justify-center rounded-md px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide w-[36px] ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
 // Column configuration for Unbilled Jobs table (simple, filterable)
 const unBillColumns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
   {
@@ -41,6 +68,14 @@ const unBillColumns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
     accessor: "job_id",
     filterable: true,
     stringLabel: "Job Id",
+    width: "65px",
+  },
+  {
+    label: "Customer ID",
+    accessor: "customer_id",
+    filterable: true,
+    stringLabel: "Customer ID",
+    width: "100px",
   },
   {
     label: "Customer Name",
@@ -77,39 +112,25 @@ const unBillColumns: EntityTableColumn<Job & { stringLabel?: string }>[] = [
     accessor: "status",
     filterable: true,
     stringLabel: "Status",
-    render: (job: Job & { stringLabel?: string }) => {
-      const status = job.status as string;
-      return (
-        <span
-          className={`px-2 py-1 rounded-md text-xs font-medium
-            ${status === "new" ? "bg-blue-100 text-blue-700" : ""}
-            ${status === "in_progress" ? "bg-yellow-100 text-yellow-700" : ""}
-            ${status === "completed" ? "bg-green-100 text-green-700" : ""}
-            ${status === "cancelled" ? "bg-red-100 text-red-700" : ""}
-            ${status === "failed" ? "bg-gray-100 text-gray-700" : ""}
-            text-sm whitespace-nowrap`
-          }
-        >
-          {status}
-        </span>
-      );
-    },
-  }
+    render: (job: Job & { stringLabel?: string }) => <JobStatusBadge status={String(job.status ?? '')} />,
+  },
 ];
 
 // Column configuration for Jobs table (simple, filterable)
 const unPaidColumns = [
   {
     label: "Invoice ID",
-    accessor: "id",   
+    accessor: "id",
     filterable: true,
     stringLabel: "Invoice #",
+    width: "85px",
   },
-   {
+  {
     label: "Customer Id",
     accessor: "customer_id",
     filterable: false,
     stringLabel: "Customer",
+    width: "100px",
   },
   {
     label: "Customer Name",
@@ -367,7 +388,7 @@ const BillPage = () => {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [tableFilters, setTableFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(50);
   const debouncedFilters = useDebounce(tableFilters, 300);
   const [editJob, setEditJob] = useState<Job | null>(null);
   const [editInvoice, setEditInvoice] = useState<{
@@ -735,7 +756,7 @@ const handleGenerateInvoice = async () => {
       refreshKey: Date.now(), // keep if your hook reads it in query key
     });
 
-    // toast.success("Invoice generated successfully");
+    toast.success("Invoice generated successfully");
   } catch (error: any) {
     toast.error(error?.message || "Failed to generate invoice");
   } finally {
@@ -805,23 +826,24 @@ const handleGenerateInvoice = async () => {
 // const [selectedRowIds, setSelectedRowIds] = useState<(string | number)[]>([]);
 const handleOnSelectionRow = useCallback((jobs: any[]) => {
   const updatedJobs = (jobs || []).map((job) => {
-  const customer = allCustomers.find((c) => c.id === job.customer_id);
-  console.log("job in selection", job, job.invoice?.remaining_amount);
+    const customer = allCustomers.find((c) => c.id === job.customer_id);
+    const invoiceDate = job.invoice?.date;
+    const dateStr = invoiceDate
+      ? new Date(invoiceDate).toISOString().split('T')[0]
+      : (job.pickup_date || '');
     return {
       ...job,
       customer_name: customer?.name || "Unknown Customer",
       customer_id: job.invoice?.customer_id || job.customer_id,
-      invoice_id: job.invoice.id || job.id,
+      invoice_id: job.invoice?.id || job.id,
       invoice: {
         ...job.invoice,
         status: job.invoice?.status || "Unpaid"
       },
-      date: new Date(job.invoice?.date).toISOString().split('T')[0],
-      total_amount: `$${job.final_price.toFixed(2)}`,
-      // remaining_amount: `$${(job.invoice?.remaining_amount)}`,
+      date: dateStr,
+      total_amount: `$${(job.final_price ?? 0).toFixed(2)}`,
     };
   });
-//  setSelectedRowIds(updatedJobs.map((j) => j.id));
   setSelectedInvoicesJobs(updatedJobs);
 }, [allCustomers]);
 
@@ -1190,8 +1212,10 @@ const Card: React.FC<{
       )}
     >
       <div className="text-xs sm:text-sm/5 opacity-90">{title}</div>
-      <div className="text-2xl sm:text-3xl font-semibold mt-1">{value}</div>
-      {sub ? <div className="text-xs/5 mt-1 opacity-80">{sub}</div> : null}
+      <div className="flex items-baseline gap-2 mt-1">
+        <span className="text-2xl sm:text-3xl font-semibold">{value}</span>
+        {sub ? <span className="text-xs opacity-80">{sub}</span> : null}
+      </div>
     </div>
   );
 };
@@ -1331,6 +1355,7 @@ const Card: React.FC<{
 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
   <CountFetcher
     apiUrl="/api/jobs/unbilled"
+    forceRefresh={billingState.refreshKey ?? 0}
     render={(counts) => (
       <Card
         tone="blue"
@@ -1343,8 +1368,9 @@ const Card: React.FC<{
     )}
   />
   <CountFetcher
-    apiUrl="/api/invoices/unpaid?pageSize=1000"
+    apiUrl="/api/invoices"
     statusFilter={["Unpaid", "Partially Paid", "Paid"]}
+    forceRefresh={billingState.refreshKey ?? 0}
     render={(fc) => (
       <>
         <Card
@@ -1474,6 +1500,26 @@ const Card: React.FC<{
           Clear All
         </button>
       )}
+      {/* Generate Invoice — right-aligned, only for unbilled tab */}
+      {billingState.currentTab === "unbilled" && (
+        <div className="relative group">
+          <button
+            onClick={handleGenerateInvoice}
+            disabled={!isSameCustomer || selectedJobs.length === 0}
+            className="px-3 py-1 text-xs font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed h-8 whitespace-nowrap"
+          >
+            Generate Invoice
+          </button>
+          {(!isSameCustomer || selectedJobs.length === 0) && (
+            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block px-3 py-2 bg-gray-800 text-white text-xs rounded shadow-lg whitespace-nowrap z-10">
+              {selectedJobs.length === 0
+                ? "Select one or more jobs to generate an invoice"
+                : "Select jobs from the same customer"}
+              <div className="absolute top-full left-3 -mt-1 w-2 h-2 bg-gray-800 rotate-45" />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   </div>
 </div>
@@ -1558,72 +1604,28 @@ const Card: React.FC<{
                   ),
                   filterable: true,
                   stringLabel: col.stringLabel,
-                  // Custom filter for customer_name column
-                  renderFilter: (value: string, onChange: (v: string) => void) => {
-                    if (col.accessor === 'customer_name') {
-                      return (
-                        <div className="relative flex items-center">
-                          <select
-                            className="w-full bg-background-light border-border-color text-text-main placeholder-text-secondary focus:ring-2 focus:ring-primary rounded px-2 py-1 text-xs mt-1 pr-6"
-                            value={value}
-                            onChange={e => onChange(e.target.value)}
-                          >
-                            <option value="">All Customers</option>
-                            {isCustomersLoading ? (
-                              <option value="">Loading customers...</option>
-                            ) : (
-                              allCustomers.map(customer => (
-                                <option key={customer.id} value={customer.name}>
-                                  {customer.name}
-                                </option>
-                              ))
-                            )}
-                          </select>
-                          {value && (
-                            <button
-                              type="button"
-                              className="absolute right-1 top-1/2 -translate-y-1/2 text-text-secondary hover:text-red-500 text-xs"
-                              onClick={() =>
-                                handleClearFilter(col.accessor as string)
-                              }
-                              tabIndex={-1}
-                              aria-label="Clear filter"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </div>
-                      );
-                    }
-                    
-                    // Default filter for other columns
-                    return (
-                      <div className="relative flex items-center">
-                        <input
-                          type="text"
-                          className="w-full bg-background-light border-border-color text-text-main placeholder-text-secondary focus:ring-2 focus:ring-primary rounded px-2 py-1 text-xs mt-1 pr-6"
-                          placeholder={`Filter ${(col.stringLabel || col.accessor)
-                            .toString()
-                            .toLowerCase()}...`}
-                          value={value}
-                          onChange={(e) => onChange(e.target.value)}
-                        />
-                        {value && (
-                          <button
-                            type="button"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 text-text-secondary hover:text-red-500 text-xs"
-                            onClick={() =>
-                              handleClearFilter(col.accessor as string)
-                            }
-                            tabIndex={-1}
-                            aria-label="Clear filter"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    );
-                  },
+                  renderFilter: (value: string, onChange: (v: string) => void) => (
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        className="w-full bg-background-light border-border-color text-text-main placeholder-text-secondary focus:ring-2 focus:ring-primary rounded px-2 py-1 text-xs mt-1 pr-6"
+                        placeholder={`Filter ${(col.stringLabel || col.accessor).toString().toLowerCase()}...`}
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                      />
+                      {value && (
+                        <button
+                          type="button"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 text-text-secondary hover:text-red-500 text-xs"
+                          onClick={() => handleClearFilter(col.accessor as string)}
+                          tabIndex={-1}
+                          aria-label="Clear filter"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ),
                 }))}
                 data={paginatedJobs}
                 isLoading={isLoading}
@@ -1658,12 +1660,7 @@ const Card: React.FC<{
                 pageSize={pageSize}
                 total={total}
                 onPageChange={setPage}
-                showGenerateInvoice={true}
-                onGenerateInvoice={handleGenerateInvoice}
-                isGenerateInvoiceDisabled={!isSameCustomer || selectedJobs.length === 0}
-                generateInvoiceTooltip={selectedJobs.length === 0
-                  ? "Please select one or more jobs to generate an invoice"
-                  : "Please select jobs from the same customer to generate an invoice"}
+                showGenerateInvoice={false}
               />
             ) : (
               <JobEntityTable
@@ -1688,72 +1685,28 @@ const Card: React.FC<{
                   ),
                   filterable: true,
                   stringLabel: col.stringLabel,
-                  // Custom filter for customer_name column
-                  renderFilter: (value: string, onChange: (v: string) => void) => {
-                    if (col.accessor === 'customer_name') {
-                      return (
-                        <div className="relative flex items-center">
-                          <select
-                            className="w-full bg-background-light border-border-color text-text-main placeholder-text-secondary focus:ring-2 focus:ring-primary rounded px-2 py-1 text-xs mt-1 pr-6"
-                            value={value}
-                            onChange={e => onChange(e.target.value)}
-                          >
-                            <option value="">All Customers</option>
-                            {isCustomersLoading ? (
-                              <option value="">Loading customers...</option>
-                            ) : (
-                              allCustomers.map(customer => (
-                                <option key={customer.id} value={customer.name}>
-                                  {customer.name}
-                                </option>
-                              ))
-                            )}
-                          </select>
-                          {value && (
-                            <button
-                              type="button"
-                              className="absolute right-1 top-1/2 -translate-y-1/2 text-text-secondary hover:text-red-500 text-xs"
-                              onClick={() =>
-                                handleClearFilter(col.accessor as string)
-                              }
-                              tabIndex={-1}
-                              aria-label="Clear filter"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </div>
-                      );
-                    }
-                    
-                    // Default filter for other columns
-                    return (
-                      <div className="relative flex items-center">
-                        <input
-                          type="text"
-                          className="w-full bg-background-light border-border-color text-text-main placeholder-text-secondary focus:ring-2 focus:ring-primary rounded px-2 py-1 text-xs mt-1 pr-6"
-                          placeholder={`Filter ${(col.stringLabel || col.accessor)
-                            .toString()
-                            .toLowerCase()}...`}
-                          value={value}
-                          onChange={(e) => onChange(e.target.value)}
-                        />
-                        {value && (
-                          <button
-                            type="button"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 text-text-secondary hover:text-red-500 text-xs"
-                            onClick={() =>
-                              handleClearFilter(col.accessor as string)
-                            }
-                            tabIndex={-1}
-                            aria-label="Clear filter"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    );
-                  },
+                  renderFilter: (value: string, onChange: (v: string) => void) => (
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        className="w-full bg-background-light border-border-color text-text-main placeholder-text-secondary focus:ring-2 focus:ring-primary rounded px-2 py-1 text-xs mt-1 pr-6"
+                        placeholder={`Filter ${(col.stringLabel || col.accessor).toString().toLowerCase()}...`}
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                      />
+                      {value && (
+                        <button
+                          type="button"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 text-text-secondary hover:text-red-500 text-xs"
+                          onClick={() => handleClearFilter(col.accessor as string)}
+                          tabIndex={-1}
+                          aria-label="Clear filter"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ),
                 }))}
                 data={paginatedJobs}
                 isLoading={isLoading}
@@ -1866,12 +1819,7 @@ const Card: React.FC<{
                 pageSize={pageSize}
                 total={total}
                 onPageChange={setPage}
-                showGenerateInvoice={billingState.currentTab === "unbilled"}
-                onGenerateInvoice={handleGenerateInvoice}
-                isGenerateInvoiceDisabled={!isSameCustomer || selectedJobs.length === 0}
-                generateInvoiceTooltip={selectedJobs.length === 0
-                  ? "Please select one or more jobs to generate an invoice"
-                  : "Please select jobs from the same customer to generate an invoice"}
+                showGenerateInvoice={false}
               />
             )}
           </div>
