@@ -433,14 +433,17 @@ export const jobSchema = z.object({
   // Booking reference field
   booking_ref: z.string().optional(),
 }).refine((data) => {
-  // Enforce vehicle and driver for confirmed status
   if (data.status === 'confirmed') {
-    return data.vehicle_id && data.vehicle_id > 0 && data.driver_id && data.driver_id > 0;
+    return (
+      Number(data.vehicle_id) > 0 &&
+      Number(data.driver_id) > 0 &&
+      Number(data.contractor_id) > 0
+    );
   }
   return true;
 }, {
-  message: 'Vehicle and driver are required for confirmed jobs',
-  path: ['vehicle_id'],
+  message: 'Driver, vehicle, and contractor are required for confirmed jobs',
+  path: ['status'],
 }).refine((data) => {
   // Validate that dropoff_time is after pickup_time if both are provided
   if (data.pickup_date && data.pickup_time && data.dropoff_time && data.dropoff_time.trim()) {
