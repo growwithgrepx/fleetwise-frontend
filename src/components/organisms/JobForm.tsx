@@ -1453,40 +1453,38 @@ if (!driverExists) {
   //   }
   // }, [formData.vehicle_type]);
 
-  // Function to determine job status based on form data
+    // Function to determine job status based on form data
   const determineJobStatus = (data: JobFormData): JobStatus => {
-    // If current status is not a basic state, don't change it
     const currentStatus = data.status as JobStatus;
     if (currentStatus && !['new', 'pending', 'confirmed'].includes(currentStatus)) {
       return currentStatus;
     }
 
-    // Check if all mandatory fields are populated using proper type checking
     const mandatoryFieldsComplete = Boolean(
-      // Convert customer_id to number and check if greater than 0
-      Number(data.customer_id) > 0 && 
-      // Check string fields with optional chaining and trim
-      data.passenger_name?.trim() && 
-      data.service_type?.trim() && 
-      data.pickup_date && 
-      data.pickup_time && 
-      data.pickup_location?.trim() && 
+      Number(data.customer_id) > 0 &&
+      data.passenger_name?.trim() &&
+      data.service_type?.trim() &&
+      data.pickup_date &&
+      data.pickup_time &&
+      data.pickup_location?.trim() &&
       data.dropoff_location?.trim()
     );
 
-    // Check if contractor is selected (vehicle and driver are now optional)
-    const contractorSelected = Boolean(
-      // Convert to number and check if greater than 0
+    const assignmentsComplete = Boolean(
+      Number(data.driver_id) > 0 &&
+      Number(data.vehicle_id) > 0 &&
       Number(data.contractor_id) > 0
     );
 
-    if (mandatoryFieldsComplete && contractorSelected) {
+    if (mandatoryFieldsComplete && assignmentsComplete) {
       return 'confirmed';
-    } else if (mandatoryFieldsComplete) {
-      return 'pending';
-    } else {
-      return 'new';
     }
+
+    if (mandatoryFieldsComplete) {
+      return 'pending';
+    }
+
+    return 'new';
   };
 
   // Helper function to safely convert values to numbers  
