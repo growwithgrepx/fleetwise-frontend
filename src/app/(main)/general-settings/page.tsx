@@ -1158,8 +1158,8 @@ export default function SettingsPage() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 p-6 bg-gray-900 border border-gray-800 rounded-lg min-h-[700px]">
-          <div className="min-h-[600px]">
+        <main className="flex-1 min-w-0 p-6 bg-gray-900 border border-gray-800 rounded-lg min-h-[700px] overflow-hidden">
+  <div className="min-h-[600px] min-w-0">
             {activeCategory === "General" && (
               <div>
                 <h2 className="text-2xl font-bold mb-6 text-white">
@@ -2037,8 +2037,18 @@ export default function SettingsPage() {
                         type="number"
                         min="1"
                         max="168" // 168 hours = 1 week
-                        value={alertHistoryRetentionHours}
-                        onChange={(e) => setAlertHistoryRetentionHours(parseInt(e.target.value))}
+                        value={Number.isFinite(alertHistoryRetentionHours) ? alertHistoryRetentionHours : ''}
+onChange={(e) => {
+  const rawValue = e.target.value;
+
+  if (rawValue === '') {
+    setAlertHistoryRetentionHours(1);
+    return;
+  }
+
+  const numericValue = Number(rawValue);
+  setAlertHistoryRetentionHours(Number.isFinite(numericValue) ? numericValue : 1);
+}}
                         className="w-32 rounded-lg bg-gray-700 border border-gray-600 px-3 py-2 text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                       />
                       <span className="text-sm text-gray-300">hours</span>
@@ -2117,15 +2127,15 @@ export default function SettingsPage() {
         )}
 
         {activeCategory === "User Management" && (
-          <div>
+          <div className="min-w-0">
             {loadingUsers ? (
               <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-6 min-w-0">
                 {/* Users Section */}
-                <div>
+                <div className="min-w-0">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold text-white">Users</h3>
                     <button
@@ -2136,10 +2146,18 @@ export default function SettingsPage() {
                       <span>Add User</span>
                     </button>
                   </div>
-                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-700">
-                        <thead>
+                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 overflow-hidden min-w-0">
+  <div className="settings-table-scroll block w-full max-w-full overflow-x-scroll">
+    <table className="w-[1250px] min-w-[1250px] divide-y divide-gray-700">
+                  <colgroup>
+  <col className="w-[240px]" />
+  <col className="w-[320px]" />
+  <col className="w-[150px]" />
+  <col className="w-[300px]" />
+  <col className="w-[120px]" />
+  <col className="w-[120px]" />
+</colgroup>
+<thead>
                           <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                               Full Name
@@ -2234,10 +2252,10 @@ export default function SettingsPage() {
                 {/* Roles & Permissions Section */}
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4">Roles & Permissions</h3>
-                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-700">
-                        <thead>
+                 <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 overflow-hidden">
+  <div className="settings-table-scroll block w-full max-w-full overflow-x-scroll">
+    <table className="min-w-[900px] divide-y divide-gray-700">
+                  <thead>
                           <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                               Role
@@ -2430,9 +2448,41 @@ export default function SettingsPage() {
             message={confirmationModalData.message}
           />
         )}
+
+                <style jsx global>{`
+          .settings-table-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #475569 #111827;
+          }
+
+          .settings-table-scroll::-webkit-scrollbar {
+            height: 10px;
+          }
+
+          .settings-table-scroll::-webkit-scrollbar-track {
+            background: #111827;
+            border-radius: 9999px;
+          }
+
+          .settings-table-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 9999px;
+            border: 2px solid #111827;
+          }
+
+          .settings-table-scroll::-webkit-scrollbar-thumb:hover {
+            background: #60a5fa;
+          }
+
+          .settings-table-scroll::-webkit-scrollbar-corner {
+            background: #111827;
+          }
+        `}</style>
+        
           </div>
         </main>
       </div>
     </div>
   );
+  
 }
