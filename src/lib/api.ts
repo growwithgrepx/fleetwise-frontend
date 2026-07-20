@@ -63,32 +63,25 @@ api.interceptors.response.use(
       let data = error.response.data as any;
       let msg = 'An error occurred';
       
-      // Handle 403 Forbidden - authentication issue
-      if (error.response.status === 403) {
-        console.error('[API] 403 Forbidden - Authentication issue detected');
-        msg = 'Authentication required. Please log in again.';
-        
-        // Try to refresh the session
-        try {
-          const refreshResponse = await fetch('/api/auth/me', { 
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' }
-          });
-          
-          if (!refreshResponse.ok) {
-            // Session is invalid, redirect to login
-            console.log('[API] Session refresh failed, redirecting to login');
-            if (typeof window !== 'undefined') {
-              window.location.href = '/login';
-            }
-          }
-        } catch (refreshError) {
-          console.error('[API] Session refresh error:', refreshError);
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
+      // Handle auth errors without triggering the Next.js dev error overlay
+      if (error.response.status === 401 || error.response.status === 403) {
+        const status = error.response.status;
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+
+        msg =
+          status === 403
+            ? 'You do not have permission to perform this action. Please log in with an admin account.'
+            : 'Authentication required. Please log in again.';
+
+        console.warn(`[API] ${status} auth issue: ${msg}`);
+
+        if (typeof window !== 'undefined' && currentPath !== '/login') {
+          localStorage.removeItem('user');
+          localStorage.removeItem('role');
+          sessionStorage.clear();
+          window.location.href = '/login';
         }
-        
+
         return Promise.reject(new Error(msg));
       }
       

@@ -77,11 +77,16 @@ export async function getJobMonitoringAlerts(includeUpcoming: boolean = false, w
     }
     
     return response.data;
-  } catch (error: any) {
-    console.error('[JobMonitoringApi] API call failed:', error);
-    console.error('[JobMonitoringApi] Error response:', error.response?.data);
-    console.error('[JobMonitoringApi] Error status:', error.response?.status);
-    throw error;
+    } catch (error: any) {
+    const status = error.response?.status;
+    const message = error.message || '';
+
+    console.warn('[JobMonitoringApi] Monitoring API unavailable, showing empty alerts:', {
+      status,
+      message,
+    });
+
+    return { alerts: [], active_count: 0, total_count: 0 };
   }
 }
 
@@ -115,7 +120,18 @@ export async function getJobMonitoringAlertById(alertId: number): Promise<JobMon
 
 
 export async function getActiveJobMonitoringAlertCount(): Promise<{ active_count: number; total_count: number }> {
-  const response = await api.get<{ active_count: number; total_count: number }>('/api/job-monitoring-alerts');
-  
-  return response.data;
+  try {
+    const response = await api.get<{ active_count: number; total_count: number }>('/api/job-monitoring-alerts');
+    return response.data;
+    } catch (error: any) {
+    const status = error.response?.status;
+    const message = error.message || '';
+
+    console.warn('[JobMonitoringApi] Monitoring count unavailable, showing zero count:', {
+      status,
+      message,
+    });
+
+    return { active_count: 0, total_count: 0 };
+  }
 }
