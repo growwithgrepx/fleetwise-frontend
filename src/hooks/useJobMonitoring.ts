@@ -67,9 +67,9 @@ const debugConvertApiAlert = (apiAlert: ApiJobMonitoringAlert) => {
 export const useJobMonitoring = (): UseJobMonitoringReturn => {
   const queryClient = useQueryClient();
   const { alerts, dismissAlert, updateAlerts } = useJobMonitoringStore();
-  const { isLoggedIn, user } = useUser();
+  const { isLoggedIn, isLoading: userLoading, user } = useUser();
   const role = getUserRole(user);
-  const canMonitor = isLoggedIn && !['customer', 'driver', 'guest'].includes(role);
+  const canMonitor = !userLoading && isLoggedIn && ['admin', 'manager'].includes(role);
   const previousAlertsRef = useRef<typeof alerts>([]);
 
   // Fetch alerts from API
@@ -90,8 +90,9 @@ export const useJobMonitoring = (): UseJobMonitoringReturn => {
         throw err;
       }
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: canMonitor ? 30000 : false,
     enabled: canMonitor,
+    retry: false,
   });
   
   // Debug logging
